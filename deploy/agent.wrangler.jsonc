@@ -1,0 +1,28 @@
+// Production config for Yishai's agent Worker, deployed from THIS fork (not the installer).
+// Same Worker name, Durable Object binding/class and migration tag as the installer's
+// `agent/wrangler.jsonc`, so a deploy keeps every byte of data. Secrets (OWNER_PASSWORD_HASH,
+// SESSION_SECRET, OPEN_CONNECTOR_TOKEN) are set with `wrangler secret put`, never written here.
+//
+//   npx wrangler deploy --config deploy/agent.wrangler.jsonc
+{
+  "name": "talorys-lxl5w9o0-agent",
+  "main": "../apps/agent/src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "ai": { "binding": "AI" },
+  "durable_objects": {
+    "bindings": [{ "name": "TalorysAgent", "class_name": "TalorysAgent" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TalorysAgent"] }],
+  // OpenConnector runs as the Worker "open-connector" in the same account (see docs/openconnector.md).
+  "services": [{ "binding": "OPEN_CONNECTOR", "service": "open-connector" }],
+  "vars": {
+    "TALORYS_INSTALLATION_ID": "lxl5w9o0",
+    "TALORYS_DEPLOYED_VERSION": "0.1.5-openconnector",
+    "TALORYS_DEFAULT_TIMEZONE": "UTC",
+    "TALORYS_AGENT_NAME": "Talorys"
+  },
+  "observability": { "enabled": true }
+}

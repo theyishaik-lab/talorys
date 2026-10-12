@@ -22,8 +22,8 @@ export const GITHUB_URL = "https://github.com/rociiu/talorys";
 
 export const DEFAULT_LIMITS = {
   maxOutputTokens: 1024,
-  maxToolCalls: 6,
-  maxAgentIterations: 4,
+  maxToolCalls: 10,
+  maxAgentIterations: 8,
   maxContextTokens: 6000,
   maxScheduledAiRunsPerDay: 6,
   maxAiRequestsPerDay: 200,

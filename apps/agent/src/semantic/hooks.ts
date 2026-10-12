@@ -10,4 +10,6 @@ export interface RunnerExtensions {
   selectMemories(query: string): Promise<Memory[]>;
   /** Replaces upstream `ALL_TOOLS`. */
   tools: ToolDefinition[];
+  /** True when external apps are reachable through OpenConnector, so the prompt says so. */
+  connectors?: boolean;
 }

@@ -1,4 +1,5 @@
 import { runDurableObjectAlarm } from "cloudflare:test";
+import { DEFAULT_LIMITS } from "@talorys/shared";
 import { describe, expect, it } from "vitest";
 import { agentStub, inAgent, loggedIn, readSse } from "./helpers";
 import { ALL_TOOLS, runApprovedAction, ToolExecutor } from "../src/tools";
@@ -183,8 +184,8 @@ describe("prompt-injection and destructive-action defenses", () => {
     const toolEnds = events.filter((e) => e.type === "tool" && e.tool.status !== "running");
     expect(toolEnds.filter((e: any) => e.tool.status === "success")).toHaveLength(2);
     expect(toolEnds.filter((e: any) => e.tool.status === "error").length).toBeGreaterThan(0);
-    expect(provider.calls[0]!.maxIterations).toBe(4);
-    await (await loggedIn()).call("/api/settings", { method: "PATCH", body: { limits: { maxToolCalls: 6 } } });
+    expect(provider.calls[0]!.maxIterations).toBe(DEFAULT_LIMITS.maxAgentIterations);
+    await (await loggedIn()).call("/api/settings", { method: "PATCH", body: { limits: { maxToolCalls: DEFAULT_LIMITS.maxToolCalls } } });
   });
 });
 

@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { AppEnv } from "../app";
 import { body, query } from "../middleware";
 import { AppError, NotFoundError } from "../errors";
-import { ALL_TOOLS, runApprovedAction } from "../../tools";
+import { runApprovedAction } from "../../tools";
 
 export const chatRoutes = new Hono<AppEnv>();
 
@@ -130,7 +130,7 @@ chatRoutes.post("/chat/cancel", async (c) => {
 /** Owner approval of a destructive action the agent proposed. The agent has no way to call this. */
 chatRoutes.post("/actions/:id/approve", async (c) => {
   const s = c.env.agent.services;
-  const action = await runApprovedAction(ALL_TOOLS, { services: s, timezone: s.settings.get().timezone, mode: "chat" }, c.req.param("id"));
+  const action = await runApprovedAction(c.env.agent.approvalTools(), { services: s, timezone: s.settings.get().timezone, mode: "chat" }, c.req.param("id"));
   return c.json({ action });
 });
 

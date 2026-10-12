@@ -1,0 +1,105 @@
+import { ToolError } from "../tools/registry";
+
+/** Where tool results get cut before they reach the model (the free model has a small context). */
+export const RESULT_CHARS = 3500;
+
+/** The MCP tools OpenConnector exposes (see its docs/runtime-api.md). */
+export type McpToolName = "list_apps" | "list_connections" | "search_actions" | "get_action_guide" | "execute_action";
+
+export interface OpenConnectorConfig {
+  /** Worker service binding to the `open-connector` Worker, when both run in one account. */
+  binding?: Fetcher;
+  /** Public URL of the OpenConnector deployment; used when no service binding is configured. */
+  url?: string;
+  /** OpenConnector runtime (agent) token. A Worker secret, never a var. */
+  token: string;
+}
+
+interface McpResult {
+  ok: boolean;
+  data?: unknown;
+  error?: unknown;
+}
+
+/**
+ * A minimal client for OpenConnector's stateless MCP endpoint (`POST /mcp`, JSON-RPC over
+ * HTTP). It only sends `tools/call`; OpenConnector does the catalog, credentials and provider
+ * calls. Credentials never pass through here: the runtime token only grants Talorys the right
+ * to run actions on connections the owner configured in the OpenConnector console.
+ */
+export class OpenConnectorClient {
+  constructor(private readonly config: OpenConnectorConfig) {}
+
+  /** Calls one MCP tool and returns its parsed `{ ok, data }` payload. */
+  async call(name: McpToolName, args: Record<string, unknown>): Promise<McpResult> {
+    const base = this.config.binding ? "https://open-connector" : (this.config.url ?? "").replace(/\/+$/, "");
+    const fetcher = this.config.binding ?? { fetch: (req: Request) => fetch(req) };
+    const request = new Request(`${base}/mcp`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${this.config.token}`,
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }),
+    });
+    let response: Response;
+    try {
+      response = await fetcher.fetch(request);
+    } catch (error) {
+      throw new ToolError(`OpenConnector is unreachable: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    const body = await response.text();
+    if (response.status === 401 || response.status === 403) throw new ToolError("OpenConnector rejected Talorys' runtime token. The owner must fix the connector setup.");
+    if (!response.ok) throw new ToolError(`OpenConnector answered ${response.status}: ${body.slice(0, 200)}`);
+    const rpc = parseRpc(body);
+    if (rpc.error) throw new ToolError(`OpenConnector error: ${describe(rpc.error)}`);
+    const result = (rpc.result ?? {}) as { structuredContent?: McpResult; content?: { type: string; text?: string }[]; isError?: boolean };
+    if (result.structuredContent && typeof result.structuredContent === "object") return result.structuredContent;
+    const text = (result.content ?? []).map((c) => c.text ?? "").join("\n");
+    try {
+      return JSON.parse(text) as McpResult;
+    } catch {
+      return { ok: !result.isError, data: text };
+    }
+  }
+
+  /** Like `call`, but a `{ ok: false }` answer becomes a ToolError the model can read. */
+  async data(name: McpToolName, args: Record<string, unknown>): Promise<unknown> {
+    const result = await this.call(name, args);
+    if (!result.ok) throw new ToolError(`OpenConnector could not complete ${name}: ${describe(result.error ?? result.data ?? "unknown error")}`);
+    return result.data;
+  }
+}
+
+/** The endpoint answers JSON or a one-event SSE body depending on the Accept negotiation. */
+function parseRpc(body: string): { result?: unknown; error?: unknown } {
+  const trimmed = body.trim();
+  if (trimmed.startsWith("{")) return JSON.parse(trimmed);
+  const data = trimmed
+    .split("\n")
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice(5).trim())
+    .filter(Boolean);
+  const last = data.at(-1);
+  if (!last) throw new ToolError("OpenConnector returned an empty response.");
+  return JSON.parse(last);
+}
+
+/** A short, model-readable rendering of an error payload. */
+export function describe(error: unknown): string {
+  if (typeof error === "string") return error.slice(0, 300);
+  if (error && typeof error === "object") {
+    const e = error as { message?: unknown; code?: unknown; error?: unknown };
+    if (typeof e.message === "string") return `${typeof e.code === "string" ? `${e.code}: ` : ""}${e.message}`.slice(0, 300);
+    if (e.error !== undefined) return describe(e.error);
+  }
+  return JSON.stringify(error)?.slice(0, 300) ?? "unknown error";
+}
+
+/** Cuts a result the model would otherwise drown in; the note tells it what happened. */
+export function truncateResult(value: unknown, max = RESULT_CHARS): unknown {
+  const text = JSON.stringify(value);
+  if (text === undefined || text.length <= max) return value;
+  return { truncated: true, note: `Result cut to ${max} of ${text.length} characters. Ask for something narrower if the part you need is missing.`, text: text.slice(0, max) };
+}

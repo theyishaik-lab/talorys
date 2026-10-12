@@ -118,6 +118,7 @@ export class AgentRunner {
         autoMemory: settings.autoMemory,
         memories,
         conversationSummary: summary,
+        connectors: this.ext?.connectors,
       });
       const historyBudget = Math.max(500, limits.maxContextTokens - estimateTokens(baseSystem) - 600);
       let window = buildContextWindow(history, historyBudget, summaryUpto);
@@ -152,6 +153,7 @@ export class AgentRunner {
             autoMemory: settings.autoMemory,
             memories,
             conversationSummary: summary,
+            connectors: this.ext?.connectors,
           });
 
       // 3. Tools with per-turn limits.
@@ -253,6 +255,7 @@ export class AgentRunner {
         memoryTokenBudget(settings.limits),
       ),
       scheduled: true,
+      connectors: this.ext?.connectors,
     });
     let text = "";
     s.usage.increment({ ai_requests: 1, scheduled_ai_runs: 1 });

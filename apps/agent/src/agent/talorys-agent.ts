@@ -11,6 +11,8 @@ import { MockAIProvider } from "../ai/mock";
 import type { AIProvider } from "../ai/provider";
 import { localDayBounds, formatLocal } from "../services/time";
 import { semanticExtensions } from "../semantic";
+import { toolsWithOpenConnector, withOpenConnector } from "../openconnector";
+import type { ToolDefinition } from "../tools";
 
 interface AgentState {
   /** Unread notifications, kept in agent state for cheap polling. */
@@ -84,7 +86,12 @@ export class TalorysAgent extends Agent<Env, AgentState> {
   }
 
   runner(): AgentRunner {
-    return new AgentRunner(this.services, this.aiProvider(), semanticExtensions(this.services, this.env));
+    return new AgentRunner(this.services, this.aiProvider(), withOpenConnector(semanticExtensions(this.services, this.env), this.services, this.env));
+  }
+
+  /** Every tool an approved action may belong to: upstream's plus the connector tools when configured. */
+  approvalTools(): ToolDefinition[] {
+    return toolsWithOpenConnector(this.env);
   }
 
   refreshUnread(): void {

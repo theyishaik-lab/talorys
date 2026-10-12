@@ -21,4 +21,10 @@ export interface Env {
   /** Informational, written by the installer. */
   TALORYS_INSTALLATION_ID?: string;
   TALORYS_DEPLOYED_VERSION?: string;
+  /** OpenConnector (optional): a service binding to the connector Worker in the same account … */
+  OPEN_CONNECTOR?: Fetcher;
+  /** … or its public URL when no binding is configured. */
+  OPEN_CONNECTOR_URL?: string;
+  /** OpenConnector runtime token. Worker secret; the connector tools are off without it. */
+  OPEN_CONNECTOR_TOKEN?: string;
 }
