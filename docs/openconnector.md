@@ -19,7 +19,8 @@ Five tools, appended to the upstream set by `apps/agent/src/openconnector/`:
 
 `run_action` refuses non-read actions and points the model at `propose_action`, so no change in an
 outside account ever happens without the owner's approval. Scheduled runs only see the read tools
-(upstream rule). Tool results are cut at 3,500 characters before they reach the model.
+(upstream rule). Tool results are compacted first (nulls, empty fields, API links, node ids and etags
+dropped — `compactResult`), then cut at 3,500 characters before they reach the model.
 
 When the connector is configured the system prompt swaps the upstream "you cannot send email or
 access accounts" rule for a short description of the tools (`CONNECTOR_RULE` in `agent/prompt.ts`).
@@ -39,6 +40,8 @@ The tools are off unless the Worker has:
 The connector's MCP endpoint is `POST /mcp` (stateless JSON-RPC; see its `docs/runtime-api.md`).
 
 ## Connecting apps
+
+What is connected right now: [system/CONNECTIONS.md](system/CONNECTIONS.md).
 
 Apps are connected in the OpenConnector web console (admin token), not in Talorys. API-key apps
 (Notion, Todoist, Linear, GitHub PAT) take a key; OAuth apps (Gmail, Google Calendar, Slack,
