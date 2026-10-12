@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { inAgent } from "./helpers";
 import { buildSystemPrompt, CONNECTOR_RULE, NO_ACCESS_RULE } from "../src/agent/prompt";
 import type { Env } from "../src/env";
+import { compactResult, truncateResult } from "../src/openconnector/client";
 import { OpenConnectorClient, isReadOnlyAction, openConnectorTools, toolsWithOpenConnector, withOpenConnector } from "../src/openconnector";
 import { guideInputs, proposalSummary } from "../src/openconnector/tools";
 import { ALL_TOOLS, runApprovedAction, ToolExecutor, type ToolContext } from "../src/tools";
@@ -197,5 +198,16 @@ describe("prompt and extensions", () => {
     const md = "# x\n\n## Execute\n\ncurl …\n\n## Input Parameters\n\n| Name | Required |\n| `id` | No |\n\n## Required Scopes\n\nNone";
     expect(guideInputs(md)).toBe("## Input Parameters\n\n| Name | Required |\n| `id` | No |");
     expect(proposalSummary("notion.create_page", { title: "Plan", tags: ["a"] }, "work")).toBe("Run notion.create_page (work) — title: “Plan”, tags: [\"a\"]");
+  });
+});
+
+describe("compactResult", () => {
+  it("drops provider plumbing so real rows fit under the result cap", () => {
+    const repo = { id: 1, name: "talorys", full_name: "x/talorys", private: false, html_url: "https://github.com/x/talorys", url: "https://api.github.com/repos/x/talorys", node_id: "R_1", description: null, topics: [], owner: { login: "x", avatar_url: "https://a", gravatar_id: "" }, license: {} };
+    expect(compactResult(repo)).toEqual({ id: 1, name: "talorys", full_name: "x/talorys", private: false, owner: { login: "x" } });
+    const repos = Array.from({ length: 3 }, (_, i) => ({ ...repo, name: `r${i}`, filler: "y".repeat(600), filler_url: "z".repeat(2000) }));
+    const out = truncateResult({ repositories: repos }, 3500) as { repositories?: unknown[]; truncated?: boolean };
+    expect(out.truncated).toBeUndefined();
+    expect(out.repositories).toHaveLength(3);
   });
 });

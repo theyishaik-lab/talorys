@@ -97,9 +97,37 @@ export function describe(error: unknown): string {
   return JSON.stringify(error)?.slice(0, 300) ?? "unknown error";
 }
 
+/** Keys that carry provider plumbing (API links, opaque ids, etags) rather than facts the model needs. */
+const NOISE_KEY = /(^|_)(url|urls|node_id|gravatar_id|etag|self_link|selflink|kind|resource_id|resourceid)$/i;
+
+/**
+ * Strips provider noise before a result is measured against RESULT_CHARS: nulls, empty
+ * containers, API-link fields and ids the model cannot act on. A GitHub repository object is
+ * ~6 KB raw and ~400 B compacted, so a list of three fits where one did not. Facts are never
+ * rewritten, only omitted.
+ */
+export function compactResult(value: unknown, depth = 0): unknown {
+  if (depth > 12) return value;
+  if (Array.isArray(value)) return value.map((v) => compactResult(v, depth + 1)).filter((v) => v !== undefined);
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (v === null || v === undefined || NOISE_KEY.test(k)) continue;
+      const c = compactResult(v, depth + 1);
+      if (c === undefined) continue;
+      if (Array.isArray(c) && c.length === 0) continue;
+      if (c && typeof c === "object" && !Array.isArray(c) && Object.keys(c).length === 0) continue;
+      out[k] = c;
+    }
+    return out;
+  }
+  return value;
+}
+
 /** Cuts a result the model would otherwise drown in; the note tells it what happened. */
 export function truncateResult(value: unknown, max = RESULT_CHARS): unknown {
-  const text = JSON.stringify(value);
-  if (text === undefined || text.length <= max) return value;
+  const compact = compactResult(value);
+  const text = JSON.stringify(compact);
+  if (text === undefined || text.length <= max) return compact;
   return { truncated: true, note: `Result cut to ${max} of ${text.length} characters. Ask for something narrower if the part you need is missing.`, text: text.slice(0, max) };
 }
