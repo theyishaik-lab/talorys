@@ -1,6 +1,6 @@
 # Android app
 
-| | |
+| Item | Value |
 | --- | --- |
 | App name | Talorys |
 | Package | `bot.tab.talorys.yishai` |

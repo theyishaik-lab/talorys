@@ -116,14 +116,17 @@ Scheduled runs (automations) only get the read tools.
 
 ```
 model calls propose_action(action, input)
-   -> a pending action row (table tal_pending_actions), valid 30 minutes
-   -> the chat shows an approval card: "Approve" / "Cancel"  ("Nothing changes unless you approve.")
-owner taps Approve  -> POST /api/actions/:id/approve        (owner's session only;
-                                                       the model cannot call it)
-   -> execute_action runs once through OpenConnector
-   -> activity log entry "connector.action"
-   -> a notification "Done" with a short result excerpt -> the bell icon (NotificationCenter)
-owner taps Cancel   -> POST /api/actions/:id/cancel        -> nothing runs
+  -> a pending action row (table tal_pending_actions), valid 30 minutes
+  -> the chat shows an approval card: "Approve" / "Cancel"
+     ("Nothing changes unless you approve.")
+
+owner taps Approve -> POST /api/actions/:id/approve
+     (owner's session only; the model cannot call this route)
+  -> execute_action runs once through OpenConnector
+  -> activity log entry "connector.action"
+  -> a notification "Done" with a short result excerpt -> the bell (NotificationCenter)
+
+owner taps Cancel  -> POST /api/actions/:id/cancel -> nothing runs
 ```
 
 The card shows the final state ("Approved and done", "Approved, but it failed", cancelled, expired).

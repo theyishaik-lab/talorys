@@ -55,7 +55,7 @@ No secrets. One service binding `AGENT` → `talorys-lxl5w9o0-agent` (`deploy/we
 | Connection | What is stored | Other copy |
 | --- | --- | --- |
 | `github` / `default` (api_key) | theyishaik-lab GitHub OAuth token | Tab's secret store (`github-project-secrets.json`) and the `gh` CLI config on Tab's machine |
-| Google OAuth client (gmail, googlecalendar, googledrive) | client id + client secret of the `talorys-connector` Web client | Tab's secret store (`openconnector-secrets.json`, `google_oauth`) |
+| Google OAuth client (gmail, googlecalendar, googledrive, googledocs, googlesheets, googletasks) | client id + client secret of the `talorys-connector` Web client | Tab's secret store (`openconnector-secrets.json`, `google_oauth`) |
 | Google grants (after consent) | refresh/access tokens per service | none — only OpenConnector |
 
 ## Accounts

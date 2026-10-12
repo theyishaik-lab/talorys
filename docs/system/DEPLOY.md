@@ -80,13 +80,17 @@ holds only resource ids, no secrets):
   "compatibility_date": "2026-07-02",
   "compatibility_flags": ["nodejs_compat"],
   "cache": { "enabled": true },
-  "assets": { "directory": "dist/web", "binding": "ASSETS", "not_found_handling": "single-page-application",
-              "run_worker_first": ["/api/*", "/v1/*", "/mcp*", "/oauth/*", "/docs", "/docs/*", "/openapi.json", "/health"] },
+  "assets": {
+    "directory": "dist/web", "binding": "ASSETS", "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/v1/*", "/mcp*", "/oauth/*",
+                         "/docs", "/docs/*", "/openapi.json", "/health"]
+  },
   "d1_databases": [{ "binding": "DB", "database_name": "open-connector",
                      "database_id": "c863dd83-3ef8-4c32-9fd2-4b0edb9f8cf1", "migrations_dir": "migrations" }],
   "kv_namespaces": [{ "binding": "TRANSIT_FILES", "id": "66d3bf473d4949e1b50d8bfc4a3983f5" }],
   "vars": { "TRANSIT_FILES_BACKEND": "kv" },
-  "observability": { "enabled": true, "logs": { "enabled": true, "invocation_logs": true, "persist": true } }
+  "observability": { "enabled": true,
+                     "logs": { "enabled": true, "invocation_logs": true, "persist": true } }
 }
 ```
 
