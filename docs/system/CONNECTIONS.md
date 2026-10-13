@@ -121,3 +121,25 @@ and nothing happens until Yishai taps **אישור / Approve**.
   server-side commit after the approval (and the catalog lookups in `prepare`) use it. It is never in
   a tool result or a prompt. Without the secret the two tools are not registered.
 - Card strings are Hebrew/English per the UI locale (`apps/web/src/components/ConnectCard.tsx`).
+
+## When an action hits an app that is not connected (since Oct 13, 2026)
+
+Seen live that morning: Google Tasks had no connection, the model proposed `googletasks.insert_task`,
+Yishai approved, OpenConnector refused ("Connect googletasks with OAuth first.") and the model told
+him the task was created. Now, deterministically (`apps/agent/src/tools/registry.ts`,
+`openconnector/client.ts`, `openconnector/tools.ts`):
+
+- `propose_action` checks the service's connection list **before** proposing (one cheap
+  `list_connections {service}` call). An empty list = not connected: no "Run …" card is created.
+- `run_action` (and an approved run whose connection vanished) maps OpenConnector's
+  `authorization_failed` "Connect X with OAuth first" / "Configure X … credentials first" and
+  `connection_not_found` answers to a `NotConnectedError`. A provider's own 401 on an existing
+  connection is **not** treated as "not connected".
+- The executor turns that error into: a **connect card for that app attached to the same step**
+  (prepared through `connect_service`, so OAuth apps get the sign-in button after Approve and
+  API-key apps the secure field) and a tool error telling the model that nothing ran, that the card
+  is below, to say so plainly in the owner's language and never to claim success. One card per app per
+  reply; a second attempt on the same app in the turn is told the card is already shown. Apps that
+  need a one-time setup are reported as such, without a card.
+- On an approved run the card's failure reason is the short form: "Google Tasks is not connected yet."
+- The prompt (`CONNECTOR_RULE`) repeats the rule. Tests: `apps/agent/test/not-connected.test.ts`.

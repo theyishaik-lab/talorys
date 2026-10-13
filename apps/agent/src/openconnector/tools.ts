@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { defineTool, quoteTitle, ToolError, type ToolContext, type ToolDefinition } from "../tools/registry";
+import { defineTool, NotConnectedError, quoteTitle, ToolError, type ToolContext, type ToolDefinition } from "../tools/registry";
+import { serviceDisplayName } from "./services";
 import { type OpenConnectorClient, isPlatformLimitError, servicesHintedBy, truncateResult } from "./client";
 
 const ACTION_ID = z
@@ -135,6 +136,25 @@ async function searchViaCatalog(client: OpenConnectorClient, query: string, serv
     }
   }
   return { services, rows: rankCatalogRows(rows, query) };
+}
+
+/**
+ * Refuses to propose an action on an app that is not connected: the connector would only refuse
+ * it after the owner's Approve tap (seen live Oct 13, 2026 — an approved Google Tasks insert failed
+ * on the card and the model called it done). An empty connection list for the service is the
+ * refusal; a public (no-login) service lists its virtual connection, and a failed or odd answer
+ * from the connector is not treated as "not connected" — the run itself will say.
+ */
+export async function assertServiceConnected(client: OpenConnectorClient, action: string): Promise<void> {
+  const service = action.slice(0, action.indexOf(".")).toLowerCase();
+  if (!service) return;
+  let rows: unknown;
+  try {
+    rows = await client.data("list_connections", { service });
+  } catch {
+    return;
+  }
+  if (Array.isArray(rows) && rows.length === 0) throw new NotConnectedError(service, serviceDisplayName(service));
 }
 
 /** The owner-facing summary on the approval card: the action plus its main inputs. */
@@ -310,7 +330,8 @@ export function openConnectorTools(client: OpenConnectorClient): ToolDefinition[
         connection: CONNECTION.describe("Named connection; omit for the default account"),
       }),
       label: (i) => `Proposing ${i.action}`,
-      prepare: (i) => {
+      prepare: async (i) => {
+        await assertServiceConnected(client, i.action);
         const run: ProposedRun = { action: i.action, input: withActionDefaults(i.action, i.input), ...(i.connection ? { connection: i.connection } : {}) };
         return { targetId: JSON.stringify(run), summary: proposalSummary(run.action, run.input, run.connection) };
       },

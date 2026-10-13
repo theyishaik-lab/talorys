@@ -175,25 +175,26 @@ describe("openconnector tools", () => {
       const executor = new ToolExecutor([...ALL_TOOLS, ...tools], ctx(s, conversation.id), { maxToolCalls: 5 });
       const proposed = (await executor.execute("propose_action", { action: "gmail.send_email", input: { to: "a@b.c", subject: "Hi" } }, "call-1")) as { status: string };
       expect(proposed.status).toBe("awaiting_owner_approval");
-      expect(calls).toHaveLength(0);
+      // Proposing only checks that the app is connected; it runs nothing.
+      expect(calls.map((c) => c.name)).toEqual(["list_connections"]);
       const pending = executor.approvalFor("call-1")!;
       expect(pending.summary).toBe("Run gmail.send_email — to: “a@b.c”, subject: “Hi”");
 
       const done = await runApprovedAction([...ALL_TOOLS, ...tools], ctx(s), pending.id);
       expect(done.status).toBe("approved");
-      expect(calls).toEqual([expect.objectContaining({ name: "execute_action", arguments: { actionId: "gmail.send_email", input: { to: "a@b.c", subject: "Hi" } } })]);
+      expect(calls.filter((c) => c.name === "execute_action")).toEqual([expect.objectContaining({ name: "execute_action", arguments: { actionId: "gmail.send_email", input: { to: "a@b.c", subject: "Hi" } } })]);
       const note = s.notifications.list({ limit: 1 })[0]!;
       expect(note.title).toBe("Done");
       expect(note.body).toContain("gmail.send_email");
       expect(note.body).toContain("msg_1");
       // A second approval of the same action never runs it again.
       await expect(runApprovedAction([...ALL_TOOLS, ...tools], ctx(s), pending.id)).rejects.toThrow(/already handled/);
-      expect(calls).toHaveLength(1);
+      expect(calls.filter((c) => c.name === "execute_action")).toHaveLength(1);
     });
   });
 
   it("an approved action that fails is marked failed with the connector's words", async () => {
-    const { tools } = fakeConnector(() => ({ ok: false, error: { code: "credential_missing", message: "Connect Gmail first" } }));
+    const { tools } = fakeConnector(() => ({ ok: false, error: { code: "rate_limited", message: "Gmail answered 429: quota exceeded" } }));
     await inAgent(async (a) => {
       const s = a.services;
       const conversation = s.conversations.create("test");
@@ -201,7 +202,7 @@ describe("openconnector tools", () => {
       const pending = s.pendingActions.create({ conversation_id: conversation.id, tool: "propose_action", target_id: prepared.targetId, summary: prepared.summary });
       const done = await runApprovedAction([...ALL_TOOLS, ...tools], ctx(s), pending.id);
       expect(done.status).toBe("failed");
-      expect(done.error).toContain("Connect Gmail first");
+      expect(done.error).toContain("quota exceeded");
     });
   });
 

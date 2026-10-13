@@ -80,6 +80,27 @@ export class ToolError extends Error {
   }
 }
 
+/**
+ * A tool could not run because the outside app it needs is not connected yet (seen live Oct 13,
+ * 2026: an approved `googletasks.insert_task` failed with "Connect googletasks with OAuth first"
+ * and the model told the owner it was done). The executor turns this into a connect card plus a
+ * plain instruction to the model; on an approved action the card shows `message` as the reason.
+ */
+export class NotConnectedError extends ToolError {
+  constructor(
+    /** The connector's service id, e.g. `googletasks`. */
+    public readonly service: string,
+    /** The app's display name, e.g. `Google Tasks`. */
+    public readonly appName: string,
+  ) {
+    super(`${appName} is not connected yet.`);
+    this.name = "NotConnectedError";
+  }
+}
+
+/** The tool that proposes connecting an app, when the connector's admin side is configured. */
+export const CONNECT_TOOL = "connect_service";
+
 export interface ExecutorLimits {
   maxToolCalls: number;
 }
@@ -94,6 +115,8 @@ export class ToolExecutor {
   private readonly signatures = new Map<string, number>();
   /** Approval requests created this turn, by provider tool-call id. */
   private readonly approvals = new Map<string, PendingAction>();
+  /** Connect cards this turn already proposed for an app that turned out not to be connected, by service. */
+  private readonly connectCards = new Map<string, PendingAction>();
 
   constructor(
     private readonly tools: ToolDefinition[],
@@ -146,10 +169,19 @@ export class ToolExecutor {
     this.calls++;
     this.perTool.set(name, used + 1);
     this.signatures.set(signature, repeats + 1);
-    if (tool.permission !== "destructive") return await tool.execute(parsed.data, this.ctx);
+    try {
+      return await this.run(tool, parsed.data, callId);
+    } catch (error) {
+      if (error instanceof NotConnectedError) throw await this.notConnected(error, callId);
+      throw error;
+    }
+  }
 
-    if (!this.ctx.conversationId) throw new ToolError(`"${name}" needs the owner's approval and can only be used in chat.`);
-    const prepared = await tool.prepare(parsed.data, this.ctx);
+  private async run(tool: ToolDefinition, input: unknown, callId?: string): Promise<unknown> {
+    if (tool.permission !== "destructive") return await tool.execute(input, this.ctx);
+
+    if (!this.ctx.conversationId) throw new ToolError(`"${tool.name}" needs the owner's approval and can only be used in chat.`);
+    const prepared = await tool.prepare(input, this.ctx);
     const action = this.ctx.services.pendingActions.create({
       conversation_id: this.ctx.conversationId,
       tool: tool.name,
@@ -165,6 +197,42 @@ export class ToolExecutor {
         prepared.note ??
         "Nothing has changed yet. The owner now sees an Approve button for exactly this action. Briefly tell them what you proposed. Do not call this tool again for the same item and do not claim it is done.",
     };
+  }
+
+  /**
+   * What the model hears when an app is not connected: nothing ran, and — when the connect tool is
+   * available in this chat — a card to connect the app is attached to this very call, so the owner
+   * can connect it right here. The model is told to say so plainly and never to claim success.
+   */
+  private async notConnected(error: NotConnectedError, callId?: string): Promise<ToolError> {
+    const { service, appName } = error;
+    const nothingRan = `${appName} (${service}) is not connected to this assistant yet, so the action did not run and nothing was done.`;
+    const sayIt = `Tell the owner plainly, in their language, that ${appName} is not connected yet. Never say the task was done. Do not ask for a key or password in the chat, and do not retry the action in this turn.`;
+    const connect = this.find(CONNECT_TOOL);
+    if (!connect || connect.permission !== "destructive" || !this.ctx.conversationId) {
+      return new ToolError(`${nothingRan} ${sayIt}${connect ? "" : " Connecting apps is not available here; the owner connects it in the connector console."}`);
+    }
+    const shown = this.connectCards.get(service);
+    if (shown) return new ToolError(`${nothingRan} The card to connect ${appName} is already shown in this reply. ${sayIt}`);
+    let prepared: PreparedAction;
+    try {
+      prepared = await connect.prepare({ service }, this.ctx);
+    } catch (cause) {
+      const reason = cause instanceof ToolError ? cause.message : `The connect card could not be prepared.`;
+      return new ToolError(`${nothingRan} ${reason} ${sayIt}`);
+    }
+    const action = this.ctx.services.pendingActions.create({
+      conversation_id: this.ctx.conversationId,
+      tool: connect.name,
+      target_id: prepared.targetId,
+      summary: prepared.summary,
+      ...(prepared.card ? { card: prepared.card } : {}),
+    });
+    this.connectCards.set(service, action);
+    if (callId) this.approvals.set(callId, action);
+    return new ToolError(
+      `${nothingRan} A card to connect ${appName} now appears right under this step: the owner approves it there and signs in or pastes the key on the card. Tell the owner, in one or two sentences in their language, that ${appName} is not connected yet, that they can connect it on the card below, and that you will do what they asked once it is connected. Never say the task was done. Do not ask for a key or password in the chat, and do not retry the action in this turn.`,
+    );
   }
 }
 

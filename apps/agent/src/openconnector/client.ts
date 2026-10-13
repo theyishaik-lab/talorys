@@ -1,4 +1,5 @@
-import { ToolError } from "../tools/registry";
+import { NotConnectedError, ToolError } from "../tools/registry";
+import { serviceDisplayName } from "./services";
 
 /** Where tool results get cut before they reach the model (the free model has a small context). */
 export const RESULT_CHARS = 3500;
@@ -67,7 +68,11 @@ export class OpenConnectorClient {
   /** Like `call`, but a `{ ok: false }` answer becomes a ToolError the model can read. */
   async data(name: McpToolName, args: Record<string, unknown>): Promise<unknown> {
     const result = await this.call(name, args);
-    if (!result.ok) throw new ToolError(`OpenConnector could not complete ${name}: ${describe(result.error ?? result.data ?? "unknown error")}`);
+    if (!result.ok) {
+      const service = notConnectedService(result.error, name === "execute_action" ? args.actionId : undefined);
+      if (service) throw new NotConnectedError(service, serviceDisplayName(service));
+      throw new ToolError(`OpenConnector could not complete ${name}: ${describe(result.error ?? result.data ?? "unknown error")}`);
+    }
     return result.data;
   }
 
@@ -94,6 +99,25 @@ export class OpenConnectorClient {
     if (parsed.success === false) throw new ToolError(`OpenConnector could not answer ${path}: ${parsed.message ?? "unknown error"}`);
     return parsed.data;
   }
+}
+
+/**
+ * The service an action needs a connection for, read from OpenConnector's refusal: an
+ * `authorization_failed` whose words are the connector's own "Connect googletasks with OAuth
+ * first." / "Configure notion (API key | custom) credentials first." (seen live Oct 13, 2026), or
+ * a `connection_not_found` error. Null for any other error, including a provider's own 401 on a
+ * connection that exists. The action id supplies the service when the message does not name one.
+ */
+export function notConnectedService(error: unknown, actionId?: unknown): string | null {
+  if (!error || typeof error !== "object") return null;
+  const { code, message } = error as { code?: unknown; message?: unknown };
+  const text = typeof message === "string" ? message : "";
+  if (code !== "authorization_failed" && code !== "connection_not_found") return null;
+  if (code === "authorization_failed" && !/^(connect|configure) \S+ (with oauth|(api key |custom )?credentials) first/i.test(text)) return null;
+  const named = text.match(/^(?:connect|configure) ([a-z0-9_]+) |^([a-z0-9_]+) connection not found/i);
+  const fromMessage = (named?.[1] ?? named?.[2])?.toLowerCase();
+  const fromAction = typeof actionId === "string" && actionId.includes(".") ? actionId.slice(0, actionId.indexOf(".")).toLowerCase() : undefined;
+  return fromMessage ?? fromAction ?? null;
 }
 
 /** The words of a CPU-limit or similar platform cut-off, as the error reaches us. */
