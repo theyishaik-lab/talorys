@@ -30,16 +30,19 @@ apps/web/
     lib/api.ts               fetch wrapper (CSRF header, 401 handling) + streamChat (SSE)
     lib/theme.ts             light / dark / system theme switching (.dark class on <html>)
     lib/utils.ts             cn() class joining, date/time formatting, copyText
+    lib/links.ts             REPO_URL / ANDROID_REPO_URL / DEPLOY_DOC_URL (this fork), UPSTREAM_URL
     hooks/queries.ts         every API query/mutation + query keys + polling intervals
     hooks/session.tsx        login state
     hooks/toast.tsx          toasts
     components/
       AppShell.tsx           layout: sidebar / bottom nav, header, the bell
       NotificationCenter.tsx the bell list (approval results land here)
-      ChatUsage.tsx          "AI usage today" popover (on main, not yet live)
+      ChatUsage.tsx          "AI usage today" popover
       Markdown.tsx           how assistant messages render
       WriterEditor.tsx       notes editor
       SemanticRecallCard.tsx settings card for semantic memory
+      SourceLinks.tsx        GitHubIcon + the "Source · Android" repository links (sidebar footer,
+                             login footer; the About tab uses the icon too)
       Logo.tsx
       ui/index.tsx           the primitives: Button, Input, Textarea, Select, Label, Badge, Spinner,
                              EmptyState, PageHeader, ErrorNotice, Dialog, ConfirmDialog, Switch, Card

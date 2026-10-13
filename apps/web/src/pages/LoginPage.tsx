@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Lock } from "lucide-react";
 import { Logo } from "../components/Logo";
+import { SourceLinks } from "../components/SourceLinks";
 import { Button } from "../components/ui";
 import { api, ApiError } from "../lib/api";
 
@@ -105,6 +106,7 @@ export function LoginPage({ configured }: { configured: boolean }) {
           <br />
           <code className="rounded bg-muted px-1">npx create-talorys@latest reset-password</code>
         </p>
+        <SourceLinks className="mt-4 justify-center" />
       </div>
     </div>
   );

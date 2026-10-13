@@ -64,9 +64,11 @@ npx wrangler pages deploy dist --project-name talorys-lxl5w9o0-web --branch main
 Then open the site, sign in, send one chat message, and check the bell. Rolling back: Cloudflare
 dashboard → Workers & Pages → `talorys-lxl5w9o0-web` → Deployments → "Rollback" on the previous one.
 
-> Status (Oct 13, 2026): the live web is still the installer's published 0.1.5 build (deployed
-> Oct 12, 23:27 IL). `main` is one upstream commit ahead in `apps/web` (the "AI usage today" popover,
-> `980331b`). The first web deploy from the fork will bring it.
+> Status (Oct 13, 2026, 03:13 IL): the procedure above was run for the first time (preview branch
+> first, then `main`) and verified — `/api/health`, login, `/api/auth/session`, a streamed chat reply
+> and the bell all worked on the new deploy. The live web is now the fork's `main` build, which also
+> brought upstream's "AI usage today" popover (`980331b`) and the repository links in the UI
+> (sidebar footer, login footer, Settings → About).
 
 ## 4. Deploy OpenConnector (Worker `open-connector`)
 

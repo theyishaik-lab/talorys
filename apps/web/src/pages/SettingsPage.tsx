@@ -1,8 +1,10 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { checkPasswordStrength, GITHUB_URL, LIMIT_CEILINGS, type Limits, type MemoryHistorySettings, type Settings, TALORYS_VERSION } from "@talorys/shared";
+import { checkPasswordStrength, LIMIT_CEILINGS, type Limits, type MemoryHistorySettings, type Settings, TALORYS_VERSION } from "@talorys/shared";
 import { Download, ExternalLink, LogOut, Monitor, Moon, Sun, Upload } from "lucide-react";
+import { GitHubIcon } from "../components/SourceLinks";
+import { ANDROID_REPO_URL, DEPLOY_DOC_URL, REPO_URL, UPSTREAM_URL } from "../lib/links";
 import { Badge, Button, Card, ConfirmDialog, ErrorNotice, Input, Label, PageHeader, Select, Spinner, Switch } from "../components/ui";
 import { SemanticRecallCard } from "../components/SemanticRecallCard";
 import { keys, useApiMutation, useSessions, useSettings, useSystemInfo, useUsage } from "../hooks/queries";
@@ -524,13 +526,20 @@ function AboutTab() {
           )}
         </div>
       </Row>
-      <Row label="Source code" hint="Free and open source under the MIT license.">
-        <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="flex items-center justify-end gap-1 text-sm text-accent hover:underline">
-          GitHub <ExternalLink className="h-3.5 w-3.5" />
-        </a>
+      <Row label="Source code" hint={<>This installation runs from its own fork. Based on <a href={UPSTREAM_URL} target="_blank" rel="noopener noreferrer" className="hover:underline">rociiu/talorys</a> (MIT).</>}>
+        <div className="flex flex-col items-end gap-1 text-sm">
+          <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-accent hover:underline">
+            <GitHubIcon className="h-3.5 w-3.5" /> theyishaik-lab/talorys <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+          <a href={ANDROID_REPO_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-accent hover:underline">
+            <GitHubIcon className="h-3.5 w-3.5" /> theyishaik-lab/talorys-android <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </div>
       </Row>
-      <Row label="Update" hint="Run in your Talorys directory. Your data is preserved.">
-        <code className="block rounded bg-muted px-2 py-1 text-right text-xs">npx create-talorys@latest update</code>
+      <Row label="Update" hint="Deploy from the fork, never with the npm installer (it would remove the OpenConnector integration).">
+        <a href={DEPLOY_DOC_URL} target="_blank" rel="noopener noreferrer" className="flex items-center justify-end gap-1 text-sm text-accent hover:underline">
+          docs/system/DEPLOY.md <ExternalLink className="h-3.5 w-3.5" />
+        </a>
       </Row>
     </Section>
   );

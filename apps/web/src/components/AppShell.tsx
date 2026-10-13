@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from "react-router";
 import { Bell, Brain, CalendarClock, CheckSquare, LogOut, MessageSquare, NotebookPen, Settings } from "lucide-react";
 import { Logo } from "./Logo";
 import { NotificationCenter } from "./NotificationCenter";
+import { SourceLinks } from "./SourceLinks";
 import { useSession } from "../hooks/session";
 import { useNotifications, useSettings } from "../hooks/queries";
 import { cn } from "../lib/utils";
@@ -88,6 +89,7 @@ export function AppShell() {
             <LogOut className="h-4 w-4" />
             Lock
           </button>
+          <SourceLinks className="px-3 pt-2" />
         </div>
       </aside>
 
