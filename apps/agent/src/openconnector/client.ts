@@ -99,7 +99,7 @@ export class OpenConnectorClient {
 /** The words of a CPU-limit or similar platform cut-off, as the error reaches us. */
 export function isPlatformLimitError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
-  return /CPU time limit|exceeded CPU|Worker exceeded|1102|resource limit/i.test(message);
+  return /CPU time limit|exceeded CPU|Worker exceeded|1102|resource limit|empty response/i.test(message);
 }
 
 /** Services a free-text query points at, so a failed catalog search can fall back to per-service listings. */

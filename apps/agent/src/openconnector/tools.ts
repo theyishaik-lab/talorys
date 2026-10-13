@@ -142,7 +142,15 @@ export function openConnectorTools(client: OpenConnectorClient): ToolDefinition[
       input: z.object({ service: z.string().trim().min(1).max(60).optional().describe("Optional service id to filter, e.g. gmail") }),
       label: (i) => (i.service ? `Checking the ${i.service} connection` : "Checking connected apps"),
       execute: async (i) => {
-        const rows = asArray<ConnectionRow>(await client.data("list_connections", i.service ? { service: i.service } : {}));
+        let rows: ConnectionRow[];
+        let serviceNote = "";
+        try {
+          rows = asArray<ConnectionRow>(await client.data("list_connections", i.service ? { service: i.service } : {}));
+        } catch (error) {
+          if (!i.service || !/unknown_service|unknown service/i.test(error instanceof Error ? error.message : String(error))) throw error;
+          rows = asArray<ConnectionRow>(await client.data("list_connections", {}));
+          serviceNote = `"${i.service}" is not a service id; the ids are listed below (Google Drive is googledrive, Google Calendar is googlecalendar). `;
+        }
         const connected = rows
           .filter((r) => r.authType && r.authType !== "no_auth")
           .map((r) => ({ service: r.service, connection: r.connectionName, account: r.profile?.displayName ?? r.profile?.accountId ?? "" }));
@@ -151,9 +159,10 @@ export function openConnectorTools(client: OpenConnectorClient): ToolDefinition[
           connected,
           public_services_without_login: publicServices.slice(0, 40),
           note:
-            connected.length === 0
+            serviceNote +
+            (connected.length === 0
               ? "No app is connected with an account yet. The owner connects apps in the OpenConnector console; only public services work until then."
-              : "Use search_actions with the service id to find what you can do with a connected app.",
+              : "Use search_actions with the service id to find what you can do with a connected app."),
         };
       },
     }),
@@ -173,7 +182,7 @@ export function openConnectorTools(client: OpenConnectorClient): ToolDefinition[
         try {
           rows = asArray<ActionRow>(await client.data("search_actions", { query: i.query, ...(i.service ? { service: i.service } : {}), limit: 8 }));
         } catch (error) {
-          if (!isPlatformLimitError(error)) throw error;
+          if (!isPlatformLimitError(error) && /runtime token/.test(error instanceof Error ? error.message : "")) throw error;
           const fallback = await searchViaCatalog(client, i.query, i.service, async () =>
             asArray<ConnectionRow>(await client.data("list_connections", {}))
               .map((c) => c.service ?? "")
