@@ -1,7 +1,8 @@
 import { router } from "expo-router";
 import { ArrowLeft, ArrowRight } from "lucide-react-native";
 import type { ReactNode } from "react";
-import { ScrollView, View, type ViewStyle } from "react-native";
+import { View, type ViewStyle } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useI18n } from "../lib/i18n";
 import { useTheme } from "../lib/theme";
@@ -13,9 +14,10 @@ export function Screen({ title, children, scroll = true, right, contentStyle }: 
   const { t, rtl } = useI18n();
   const insets = useSafeAreaInsets();
   const body = scroll ? (
-    <ScrollView contentContainerStyle={[{ padding: 16, paddingBottom: insets.bottom + 24, gap: 16 }, contentStyle]} keyboardShouldPersistTaps="handled">
+    // Keyboard-aware: a focused field (Settings → Model's API keys) is scrolled above the keyboard.
+    <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={[{ padding: 16, paddingBottom: insets.bottom + 24, gap: 16 }, contentStyle]} keyboardShouldPersistTaps="handled">
       {children}
-    </ScrollView>
+    </KeyboardAwareScrollView>
   ) : (
     <View style={[{ flex: 1 }, contentStyle]}>{children}</View>
   );

@@ -9,6 +9,9 @@ import { semanticTools } from "./tools";
 
 export type { RunnerExtensions } from "./hooks";
 
+/** How long memory recall may take before the turn goes on with keyword recall. */
+export const RECALL_BUDGET_MS = 3_000;
+
 /** Services whose semantic config key was absent (never enabled) at last read. */
 const neverEnabled = new WeakMap<Services, boolean>();
 
@@ -60,11 +63,19 @@ export function semanticExtensions(services: Services, env: Env): RunnerExtensio
     return {
       // Recall must never fail a turn; on any error the upstream keyword selection stands in.
       selectMemories: async (query) => {
+        let timer: ReturnType<typeof setTimeout> | null = null;
         try {
-          return await selectSemanticMemories(ctx, query);
+          // Recall runs before the model's first word; an embedding call that hangs (Workers AI
+          // out of allowance) must not hold the reply. Past the budget, keyword recall stands in.
+          const budget = new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error(`semantic recall took over ${RECALL_BUDGET_MS} ms`)), RECALL_BUDGET_MS);
+          });
+          return await Promise.race([selectSemanticMemories(ctx, query), budget]);
         } catch (error) {
           console.warn("Semantic recall failed; using keyword recall", error instanceof Error ? error.message : String(error));
           return selectRelevantMemories(services.memories, query);
+        } finally {
+          if (timer !== null) clearTimeout(timer);
         }
       },
       tools: semanticTools(ctx),

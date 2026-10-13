@@ -1,6 +1,7 @@
 import { Eye, EyeOff, Lock } from "lucide-react-native";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { StyleSheet, TextInput, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -42,8 +43,9 @@ export default function LoginScreen() {
   const input = { fontFamily: font, fontSize: 16, color: c.fg, backgroundColor: c.surface, borderRadius: radii.md, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: c.border, textAlign: rtl ? ("right" as const) : ("left" as const) };
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: c.bg }}>
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 24, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24, gap: 16 }} keyboardShouldPersistTaps="handled">
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      {/* Scrolls the focused field (and the unlock button under it) above the keyboard. */}
+      <KeyboardAwareScrollView bottomOffset={88} contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 24, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24, gap: 16 }} keyboardShouldPersistTaps="handled">
         <View style={{ alignItems: "center", gap: 10, marginBottom: 16 }}>
           <Logo size={64} />
           <T weight="semibold" size={22} style={{ letterSpacing: 2 }}>
@@ -99,8 +101,8 @@ export default function LoginScreen() {
           </T>
         ) : null}
         <Button title={busy ? t("m.signingIn") : t("login.unlock")} icon={Lock} onPress={submit} loading={busy} disabled={!password} />
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
+    </View>
   );
 }
 

@@ -3,16 +3,19 @@ import { FlashList, type FlashListRef, type ListRenderItem } from "@shopify/flas
 import { router } from "expo-router";
 import { Menu, SquarePen } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { KeyboardAvoidingView, Platform, View } from "react-native";
+import { type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, View } from "react-native";
+import { KeyboardEvents } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../lib/auth";
 import { useDrawer } from "../lib/drawer";
-import { cancelGeneration, createChatStores, loadConversation, refreshConversations, sendMessage, updateTool } from "../lib/chat";
+import { isNearBottom } from "../lib/keyboard";
+import { cancelGeneration, createChatStores, isInFlight, loadConversation, refreshConversations, sendMessage, updateTool } from "../lib/chat";
 import { useI18n } from "../lib/i18n";
 import { useStore } from "../lib/store";
 import { useTheme } from "../lib/theme";
 import { Composer } from "./Composer";
 import { HomeEmpty } from "./HomeEmpty";
+import { KeyboardSpacer } from "./KeyboardSpacer";
 import { MessageRow, StreamingRow } from "./MessageRow";
 import { QuotaCard } from "./QuotaCard";
 import { Button, IconButton, T } from "./ui";
@@ -28,19 +31,35 @@ export function ChatScreen({ conversationId }: { conversationId: string | null }
   const insets = useSafeAreaInsets();
   const stores = useMemo(() => createChatStores(conversationId), [conversationId]);
   const state = useStore(stores.chat);
-  const controller = useRef<AbortController | null>(null);
   const list = useRef<FlashListRef<Row>>(null);
+  // Whether the reader is at the latest message. While true, anything that shrinks the list's
+  // viewport (the keyboard opening, the composer growing a line) keeps the end in view.
+  const pinned = useRef(true);
+  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+    pinned.current = isNearBottom(contentOffset.y, layoutMeasurement.height, contentSize.height);
+  }, []);
+  const onListLayout = useCallback((_e: LayoutChangeEvent) => {
+    if (pinned.current) list.current?.scrollToEnd({ animated: false });
+  }, []);
+  useEffect(() => {
+    const sub = KeyboardEvents.addListener("keyboardDidShow", () => {
+      if (pinned.current) list.current?.scrollToEnd({ animated: true });
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
-    if (conversationId) loadConversation(stores, conversationId);
-    return () => controller.current?.abort();
+    // Stores handed over mid-reply (a new chat moving to its own route) are already live.
+    // Leaving the screen never aborts a reply: the agent finishes and saves it either way.
+    if (conversationId && !isInFlight(stores)) loadConversation(stores, conversationId);
   }, [conversationId, stores]);
 
   const onSend = useCallback(
     (text: string) => {
-      controller.current = new AbortController();
+      const controller = new AbortController();
       const startedNew = !stores.chat.get().conversationId;
-      sendMessage(stores, text, controller.current, (id) => {
+      sendMessage(stores, text, controller, (id) => {
         if (startedNew) {
           refreshConversations().catch(() => {});
           // The new chat gets its own route (so Back and the drawer behave), without a visible transition.
@@ -51,7 +70,8 @@ export function ChatScreen({ conversationId }: { conversationId: string | null }
     [stores],
   );
   const onStop = useCallback(() => {
-    if (controller.current) cancelGeneration(stores, controller.current).catch(() => {});
+    const controller = stores.controller.current;
+    if (controller) cancelGeneration(stores, controller).catch(() => {});
   }, [stores]);
   const onToolChange = useCallback((messageId: string, tool: Parameters<typeof updateTool>[2]) => updateTool(stores, messageId, tool), [stores]);
 
@@ -74,7 +94,8 @@ export function ChatScreen({ conversationId }: { conversationId: string | null }
         </T>
         <IconButton icon={SquarePen} onPress={() => router.replace("/")} label={t("chat.new")} />
       </View>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      {/* No KeyboardAvoidingView: edge-to-edge Android never resizes the window, so the spacer below makes the room. */}
+      <View style={{ flex: 1 }}>
         {empty ? (
           <HomeEmpty agentName={auth.agentName} onPick={onSend} />
         ) : state.loadError ? (
@@ -95,12 +116,15 @@ export function ChatScreen({ conversationId }: { conversationId: string | null }
             contentContainerStyle={{ paddingVertical: 8 }}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
+            onScroll={onScroll}
+            scrollEventThrottle={32}
+            onLayout={onListLayout}
             ListFooterComponent={state.quotaExceeded ? <QuotaCard message={state.quotaExceeded.message} /> : null}
           />
         )}
         <Composer agentName={auth.agentName} busy={busy} onSend={onSend} onStop={onStop} />
-        <View style={{ height: insets.bottom }} />
-      </KeyboardAvoidingView>
+        <KeyboardSpacer safeBottom={insets.bottom} color={c.bg} />
+      </View>
     </View>
   );
 }

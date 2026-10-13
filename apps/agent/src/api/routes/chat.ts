@@ -26,7 +26,7 @@ chatRoutes.get("/conversations/:id", (c) => {
   return c.json({
     conversation: rest,
     messages: s.pendingActions.withCurrentStatus(s.conversations.messages(conversation.id)),
-    streaming: c.env.agent.activeRuns.has(conversation.id),
+    streaming: conversationBusy(c.env.agent.activeRuns, conversation.id),
   });
 });
 
@@ -51,17 +51,48 @@ chatRoutes.delete("/conversations", async (c) => {
   return c.json({ deleted });
 });
 
+/** A comment frame sent while the model is silent, so phones and proxies never see an idle stream. */
+export const HEARTBEAT_MS = 10_000;
+/**
+ * A run that has produced nothing for this long is stuck (the first-word watchdog moves a silent
+ * model to the backup after 15 s), so its claim on the conversation no longer blocks a new message.
+ */
+export const STALE_RUN_MS = 150_000;
+const lastProgress = new WeakMap<AbortController, number>();
+
+/** True when the conversation has a live run; a stale claim is aborted and released instead. */
+export function conversationBusy(activeRuns: Map<string, AbortController>, conversationId: string, now = Date.now()): boolean {
+  const run = activeRuns.get(conversationId);
+  if (!run) return false;
+  const last = lastProgress.get(run);
+  if (last !== undefined && now - last < STALE_RUN_MS) return true;
+  if (last === undefined) return true;
+  run.abort();
+  activeRuns.delete(conversationId);
+  return false;
+}
+
+/** Records that a run did something (for the stale-claim check). Exported for tests. */
+export function markProgress(controller: AbortController, at = Date.now()): void {
+  lastProgress.set(controller, at);
+}
+
 /**
  * Streams one agent turn as Server-Sent Events. The stream is produced inside the
  * Durable Object and passes unbuffered through the Worker and the Pages Function.
+ *
+ * The turn belongs to the conversation, not to the connection: if the client goes away (a phone
+ * changing networks, the app moving to a new screen) the run still finishes and saves the answer,
+ * which the client then reads from history. Only POST /chat/cancel (the Stop button) ends a run early.
  */
 chatRoutes.post("/chat", async (c) => {
   const input = await body(c, chatRequestSchema, 64 * 1024);
   const agent = c.env.agent;
-  if (input.conversation_id && agent.activeRuns.has(input.conversation_id)) {
+  if (input.conversation_id && conversationBusy(agent.activeRuns, input.conversation_id)) {
     throw new AppError("CONFLICT", "A response is already being generated in this conversation.");
   }
   const controller = new AbortController();
+  markProgress(controller);
   // Claim the conversation now, before any await, so a concurrent request sees the conflict.
   if (input.conversation_id) agent.activeRuns.set(input.conversation_id, controller);
   const encoder = new TextEncoder();
@@ -69,44 +100,44 @@ chatRoutes.post("/chat", async (c) => {
   const writer = writable.getWriter();
   let clientGone = false;
 
-  const send = async (event: ChatStreamEvent) => {
+  // Writes are never awaited: a reader that stopped reading must not stall the turn (that kept the
+  // conversation claimed forever). Order is kept by the writer's own queue.
+  const write = (frame: string) => {
     if (clientGone) return;
-    try {
-      await writer.write(encoder.encode(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`));
-    } catch {
-      // The browser disconnected: stop generating to save AI usage.
+    writer.write(encoder.encode(frame)).catch(() => {
       clientGone = true;
-      controller.abort();
-    }
+    });
   };
+  const send = (event: ChatStreamEvent) => write(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
+  const heartbeat = setInterval(() => write(`: ping\n\n`), HEARTBEAT_MS);
 
   const run = async () => {
     let conversationId: string | undefined = input.conversation_id;
     try {
-      await writer.write(encoder.encode(`: stream open\n\n`));
+      write(`: stream open\n\n`);
       for await (const event of agent.runner().chat({
         conversationId: input.conversation_id,
         message: input.message,
         retry: input.retry,
         signal: controller.signal,
       })) {
+        markProgress(controller);
         if (event.type === "start") {
           conversationId = event.conversation_id;
           agent.activeRuns.set(conversationId, controller);
         }
-        await send(event);
+        send(event);
       }
     } catch (error) {
       const appError = error instanceof AppError ? error : new AppError("INTERNAL_ERROR", "Something went wrong.");
       if (!(error instanceof AppError)) console.error("Chat turn failed", error);
-      await send({ type: "error", code: appError.code, message: appError.message, details: appError.details });
+      send({ type: "error", code: appError.code, message: appError.message, details: appError.details });
     } finally {
+      clearInterval(heartbeat);
       if (conversationId && agent.activeRuns.get(conversationId) === controller) agent.activeRuns.delete(conversationId);
-      try {
-        await writer.close();
-      } catch {
-        /* already closed */
-      }
+      writer.close().catch(() => {
+        /* already closed or the client is gone */
+      });
     }
   };
   // The Durable Object stays alive while the response stream is open.

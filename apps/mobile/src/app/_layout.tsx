@@ -6,6 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { Platform, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary, GlobalErrorOverlay } from "../components/ErrorScreen";
 import { AuthProvider, useAuth } from "../lib/auth";
@@ -45,11 +46,14 @@ function Root() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
+        {/* Edge-to-edge: the bars are translucent, so keyboard heights are the full IME inset from the screen edge. */}
+        <KeyboardProvider statusBarTranslucent navigationBarTranslucent preserveEdgeToEdge>
         <AppProviders themeMode={prefs.themeMode} setThemeMode={prefs.setThemeMode} localePref={prefs.localePref} setLocalePref={prefs.setLocalePref}>
           <AuthProvider>
             <Shell />
           </AuthProvider>
         </AppProviders>
+        </KeyboardProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

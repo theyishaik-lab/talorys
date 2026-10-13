@@ -2,6 +2,7 @@ import type { ChatMessage, ToolActivity } from "@talorys/shared";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react-native";
 import { memo } from "react";
 import { View } from "react-native";
+import { friendlyChatError } from "../lib/errors";
 import { firstStrongDirection, useI18n } from "../lib/i18n";
 import type { StreamState } from "../lib/chat";
 import type { Store } from "../lib/store";
@@ -67,7 +68,7 @@ export const MessageRow = memo(function MessageRow({ message, onToolChange }: Ro
       ) : null}
       {message.status === "error" && message.error ? (
         <T size={13} color={c.danger}>
-          {message.error}
+          {friendlyChatError(message.error, t)}
         </T>
       ) : null}
     </View>
@@ -86,17 +87,17 @@ export const StreamingRow = memo(function StreamingRow({ stream }: { stream: Sto
       <ToolChips tools={st.tools} />
       {st.text ? (
         <T style={{ textAlign: dir === "rtl" ? "right" : "left", writingDirection: dir }}>{st.text}</T>
-      ) : st.error ? null : (
+      ) : st.error && !st.recovering ? null : (
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: c.accent }} />
           <T size={13} muted>
-            {t("chat.thinking")}…
+            {st.recovering ? t("chat.recovering") : `${t("chat.thinking")}…`}
           </T>
         </View>
       )}
-      {st.error ? (
+      {st.error && !st.recovering ? (
         <T size={13} color={c.danger}>
-          {st.error}
+          {friendlyChatError(st.error, t)}
         </T>
       ) : null}
     </View>
