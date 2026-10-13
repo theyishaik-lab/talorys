@@ -196,8 +196,8 @@ export function openConnectorTools(client: OpenConnectorClient): ToolDefinition[
           note:
             serviceNote +
             (connected.length === 0
-              ? "No app is connected with an account yet. The owner connects apps in the OpenConnector console; only public services work until then."
-              : "Use search_actions with the service id to find what you can do with a connected app."),
+              ? "No app is connected with an account yet; only public services work until then. To add one, use connect_service (the owner approves on a card)."
+              : "Use search_actions with the service id to find what you can do with a connected app. An app that is not listed can be added with connect_service."),
         };
       },
     }),

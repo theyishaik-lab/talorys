@@ -1,4 +1,4 @@
-import type { PendingAction } from "@talorys/shared";
+import type { ConnectCard, PendingAction } from "@talorys/shared";
 import { AppError, NotFoundError } from "../api/errors";
 import type { z } from "zod";
 import type { Services } from "../services/container";
@@ -19,7 +19,22 @@ export interface PreparedAction {
   targetId: string;
   /** Shown to the owner on the approval card, e.g. `Delete task “Buy milk”`. */
   summary: string;
+  /** A richer owner-facing card than Approve/Decline (connecting an app). */
+  card?: ConnectCard;
+  /** What the model is told instead of the generic "the owner sees an Approve button" note. */
+  note?: string;
 }
+
+/** What `commit` may return to update the owner's card after the action ran (the consent link, the account). */
+export interface CommitResult {
+  card?: ConnectCard;
+}
+
+/**
+ * Values the owner typed on the approval card (a connect card's key fields). They reach `commit`
+ * straight from the approve request and are never stored, logged or shown to the model.
+ */
+export type SubmittedValues = Record<string, string>;
 
 interface BaseTool<S extends z.ZodType> {
   name: string;
@@ -43,7 +58,7 @@ export interface ImmediateTool<S extends z.ZodType = z.ZodType, R = unknown> ext
 export interface DestructiveTool<S extends z.ZodType = z.ZodType> extends BaseTool<S> {
   permission: "destructive";
   prepare: (input: z.infer<S>, ctx: ToolContext) => PreparedAction | Promise<PreparedAction>;
-  commit: (targetId: string, ctx: ToolContext) => unknown;
+  commit: (targetId: string, ctx: ToolContext, submitted?: SubmittedValues) => unknown;
 }
 
 export type ToolDefinition<S extends z.ZodType = z.ZodType, R = unknown> = ImmediateTool<S, R> | DestructiveTool<S>;
@@ -140,12 +155,15 @@ export class ToolExecutor {
       tool: tool.name,
       target_id: prepared.targetId,
       summary: prepared.summary,
+      ...(prepared.card ? { card: prepared.card } : {}),
     });
     if (callId) this.approvals.set(callId, action);
     return {
       status: "awaiting_owner_approval",
       action: prepared.summary,
-      note: "Nothing has changed yet. The owner now sees an Approve button for exactly this action. Briefly tell them what you proposed. Do not call this tool again for the same item and do not claim it is done.",
+      note:
+        prepared.note ??
+        "Nothing has changed yet. The owner now sees an Approve button for exactly this action. Briefly tell them what you proposed. Do not call this tool again for the same item and do not claim it is done.",
     };
   }
 }
@@ -161,7 +179,7 @@ function stableStringify(value: unknown): string {
  * Runs a destructive action the owner approved in the UI. The pending record is claimed
  * atomically first, so each action runs at most once, and only on the target that was shown.
  */
-export async function runApprovedAction(tools: ToolDefinition[], ctx: ToolContext, actionId: string): Promise<PendingAction> {
+export async function runApprovedAction(tools: ToolDefinition[], ctx: ToolContext, actionId: string, submitted?: SubmittedValues): Promise<PendingAction> {
   const pending = ctx.services.pendingActions;
   const stored = pending.get(actionId);
   if (!stored) throw new NotFoundError("This action no longer exists.");
@@ -172,7 +190,8 @@ export async function runApprovedAction(tools: ToolDefinition[], ctx: ToolContex
     throw new AppError("CONFLICT", status === "expired" ? "This request expired. Ask again to get a new one." : "This action was already handled.");
   }
   try {
-    await tool.commit(stored.target_id, ctx);
+    const result = (await tool.commit(stored.target_id, ctx, submitted)) as CommitResult | undefined;
+    if (result && typeof result === "object" && result.card) pending.setCard(actionId, result.card);
   } catch (error) {
     pending.markFailed(actionId, error instanceof ToolError ? error.message : "The action failed.");
     if (!(error instanceof ToolError)) console.error("Approved action failed", error);

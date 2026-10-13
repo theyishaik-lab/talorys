@@ -292,7 +292,8 @@ describe("migration from the previous schema", () => {
     const run = freshAgent();
     await run((agent, state) => {
       const db = new Database(state.storage);
-      // Rebuild the exact v3 shape: remove everything migration 4 added.
+      // Rebuild the exact v3 shape: remove everything migrations 4 and 5 added.
+      db.run(`ALTER TABLE tal_pending_actions DROP COLUMN card`);
       for (const idx of ["tal_memories_status", "tal_memories_superseded_by"]) db.run(`DROP INDEX IF EXISTS ${idx}`);
       db.run(`DROP TABLE IF EXISTS tal_memory_reviews`);
       for (const col of ["status", "superseded_by", "valid_from", "valid_until"]) db.run(`ALTER TABLE tal_memories DROP COLUMN ${col}`);

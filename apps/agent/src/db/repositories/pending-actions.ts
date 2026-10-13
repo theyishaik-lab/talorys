@@ -1,4 +1,4 @@
-import type { ChatMessage, PendingAction } from "@talorys/shared";
+import type { ChatMessage, ConnectCard, PendingAction } from "@talorys/shared";
 import { type Database, newId, now } from "../database";
 
 /** How long the owner has to approve a proposed destructive action. */
@@ -15,11 +15,23 @@ export interface StoredPendingAction {
   created_at: string;
   expires_at: string;
   resolved_at: string | null;
+  /** JSON `ConnectCard`, or null for plain Approve/Decline actions. */
+  card: string | null;
+}
+
+function parseCard(json: string | null): ConnectCard | undefined {
+  if (!json) return undefined;
+  try {
+    return JSON.parse(json) as ConnectCard;
+  } catch {
+    return undefined;
+  }
 }
 
 function present(row: StoredPendingAction): PendingAction {
   const expired = row.status === "pending" && row.expires_at <= now();
-  return { id: row.id, summary: row.summary, status: expired ? "expired" : row.status, error: row.error, expires_at: row.expires_at };
+  const card = parseCard(row.card);
+  return { id: row.id, summary: row.summary, status: expired ? "expired" : row.status, error: row.error, expires_at: row.expires_at, ...(card ? { card } : {}) };
 }
 
 /**
@@ -29,21 +41,23 @@ function present(row: StoredPendingAction): PendingAction {
 export class PendingActionRepository {
   constructor(private readonly db: Database) {}
 
-  create(input: { conversation_id: string; tool: string; target_id: string; summary: string }): PendingAction {
+  create(input: { conversation_id: string; tool: string; target_id: string; summary: string; card?: ConnectCard }): PendingAction {
     const createdAt = now();
+    const { card, ...rest } = input;
     const row: StoredPendingAction = {
       id: newId(),
-      ...input,
+      ...rest,
       status: "pending",
       error: null,
       created_at: createdAt,
       expires_at: new Date(Date.parse(createdAt) + PENDING_ACTION_TTL_MS).toISOString(),
       resolved_at: null,
+      card: card ? JSON.stringify(card) : null,
     };
     this.db.run(
-      `INSERT INTO tal_pending_actions (id, conversation_id, tool, target_id, summary, status, error, created_at, expires_at, resolved_at)
-       VALUES (?, ?, ?, ?, ?, 'pending', NULL, ?, ?, NULL)`,
-      row.id, row.conversation_id, row.tool, row.target_id, row.summary, row.created_at, row.expires_at,
+      `INSERT INTO tal_pending_actions (id, conversation_id, tool, target_id, summary, status, error, created_at, expires_at, resolved_at, card)
+       VALUES (?, ?, ?, ?, ?, 'pending', NULL, ?, ?, NULL, ?)`,
+      row.id, row.conversation_id, row.tool, row.target_id, row.summary, row.created_at, row.expires_at, row.card,
     );
     this.db.run(`DELETE FROM tal_pending_actions WHERE created_at < ?`, new Date(Date.now() - 30 * 86_400_000).toISOString());
     return present(row);
@@ -79,6 +93,11 @@ export class PendingActionRepository {
         ? { ...m, tools: m.tools.map((t) => (t.approval ? { ...t, approval: this.view(t.approval.id) ?? t.approval } : t)) }
         : m,
     );
+  }
+
+  /** Replaces the card of an action, e.g. with the consent link once the owner approved connecting an app. */
+  setCard(id: string, card: ConnectCard): void {
+    this.db.run(`UPDATE tal_pending_actions SET card = ? WHERE id = ?`, JSON.stringify(card), id);
   }
 
   markFailed(id: string, error: string): void {

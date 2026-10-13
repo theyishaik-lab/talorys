@@ -5,6 +5,7 @@ import type { AppEnv } from "../app";
 import { body, query } from "../middleware";
 import { AppError, NotFoundError } from "../errors";
 import { runApprovedAction } from "../../tools";
+import { connectionStatus, openConnectorClient } from "../../openconnector";
 
 export const chatRoutes = new Hono<AppEnv>();
 
@@ -127,11 +128,26 @@ chatRoutes.post("/chat/cancel", async (c) => {
   return c.json({ cancelled: !!controller });
 });
 
-/** Owner approval of a destructive action the agent proposed. The agent has no way to call this. */
+/**
+ * Owner approval of a destructive action the agent proposed. The agent has no way to call this.
+ * `values` carries what the owner typed on a connect card (an API key); it goes to the tool's
+ * commit and nowhere else — not into the database, the chat, or a log line.
+ */
+const approveSchema = z.object({ values: z.record(z.string().max(100), z.string().max(4096)).optional() });
 chatRoutes.post("/actions/:id/approve", async (c) => {
   const s = c.env.agent.services;
-  const action = await runApprovedAction(c.env.agent.approvalTools(), { services: s, timezone: s.settings.get().timezone, mode: "chat" }, c.req.param("id"));
+  const { values } = await body(c, approveSchema);
+  const action = await runApprovedAction(c.env.agent.approvalTools(), { services: s, timezone: s.settings.get().timezone, mode: "chat" }, c.req.param("id"), values);
   return c.json({ action });
+});
+
+/** Whether an external app is connected right now; a connect card polls it after an OAuth sign-in. */
+chatRoutes.get("/connections/:service", async (c) => {
+  const client = openConnectorClient(c.env.env);
+  if (!client) throw new NotFoundError("No connector is configured.");
+  const service = c.req.param("service");
+  if (!/^[a-z0-9_]{2,60}$/i.test(service)) throw new NotFoundError("Unknown service.");
+  return c.json(await connectionStatus(client, service));
 });
 
 chatRoutes.post("/actions/:id/cancel", (c) => {

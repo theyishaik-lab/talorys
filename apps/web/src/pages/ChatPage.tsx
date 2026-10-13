@@ -21,6 +21,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { ChatUsage } from "../components/ChatUsage";
+import { ConnectCard } from "../components/ConnectCard";
 import { Markdown } from "../components/Markdown";
 import { Button, ConfirmDialog, Dialog, Input, Spinner } from "../components/ui";
 import { Logo } from "../components/Logo";
@@ -504,6 +505,11 @@ const APPROVAL_DONE: Record<Exclude<PendingAction["status"], "pending">, StringK
 
 /** The only way a destructive action proposed by the agent can run. */
 function ApprovalCard({ action: initial }: { action: PendingAction }) {
+  if (initial.card?.kind === "connect") return <ConnectCard action={{ ...initial, card: initial.card }} />;
+  return <PlainApprovalCard action={initial} />;
+}
+
+function PlainApprovalCard({ action: initial }: { action: PendingAction }) {
   const qc = useQueryClient();
   const t = useT();
   const [action, setAction] = useState(initial);

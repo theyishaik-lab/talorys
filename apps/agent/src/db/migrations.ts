@@ -217,6 +217,13 @@ export const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS tal_memory_reviews_other ON tal_memory_reviews(other_id)`,
     ],
   },
+  {
+    version: 5,
+    name: "pending action cards",
+    // A JSON card for proposals that need more than Approve/Decline (connecting an app: the consent
+    // link, the key fields). Secrets never go in it.
+    statements: [`ALTER TABLE tal_pending_actions ADD COLUMN card TEXT`],
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

@@ -27,4 +27,10 @@ export interface Env {
   OPEN_CONNECTOR_URL?: string;
   /** OpenConnector runtime token. Worker secret; the connector tools are off without it. */
   OPEN_CONNECTOR_TOKEN?: string;
+  /**
+   * OpenConnector admin token. Worker secret; only the server-side connect step (after the owner's
+   * Approve) uses it, never a tool result. Without it apps cannot be connected from the chat.
+   * Needs OPEN_CONNECTOR_URL (the admin API is reached over the public URL).
+   */
+  OPEN_CONNECTOR_ADMIN_TOKEN?: string;
 }

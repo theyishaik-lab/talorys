@@ -104,6 +104,36 @@ export interface Conversation {
 
 export type PendingActionStatus = "pending" | "approved" | "cancelled" | "expired" | "failed";
 
+/** One secret the owner types on a connect card. The value goes to the connector and nowhere else. */
+export interface ConnectField {
+  key: string;
+  label: string;
+  placeholder?: string;
+  hint?: string;
+  /** Rendered as a password input (default true: most fields are keys). */
+  secret?: boolean;
+  required?: boolean;
+}
+
+/**
+ * The owner-facing card of a `connect_service` proposal: which app, how it authenticates, what the
+ * owner must do after approving (open a consent link, or fill in a key on the card itself).
+ */
+export interface ConnectCard {
+  kind: "connect";
+  /** Provider id in the connector catalog, e.g. googletasks. */
+  service: string;
+  /** Display name, e.g. Google Tasks. */
+  name: string;
+  method: "oauth" | "api_key";
+  /** api_key: the fields the owner fills in on the card. Never echoed into chat or stored by Talorys. */
+  fields?: ConnectField[];
+  /** oauth, after approval: the provider's consent link the owner opens. */
+  authorization_url?: string;
+  /** Set once the connector confirmed the connection (the account it is connected as, when known). */
+  account?: string;
+}
+
 /** A destructive action the agent proposed. It runs only when the owner approves it in the UI. */
 export interface PendingAction {
   id: string;
@@ -112,6 +142,8 @@ export interface PendingAction {
   status: PendingActionStatus;
   error: string | null;
   expires_at: string;
+  /** Present on proposals that need a richer card than Approve/Decline (today: connecting an app). */
+  card?: ConnectCard;
 }
 
 export interface ToolActivity {
@@ -125,6 +157,19 @@ export interface ToolActivity {
 }
 
 /** Shape check for tool activity stored with a message. Entries that fail it (e.g. from a hostile backup) are dropped on read. */
+/** Shape check for a connect card stored with a message (same reason as toolActivitySchema). No secret ever lives here. */
+export const connectCardSchema = z.object({
+  kind: z.literal("connect"),
+  service: z.string(),
+  name: z.string(),
+  method: z.enum(["oauth", "api_key"]),
+  fields: z
+    .array(z.object({ key: z.string(), label: z.string(), placeholder: z.string().optional(), hint: z.string().optional(), secret: z.boolean().optional(), required: z.boolean().optional() }))
+    .optional(),
+  authorization_url: z.string().optional(),
+  account: z.string().optional(),
+}) satisfies z.ZodType<ConnectCard>;
+
 export const toolActivitySchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -138,6 +183,7 @@ export const toolActivitySchema = z.object({
       status: z.enum(["pending", "approved", "cancelled", "expired", "failed"]),
       error: z.string().nullable(),
       expires_at: z.string(),
+      card: connectCardSchema.optional(),
     })
     .optional(),
 }) satisfies z.ZodType<ToolActivity>;
