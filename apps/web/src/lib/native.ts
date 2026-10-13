@@ -90,9 +90,11 @@ export function useHistoryLayer(open: boolean, onClose: () => void): void {
       const state = window.history.state as { tl?: string } | null;
       // Only pop our own entry (a navigation may already have replaced it).
       if (state?.tl === id.current) {
+        // The router treats the pop as a navigation to the same screen; it must not slide.
+        setNavDirection("none");
         document.documentElement.dataset.navLock = "1";
         window.history.back();
-        setTimeout(() => delete document.documentElement.dataset.navLock, 50);
+        setTimeout(() => delete document.documentElement.dataset.navLock, 80);
       }
     }
   }, [open]);
@@ -102,6 +104,7 @@ export function useHistoryLayer(open: boolean, onClose: () => void): void {
     () => () => {
       if (pushed.current && (window.history.state as { tl?: string } | null)?.tl === id.current) {
         pushed.current = false;
+        setNavDirection("none");
         window.history.back();
       }
     },

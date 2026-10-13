@@ -68,8 +68,25 @@ export function initPwa(): void {
     const m = e.data as SwMessage | undefined;
     if (m && typeof m === "object" && m.type === "push") for (const fn of swListeners) fn(m);
   });
+  // A new deploy installs a new worker (skipWaiting + claim). The open app keeps running the old
+  // build until it reloads; like a native app it does that quietly the next time it is in the
+  // background (never under the owner's fingers), or at once when it is already hidden.
+  const hadController = !!navigator.serviceWorker.controller;
+  let updated = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController || updated) return;
+    updated = true;
+    if (document.visibilityState === "hidden") window.location.reload();
+    else document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && window.location.reload(), { once: true });
+  });
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch((error) => console.warn("service worker registration failed", error));
+    navigator.serviceWorker
+      .register("/sw.js", { scope: "/" })
+      .then((reg) => {
+        // Check for a newer build whenever the app comes back to the foreground.
+        document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && reg.update().catch(() => {}));
+      })
+      .catch((error) => console.warn("service worker registration failed", error));
   });
 }
 
