@@ -55,6 +55,14 @@ export function DeviceNotificationsSection({ Section, Row }: SettingsParts) {
     }
   }, [support]);
   useEffect(() => void refresh(), [refresh]);
+  // Coming back from Android's notification settings: read the permission and subscription again.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [refresh]);
 
   const enabled = !!device && permission === "granted";
   const configured = config.data?.enabled ?? true;
@@ -179,6 +187,13 @@ export function DeviceNotificationsSection({ Section, Row }: SettingsParts) {
           <Row label={t("push.enable")} hint={enableHint}>
             <Switch checked={enabled} onChange={(v) => void toggle(v)} label={t("push.enable")} disabled={busy || !canEnable || device === undefined} />
           </Row>
+          {!problem && permission === "denied" && canEnable && (
+            <div className="flex justify-end px-4 pb-3" data-testid="push-retry">
+              <Button variant="outline" size="sm" onClick={() => void toggle(true)} disabled={busy}>
+                <RotateCcw className="h-3.5 w-3.5" aria-hidden /> {t("push.retry")}
+              </Button>
+            </div>
+          )}
           {problem && (
             <div role="alert" className="mx-4 mb-3 flex flex-wrap items-start gap-2 rounded-xl border border-danger/25 bg-danger-soft px-3 py-2.5 text-[13px] leading-5 text-danger" data-testid="push-problem">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
