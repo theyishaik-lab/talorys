@@ -225,6 +225,10 @@ a {
   height: 100dvh;
 }
 
+/* A theme switch repaints once, not through 150 ms of per-element colour transitions. */
+/* biome-ignore lint/complexity/noImportantStyles: must win over every component transition for one frame */
+.theme-switching *, .theme-switching *::before, .theme-switching *::after { transition: none !important; }
+
 /* Press feedback, the way native buttons respond. */
 .pressable {
   transition: transform 150ms var(--ease-out-quart), background-color 150ms ease, color 150ms ease, opacity 150ms ease;

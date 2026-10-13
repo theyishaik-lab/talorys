@@ -35,10 +35,14 @@ export function applyTheme(pref: ThemePreference): void {
   }
   const root = document.documentElement;
   const set = () => {
+    // Switch in one frame like a native app: every element's colour transition would otherwise
+    // repaint the whole screen for 150 ms.
+    root.classList.add("theme-switching");
     root.classList.toggle("dark", pref === "dark");
     root.classList.toggle("light", pref === "light");
     root.dataset.theme = resolve(pref);
     syncThemeColor();
+    requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("theme-switching")));
   };
   set();
   media?.removeEventListener("change", set);

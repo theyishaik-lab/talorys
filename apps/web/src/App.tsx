@@ -27,12 +27,9 @@ function usePrefetchPages(enabled: boolean) {
     const run = () => {
       for (const load of Object.values(loaders)) void load().catch(() => {});
     };
-    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
-    if (w.requestIdleCallback) {
-      const id = w.requestIdleCallback(run, { timeout: 4000 });
-      return () => w.cancelIdleCallback?.(id);
-    }
-    const id = setTimeout(run, 2500);
+    // Well after the first screen has settled (a slow phone is still busy for a while after login).
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
+    const id = setTimeout(() => (w.requestIdleCallback ? w.requestIdleCallback(run, { timeout: 8000 }) : run()), 4000);
     return () => clearTimeout(id);
   }, [enabled]);
 }
