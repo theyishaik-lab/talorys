@@ -30,7 +30,7 @@ npx wrangler deploy --config deploy/agent.wrangler.jsonc
 - `deploy/agent.wrangler.jsonc` is the production config: same Worker name, Durable Object binding and
   class (`TalorysAgent`), migration tag `v1`, the `AI` binding and the `OPEN_CONNECTOR` service
   binding. A deploy keeps all data, the URL and every logged-in session.
-- Secrets (`OWNER_PASSWORD_HASH`, `SESSION_SECRET`, `OPEN_CONNECTOR_TOKEN`) live on the Worker and are
+- Secrets (`OWNER_PASSWORD_HASH`, `SESSION_SECRET`, `OPEN_CONNECTOR_TOKEN`, `OPEN_CONNECTOR_ADMIN_TOKEN`) live on the Worker and are
   untouched by a deploy. Set or replace one with `npx wrangler secret put NAME --config deploy/agent.wrangler.jsonc`.
 - **Never rename** the Durable Object binding or class and never add a DO migration — that would
   orphan the database. Schema changes go into `apps/agent/src/db/migrations.ts` (append-only); they run

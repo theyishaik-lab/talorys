@@ -91,4 +91,33 @@ OpenConnector's message ("Connect gmail with OAuth first").
 - Anything that sends, creates, edits or deletes needs Yishai's tap on **Approve** in the chat
   (`propose_action`); the result appears in the bell.
 - Automations (scheduled runs) can only read.
-- The agent cannot add connections itself today — that is the first roadmap item (ROADMAP.md).
+- Since Oct 13, 2026 the agent can **connect a new app from the chat** ("תחבר לי את Google Tasks" /
+  "connect Notion"): see "Connecting an app from the chat" below.
+
+## Connecting an app from the chat (agent self-connect)
+
+Tools `list_connectable_services` (which apps can be connected, Hebrew and English names, which are
+already connected) and `connect_service(service)` in `apps/agent/src/openconnector/connect.ts`.
+`connect_service` is a *destructive* tool, so it only proposes: a **connect card** appears in the chat
+and nothing happens until Yishai taps **אישור / Approve**.
+
+- **OAuth apps whose client is stored in OpenConnector** (today every Google service: Gmail, Calendar,
+  Drive, Docs, Sheets, Tasks): after Approve the agent Worker asks OpenConnector for a consent link
+  (`POST /api/oauth/authorizations`) and the card shows a **Sign in to …** button. Yishai taps it, consents
+  in the browser, comes back; the card polls `GET /api/connections/:service` and turns into "connected".
+  The link is refreshed every time the card is shown (`POST /api/actions/:id/link`) because
+  OpenConnector's OAuth state lives 15 minutes. New Google APIs (Docs, Sheets, Tasks…) must also be
+  enabled in the `talorys-connector` Cloud project or the first action answers 403.
+- **API-key / custom-credential apps** (Notion, Todoist, Linear, Trello, OpenAI, …): the card shows
+  the provider's secret fields (label, placeholder and hint come from the catalog). The typed value
+  goes in the body of `POST /api/actions/:id/approve` straight to `PUT /api/connections/:service` on
+  OpenConnector, which validates it against the provider. Talorys never stores, logs or echoes it,
+  and the model never sees it (the tool result only says a card was shown). A rejected key marks the
+  card failed with OpenConnector's reason; a new proposal is one message away.
+- **OAuth apps without a registered client** (Slack, Spotify, Dropbox, Outlook…): the tool answers
+  "needs a one-time setup" and the agent says so; nothing is attempted. Registering the provider app
+  and storing its client id/secret (`PUT /api/oauth/configs/:service`) is Tab's job.
+- The OpenConnector **admin token** is the Worker secret `OPEN_CONNECTOR_ADMIN_TOKEN`; only the
+  server-side commit after the approval (and the catalog lookups in `prepare`) use it. It is never in
+  a tool result or a prompt. Without the secret the two tools are not registered.
+- Card strings are Hebrew/English per the UI locale (`apps/web/src/components/ConnectCard.tsx`).

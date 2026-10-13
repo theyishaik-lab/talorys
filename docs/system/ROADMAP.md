@@ -20,9 +20,12 @@
 | 14 | **Android app untested on a real device by Tab** | — | Feedback from Yishai's phone |
 | 15 | **Public repos** | URLs and resource ids visible (no secrets) | Make repos private if preferred |
 
-## Next: the agent adds connections itself
+## Done Oct 13, 2026: the agent adds connections itself (CONNECTIONS.md "Connecting an app from the chat")
 
-Agreed with Yishai on Oct 13, 2026. Goal: "connect Notion" in the chat is enough.
+Agreed with Yishai on Oct 13, 2026. Goal: "connect Notion" in the chat is enough. Items 1–3 below are
+implemented (`feat/self-connect`); the key is typed on the card, never in the chat. Still open:
+item 4 (a Connections page), enabling the Docs/Sheets/Tasks APIs in the Cloud project, and
+registering OAuth apps for non-Google providers.
 
 1. **API-key services** (Notion, Todoist, Linear, OpenAI, …): a new tool `connect_service` asks Yishai
    for the key in the chat, then *proposes* the connection — the same Approve card as other changes.

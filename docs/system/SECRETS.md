@@ -24,12 +24,13 @@ you ever need one, ask Tab; it travels privately.
 | `OWNER_PASSWORD_HASH` | Worker secret | PBKDF2 hash of the owner password | Cloudflare (reset with `create-talorys reset-password`) |
 | `SESSION_SECRET` | Worker secret | Keys the session-token hashes; changing it signs out every device | Cloudflare |
 | `OPEN_CONNECTOR_TOKEN` | Worker secret | OpenConnector runtime token (same value as `OOMOL_CONNECT_RUNTIME_TOKEN`) | Cloudflare + Tab's secret store (`openconnector-secrets.json`, `runtime_token`) |
+| `OPEN_CONNECTOR_ADMIN_TOKEN` | Worker secret | OpenConnector admin token; only the server-side connect step uses it (CONNECTIONS.md) | Cloudflare + Tab's secret store (`openconnector-secrets.json`, `admin_token`) |
 | Owner password (plain) | — | What Yishai types to sign in. Changing it in the app (Settings → Security → Change password) signs out other devices; tell Tab so its copy stays right | Yishai + Tab's secret store (`talorys-secrets.json`) |
 | `AI` | binding | Workers AI | `deploy/agent.wrangler.jsonc` |
 | `TalorysAgent` | DO binding | the database | `deploy/agent.wrangler.jsonc` |
 | `OPEN_CONNECTOR` | service binding → `open-connector` | | `deploy/agent.wrangler.jsonc` |
 | `TALORYS_INSTALLATION_ID`, `TALORYS_DEPLOYED_VERSION`, `TALORYS_DEFAULT_TIMEZONE`, `TALORYS_AGENT_NAME` | vars | informational / first-run defaults | `deploy/agent.wrangler.jsonc` |
-| `OPEN_CONNECTOR_URL` | var (unused in production) | connector URL when no binding exists | — |
+| `OPEN_CONNECTOR_URL` | var | connector URL (production uses it: calls go over the public URL; the admin API needs it too) | `deploy/agent.wrangler.jsonc` |
 | `TALORYS_ENV`, `TALORYS_MOCK_AI`, `TALORYS_DEV_ORIGINS`, `OWNER_PASSWORD` | dev / one-Worker deploys only | never set in production | `apps/agent/.dev.vars` (git-ignored) |
 
 Session cookie name: `__Host-talorys_session` (30 days). CSRF header: `x-talorys-request: 1`.
