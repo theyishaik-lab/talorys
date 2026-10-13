@@ -5,29 +5,31 @@ import type { ChatMessage, Conversation, PendingAction, ToolActivity } from "@ta
 import {
   AlertTriangle,
   ArrowUp,
+  Bell,
+  Calendar,
   Check,
   CheckCircle2,
+  CheckSquare,
   Copy,
-  History,
+  Folder,
+  ListChecks,
   Loader2,
-  MoreHorizontal,
-  Pencil,
-  Plus,
+  Mail,
   RotateCcw,
-  Search,
-  ShieldAlert,
+  ShieldCheck,
+  Sparkle,
   Square,
-  Trash2,
+  SquarePen,
   XCircle,
 } from "lucide-react";
+import { BellButton, MenuButton, IconButton, TopBar } from "../components/AppShell";
 import { ChatUsage } from "../components/ChatUsage";
 import { ConnectCard } from "../components/ConnectCard";
 import { Markdown } from "../components/Markdown";
-import { Button, ConfirmDialog, Dialog, Input, Spinner } from "../components/ui";
-import { Logo } from "../components/Logo";
-import { keys, useApiMutation, useConversation, useConversations, useSettings } from "../hooks/queries";
+import { Button, Spinner } from "../components/ui";
+import { keys, useApiMutation, useAutomations, useConversation, useSettings, useTasks } from "../hooks/queries";
 import { api, ApiError, streamChat } from "../lib/api";
-import { cn, copyText, relativeTime } from "../lib/utils";
+import { cn, copyText } from "../lib/utils";
 import { type StringKey, useT } from "../lib/i18n";
 
 interface StreamState {
@@ -40,7 +42,12 @@ interface StreamState {
   done: boolean;
 }
 
-const SUGGESTIONS: StringKey[] = ["chat.suggestion1", "chat.suggestion2", "chat.suggestion3", "chat.suggestion4"];
+const TILES: { title: StringKey; sub: StringKey; prompt: StringKey; icon: typeof Mail }[] = [
+  { title: "home.tile1.title", sub: "home.tile1.sub", prompt: "home.tile1.prompt", icon: Mail },
+  { title: "home.tile2.title", sub: "home.tile2.sub", prompt: "home.tile2.prompt", icon: Calendar },
+  { title: "home.tile3.title", sub: "home.tile3.sub", prompt: "home.tile3.prompt", icon: ListChecks },
+  { title: "home.tile4.title", sub: "home.tile4.sub", prompt: "home.tile4.prompt", icon: Folder },
+];
 
 export function ChatPage() {
   const { conversationId } = useParams();
@@ -50,7 +57,6 @@ export function ChatPage() {
   const settings = useSettings();
   const conversation = useConversation(conversationId);
   const [stream, setStream] = useState<StreamState | null>(null);
-  const [historyOpen, setHistoryOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -160,295 +166,139 @@ export function ChatPage() {
   const showEmpty = !conversationId && !streamHere;
 
   return (
-    <div className="flex h-full">
-      <aside className="hidden w-72 shrink-0 flex-col border-e border-border lg:flex">
-        <ConversationList activeId={conversationId} onNavigate={() => {}} />
-      </aside>
+    <section className="flex h-full min-w-0 flex-col">
+      <ChatHeader conversation={conversation.data?.conversation} name={settings.data?.agentName ?? "Talorys"} onNew={() => navigate("/chat")} />
 
-      <section className="flex min-w-0 flex-1 flex-col">
-        <ChatHeader
-          conversation={conversation.data?.conversation}
-          onOpenHistory={() => setHistoryOpen(true)}
-          onNew={() => navigate("/chat")}
-        />
+      <div
+        ref={scrollRef}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        }}
+        className="scrollbar-thin min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      >
+        {showEmpty ? (
+          <EmptyChat name={settings.data?.agentName ?? "Talorys"} onPick={(s) => void send(s)} />
+        ) : conversation.isLoading && !streamHere ? (
+          <div className="flex justify-center py-16">
+            <Spinner />
+          </div>
+        ) : conversation.isError && !streamHere ? (
+          <div className="p-8 text-center text-sm text-fg-muted">{t("chat.loadFailed")}</div>
+        ) : (
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 pb-4 pt-2 md:px-6">
+            {messages.map((m) =>
+              stream && stream.assistantId === m.id ? null : (
+                <MessageView
+                  key={m.id}
+                  message={m}
+                  onRetry={lastFailed?.id === m.id && !streaming && !remoteStreaming ? () => void send("", { retry: true }) : undefined}
+                />
+              ),
+            )}
+            {streamHere && (
+              <>
+                {streamHere.userText && !messages.some((m) => m.role === "user" && m.content === streamHere.userText && streamHere.done) && (
+                  <UserBubble text={streamHere.userText} />
+                )}
+                <AssistantBubble
+                  text={streamHere.text}
+                  tools={streamHere.tools}
+                  error={streamHere.error}
+                  streaming={!streamHere.done}
+                  onRetry={streamHere.error && streamHere.done && conversationId ? () => void send("", { retry: true }) : undefined}
+                />
+              </>
+            )}
+            {remoteStreaming && <AssistantBubble text="" tools={[]} error={null} streaming />}
+          </div>
+        )}
+      </div>
 
-        <div
-          ref={scrollRef}
-          onScroll={(e) => {
-            const el = e.currentTarget;
-            stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-          }}
-          className="scrollbar-thin min-h-0 flex-1 overflow-y-auto"
-        >
-          {showEmpty ? (
-            <EmptyChat name={settings.data?.agentName ?? "Talorys"} onPick={(s) => void send(s)} />
-          ) : conversation.isLoading && !streamHere ? (
-            <div className="flex justify-center py-16">
-              <Spinner />
-            </div>
-          ) : conversation.isError && !streamHere ? (
-            <div className="p-8 text-center text-sm text-fg-muted">{t("chat.loadFailed")}</div>
-          ) : (
-            <div className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 md:px-6">
-              {messages.map((m) =>
-                stream && stream.assistantId === m.id ? null : (
-                  <MessageView
-                    key={m.id}
-                    message={m}
-                    onRetry={lastFailed?.id === m.id && !streaming && !remoteStreaming ? () => void send("", { retry: true }) : undefined}
-                  />
-                ),
-              )}
-              {streamHere && (
-                <>
-                  {streamHere.userText && !messages.some((m) => m.role === "user" && m.content === streamHere.userText && streamHere.done) && (
-                    <UserBubble text={streamHere.userText} />
-                  )}
-                  <AssistantBubble
-                    text={streamHere.text}
-                    tools={streamHere.tools}
-                    error={streamHere.error}
-                    streaming={!streamHere.done}
-                    onRetry={streamHere.error && streamHere.done && conversationId ? () => void send("", { retry: true }) : undefined}
-                  />
-                </>
-              )}
-              {remoteStreaming && <AssistantBubble text="" tools={[]} error={null} streaming />}
-            </div>
-          )}
-        </div>
-
-        <Composer name={settings.data?.agentName ?? "Talorys"} streaming={streaming || remoteStreaming} onSend={(text) => void send(text)} onStop={stop} autoFocus={showEmpty} />
-      </section>
-
-      <Dialog open={historyOpen} onClose={() => setHistoryOpen(false)} title={t("chat.conversations")}>
-        <div className="-mx-5 -my-4 h-[60vh]">
-          <ConversationList activeId={conversationId} onNavigate={() => setHistoryOpen(false)} />
-        </div>
-      </Dialog>
-    </div>
+      <Composer name={settings.data?.agentName ?? "Talorys"} streaming={streaming || remoteStreaming} onSend={(text) => void send(text)} onStop={stop} autoFocus={showEmpty} />
+    </section>
   );
 }
 
-function ChatHeader({
-  conversation,
-  onOpenHistory,
-  onNew,
-}: {
-  conversation?: Conversation;
-  onOpenHistory: () => void;
-  onNew: () => void;
-}) {
+function ChatHeader({ conversation, name, onNew }: { conversation?: Conversation; name: string; onNew: () => void }) {
   const t = useT();
   return (
-    <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-3 md:px-4">
-      <div className="flex min-w-0 items-center gap-1">
-        <button type="button" onClick={onOpenHistory} className="rounded-lg p-2 text-fg-muted hover:bg-muted lg:hidden" aria-label={t("chat.history")}>
-          <History className="h-[18px] w-[18px]" />
-        </button>
-        <h2 className="truncate text-sm font-medium text-fg" dir="auto">{conversation?.title ?? t("chat.newConversation")}</h2>
-      </div>
-      <div className="flex shrink-0 items-center gap-1">
-        <ChatUsage />
-        <Button variant="ghost" size="sm" onClick={onNew}>
-          <Plus className="h-4 w-4" />
-          <span className="hidden sm:inline">{t("chat.new")}</span>
-        </Button>
-      </div>
-    </div>
+    <TopBar
+      start={<MenuButton />}
+      title={
+        conversation ? (
+          <div className="flex flex-col items-center leading-tight">
+            <h2 className="w-full truncate text-[16px] font-semibold text-fg" dir="auto">
+              {conversation.title}
+            </h2>
+            <span className="text-xs text-fg-muted">{name}</span>
+          </div>
+        ) : (
+          <span className="text-[15px] font-semibold uppercase tracking-[0.14em]">{name}</span>
+        )
+      }
+      end={
+        <>
+          <ChatUsage />
+          <BellButton />
+          <IconButton onClick={onNew} label={t("chat.newConversation")}>
+            <SquarePen className="h-5 w-5" />
+          </IconButton>
+        </>
+      }
+    />
   );
 }
 
+/** Home: greeting, what today looks like, and four things to try — above the composer. */
 function EmptyChat({ name, onPick }: { name: string; onPick: (s: string) => void }) {
-  const recent = useConversations();
-  const navigate = useNavigate();
   const t = useT();
+  const tasks = useTasks();
+  const automations = useAutomations();
   const greeting = (() => {
     const h = new Date().getHours();
     return t(h < 12 ? "chat.goodMorning" : h < 18 ? "chat.goodAfternoon" : "chat.goodEvening");
   })();
+  const openTasks = tasks.data?.filter((x) => x.status !== "done").length;
+  const activeAutomations = automations.data?.automations.filter((a) => a.enabled).length;
+  const chips: { icon: typeof Mail; text: string }[] = [];
+  if (openTasks !== undefined) chips.push({ icon: CheckSquare, text: openTasks ? t("home.openTasks", { n: openTasks }) : t("home.noOpenTasks") });
+  if (activeAutomations) chips.push({ icon: Bell, text: t("home.automations", { n: activeAutomations }) });
+
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col justify-center px-5 py-10 animate-fade-in">
-      <div className="flex items-center gap-3 text-fg-muted">
-        <Logo className="h-8 w-8" />
-        <span className="text-sm font-medium">{name}</span>
+    <div className="mx-auto flex min-h-full w-full max-w-2xl flex-col px-6 pb-4 animate-fade-in">
+      <div className="pt-12 md:pt-20">
+        <div className="mb-5 grid h-11 w-11 place-items-center rounded-[14px] bg-fg text-bg" aria-hidden>
+          <Sparkle className="h-[22px] w-[22px]" />
+        </div>
+        <h1 className="text-[30px] font-semibold leading-tight tracking-[-0.01em] text-fg md:text-4xl">{greeting}</h1>
+        <p className="mt-1.5 text-[17px] text-fg-muted">{t("chat.prompt")}</p>
+        {chips.length > 0 && (
+          <div className="mt-6 flex flex-wrap gap-2">
+            {chips.map((c) => (
+              <span key={c.text} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-subtle px-2.5 py-1 text-[13px] text-fg-muted">
+                <c.icon className="h-3.5 w-3.5" />
+                {c.text}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
-      <h1 className="mt-6 text-3xl font-semibold tracking-tight text-fg md:text-4xl">{greeting}.</h1>
-      <p className="mt-2 text-lg text-fg-muted">{t("chat.prompt")}</p>
-      <div className="mt-8 grid gap-2 sm:grid-cols-2">
-        {SUGGESTIONS.map((s) => (
-          <button type="button"
-            key={s}
-            onClick={() => onPick(t(s))}
-            className="rounded-xl border border-border bg-surface px-4 py-3 text-start text-sm text-fg-muted transition-colors hover:border-border-strong hover:text-fg"
+      <div className="mt-auto grid grid-cols-2 gap-2 pt-10">
+        {TILES.map((tile) => (
+          <button
+            type="button"
+            key={tile.title}
+            onClick={() => onPick(t(tile.prompt))}
+            className="pressable min-h-[76px] rounded-xl border border-border bg-subtle px-3.5 py-3 text-start hover:border-border-strong"
           >
-            {t(s)}
+            <tile.icon className="mb-2 h-[18px] w-[18px] text-fg-muted" />
+            <span className="block text-sm font-medium leading-[1.35] text-fg">{t(tile.title)}</span>
+            <span className="mt-0.5 block text-[12.5px] text-fg-muted">{t(tile.sub)}</span>
           </button>
         ))}
       </div>
-      {!!recent.data?.length && (
-        <div className="mt-10">
-          <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">{t("chat.recent")}</h3>
-          <ul className="space-y-0.5">
-            {recent.data.slice(0, 4).map((c) => (
-              <li key={c.id}>
-                <button type="button"
-                  onClick={() => navigate(`/chat/${c.id}`)}
-                  className="flex w-full items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-start text-sm text-fg-muted hover:bg-muted hover:text-fg"
-                >
-                  <span className="truncate" dir="auto">{c.title}</span>
-                  <span className="shrink-0 text-xs text-fg-subtle">{relativeTime(c.updated_at)}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ConversationList({ activeId, onNavigate }: { activeId?: string; onNavigate: () => void }) {
-  const [q, setQ] = useState("");
-  const [debounced, setDebounced] = useState("");
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(q.trim()), 250);
-    return () => clearTimeout(t);
-  }, [q]);
-  const list = useConversations(debounced || undefined);
-  const navigate = useNavigate();
-  const t = useT();
-  const [renaming, setRenaming] = useState<Conversation | null>(null);
-  const [deleting, setDeleting] = useState<Conversation | null>(null);
-  const [menu, setMenu] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
-
-  const rename = useApiMutation(
-    (v: { id: string; title: string }) => api(`/conversations/${v.id}`, { method: "PATCH", body: { title: v.title } }),
-    { invalidate: [["conversations"], ["conversation"]], onSuccess: () => setRenaming(null) },
-  );
-  const remove = useApiMutation((id: string) => api(`/conversations/${id}`, { method: "DELETE" }), {
-    invalidate: [["conversations"]],
-    success: t("chat.deleted"),
-    onSuccess: (_r, id) => {
-      setDeleting(null);
-      if (id === activeId) navigate("/chat");
-    },
-  });
-
-  return (
-    <div className="flex h-full flex-col">
-      <div className="space-y-2 p-3">
-        <Button
-          variant="outline"
-          className="w-full justify-start"
-          onClick={() => {
-            navigate("/chat");
-            onNavigate();
-          }}
-        >
-          <Plus className="h-4 w-4" /> {t("chat.newConversation")}
-        </Button>
-        <div className="relative">
-          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("chat.searchHistory")} className="h-9 ps-9 text-sm" aria-label={t("chat.searchConversations")} dir="auto" />
-        </div>
-      </div>
-      <nav className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-2 pb-3" aria-label={t("chat.conversations")}>
-        {list.isLoading ? (
-          <div className="flex justify-center py-6">
-            <Spinner />
-          </div>
-        ) : !list.data?.length ? (
-          <p className="px-3 py-6 text-center text-sm text-fg-subtle">{debounced ? t("chat.noMatches") : t("chat.noConversations")}</p>
-        ) : (
-          <ul className="space-y-0.5">
-            {list.data.map((c) => (
-              <li key={c.id} className="group relative">
-                <button type="button"
-                  onClick={() => {
-                    navigate(`/chat/${c.id}`);
-                    onNavigate();
-                  }}
-                  className={cn(
-                    "flex w-full flex-col rounded-lg px-3 py-2 pe-9 text-start transition-colors",
-                    c.id === activeId ? "bg-muted text-fg" : "text-fg-muted hover:bg-muted/60 hover:text-fg",
-                  )}
-                >
-                  <span className="truncate text-sm" dir="auto">{c.title}</span>
-                  <span className="text-xs text-fg-subtle">{relativeTime(c.updated_at)}</span>
-                </button>
-                <button type="button"
-                  onClick={() => setMenu(menu === c.id ? null : c.id)}
-                  className="absolute end-1.5 top-2 rounded-md p-1 text-fg-subtle opacity-100 hover:bg-border hover:text-fg md:opacity-0 md:group-hover:opacity-100 md:focus:opacity-100"
-                  aria-label={t("chat.optionsFor", { title: c.title })}
-                >
-                  <MoreHorizontal className="h-4 w-4" />
-                </button>
-                {menu === c.id && (
-                  <div className="absolute end-1 top-9 z-10 w-36 rounded-lg border border-border bg-surface py-1 shadow-lg animate-fade-in" onMouseLeave={() => setMenu(null)}>
-                    <button type="button"
-                      className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-muted"
-                      onClick={() => {
-                        setTitle(c.title);
-                        setRenaming(c);
-                        setMenu(null);
-                      }}
-                    >
-                      <Pencil className="h-3.5 w-3.5" /> {t("common.rename")}
-                    </button>
-                    <button type="button"
-                      className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-danger hover:bg-danger-soft"
-                      onClick={() => {
-                        setDeleting(c);
-                        setMenu(null);
-                      }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" /> {t("common.delete")}
-                    </button>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </nav>
-
-      <Dialog
-        open={!!renaming}
-        onClose={() => setRenaming(null)}
-        title={t("chat.renameTitle")}
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setRenaming(null)}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              onClick={() => renaming && title.trim() && rename.mutate({ id: renaming.id, title: title.trim() })}
-              loading={rename.isPending}
-            >
-              {t("common.save")}
-            </Button>
-          </>
-        }
-      >
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (renaming && title.trim()) rename.mutate({ id: renaming.id, title: title.trim() });
-          }}
-        >
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} autoFocus aria-label={t("chat.title")} dir="auto" />
-        </form>
-      </Dialog>
-      <ConfirmDialog
-        open={!!deleting}
-        title={t("chat.deleteTitle")}
-        message={t("chat.deleteMessage", { title: deleting?.title ?? "" })}
-        onCancel={() => setDeleting(null)}
-        onConfirm={() => deleting && remove.mutate(deleting.id)}
-        loading={remove.isPending}
-      />
+      <p className="mt-2 hidden text-center text-[11px] text-fg-subtle md:block">{t("chat.footer", { name })}</p>
     </div>
   );
 }
@@ -470,7 +320,9 @@ function MessageView({ message, onRetry }: { message: ChatMessage; onRetry?: () 
 function UserBubble({ text }: { text: string }) {
   return (
     <div className="flex justify-end animate-fade-in">
-      <div dir="auto" className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-ee-md bg-muted px-4 py-2.5 text-[15px] leading-6 text-fg">{text}</div>
+      <div dir="auto" className="max-w-[80%] whitespace-pre-wrap break-words rounded-[20px] rounded-ee-md bg-bubble-user px-3.5 py-2.5 text-[15px] leading-6 text-bubble-user-fg">
+        {text}
+      </div>
     </div>
   );
 }
@@ -480,18 +332,20 @@ function ToolChip({ tool }: { tool: ToolActivity }) {
     <span
       title={tool.error}
       className={cn(
-        "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs",
+        "inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 text-[13px]",
         tool.status === "error" ? "border-danger/30 bg-danger-soft text-danger" : "border-border bg-subtle text-fg-muted",
       )}
     >
       {tool.status === "running" ? (
-        <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
       ) : tool.status === "success" ? (
-        <CheckCircle2 className="h-3 w-3 shrink-0 text-success" />
+        <Check className="h-3.5 w-3.5 shrink-0 text-success" />
       ) : (
-        <XCircle className="h-3 w-3 shrink-0" />
+        <XCircle className="h-3.5 w-3.5 shrink-0" />
       )}
-      <span className="truncate" dir="auto">{tool.label}</span>
+      <span className="truncate" dir="auto">
+        {tool.label}
+      </span>
     </span>
   );
 }
@@ -530,34 +384,42 @@ function PlainApprovalCard({ action: initial }: { action: PendingAction }) {
 
   if (status !== "pending") {
     return (
-      <div className="flex items-start gap-2 rounded-lg border border-border bg-subtle px-3 py-2 text-sm text-fg-muted">
+      <div className="flex items-start gap-2 rounded-xl border border-border bg-subtle px-3 py-2 text-sm text-fg-muted">
         {status === "approved" ? (
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
         ) : (
           <XCircle className={cn("mt-0.5 h-4 w-4 shrink-0", status === "failed" && "text-danger")} />
         )}
         <span className="min-w-0 break-words">
-          <span className="text-fg" dir="auto">{action.summary}</span> · {t(APPROVAL_DONE[status])}
+          <span className="text-fg" dir="auto">
+            {action.summary}
+          </span>{" "}
+          · {t(APPROVAL_DONE[status])}
           {status === "failed" && action.error ? `: ${action.error}` : ""}
         </span>
       </div>
     );
   }
   return (
-    <div role="group" aria-label={t("chat.approvalNeeded")} className="rounded-lg border border-warning/40 bg-surface px-3 py-2.5 shadow-sm">
-      <div className="flex items-start gap-2 text-sm">
-        <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-        <div className="min-w-0">
-          <p className="break-words font-medium text-fg" dir="auto">{action.summary}?</p>
-          <p className="text-xs text-fg-muted">{t("chat.approvalHint")}</p>
+    <div role="group" aria-label={t("chat.approvalNeeded")} className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
+      <div className="flex items-start gap-3 px-4 pb-3 pt-3.5">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-accent-soft text-accent-text" aria-hidden>
+          <ShieldCheck className="h-5 w-5" />
         </div>
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-[15px] font-semibold leading-snug text-fg" dir="auto">
+            {action.summary}
+          </p>
+          <p className="mt-0.5 text-[12.5px] text-fg-muted">{t("chat.approvalHint")}</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-warning/12 px-2 py-0.5 text-[11.5px] font-semibold text-warning">{t("chat.awaiting")}</span>
       </div>
-      <div className="mt-2.5 flex justify-end gap-2">
-        <Button size="sm" variant="ghost" disabled={decide.isPending} onClick={() => decide.mutate("cancel")}>
-          {t("chat.decline")}
+      <div className="flex gap-2 px-4 pb-3.5">
+        <Button className="flex-1 justify-center" loading={decide.isPending && decide.variables === "approve"} disabled={decide.isPending} onClick={() => decide.mutate("approve")}>
+          <Check className="h-4 w-4" /> {t("chat.approve")}
         </Button>
-        <Button size="sm" variant="danger" loading={decide.isPending && decide.variables === "approve"} disabled={decide.isPending} onClick={() => decide.mutate("approve")}>
-          {t("chat.approve")}
+        <Button variant="secondary" className="flex-1 justify-center" disabled={decide.isPending} onClick={() => decide.mutate("cancel")}>
+          {t("chat.decline")}
         </Button>
       </div>
     </div>
@@ -582,56 +444,57 @@ function AssistantBubble({
   const [copied, setCopied] = useState(false);
   const t = useT();
   return (
-    <div className="group flex gap-3 animate-fade-in">
-      <Logo className="mt-0.5 h-6 w-6 shrink-0" />
-      <div className="min-w-0 flex-1 space-y-2.5">
-        {tools.length > 0 && (
-          <div role="group" className="flex flex-wrap gap-1.5" aria-label={t("chat.actionsTaken")}>
-            {tools.map((t) => (
-              <ToolChip key={t.id} tool={t} />
-            ))}
-          </div>
-        )}
-        {tools.map((t) => t.approval && <ApprovalCard key={t.approval.id} action={t.approval} />)}
-        {text ? (
-          <Markdown content={text} />
-        ) : streaming && tools.every((t) => t.status !== "running") ? (
-          <div role="status" className="flex h-7 items-center gap-1" aria-label={t("chat.thinking")}>
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-fg-subtle" />
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-fg-subtle [animation-delay:150ms]" />
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-fg-subtle [animation-delay:300ms]" />
-          </div>
-        ) : null}
-        {cancelled && <p className="text-xs text-fg-subtle">{t("chat.stopped")}</p>}
-        {error && (
-          <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-danger/25 bg-danger-soft px-3 py-2 text-sm text-danger">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            <span className="flex-1" dir="auto">{error}</span>
-            {onRetry && (
-              <button type="button" onClick={onRetry} className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline">
-                <RotateCcw className="h-3.5 w-3.5" /> {t("common.retry")}
-              </button>
-            )}
-          </div>
-        )}
-        {!streaming && text && (
-          <div className="flex gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
-            <button type="button"
-              onClick={() =>
-                void copyText(text).then(() => {
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 1500);
-                })
-              }
-              className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-fg-subtle hover:bg-muted hover:text-fg"
-              aria-label={t("chat.copyResponse")}
-            >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              {copied ? t("common.copied") : t("common.copy")}
+    <div className="group flex min-w-0 flex-col gap-2.5 animate-fade-in">
+      {tools.length > 0 && (
+        <div role="group" className="flex flex-wrap gap-1.5" aria-label={t("chat.actionsTaken")}>
+          {tools.map((tool) => (
+            <ToolChip key={tool.id} tool={tool} />
+          ))}
+        </div>
+      )}
+      {text ? (
+        <Markdown content={text} />
+      ) : streaming && tools.every((tool) => tool.status !== "running") ? (
+        <div role="status" className="flex h-7 items-center gap-1" aria-label={t("chat.thinking")}>
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-fg-subtle" />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-fg-subtle [animation-delay:150ms]" />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-fg-subtle [animation-delay:300ms]" />
+        </div>
+      ) : null}
+      {tools.map((tool) => tool.approval && <ApprovalCard key={tool.approval.id} action={tool.approval} />)}
+      {cancelled && <p className="text-xs text-fg-subtle">{t("chat.stopped")}</p>}
+      {error && (
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-danger/25 bg-danger-soft px-3 py-2 text-sm text-danger">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="flex-1" dir="auto">
+            {error}
+          </span>
+          {onRetry && (
+            <button type="button" onClick={onRetry} className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline">
+              <RotateCcw className="h-3.5 w-3.5" /> {t("common.retry")}
             </button>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
+      {!streaming && text && (
+        <div className="-mt-1.5 flex gap-1 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
+          <button
+            type="button"
+            onClick={() =>
+              void copyText(text).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              })
+            }
+            className="pressable inline-flex items-center gap-1 rounded-md p-1.5 text-xs text-fg-subtle hover:bg-subtle hover:text-fg"
+            aria-label={t("chat.copyResponse")}
+            title={t("common.copy")}
+          >
+            {copied ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+            {copied && t("common.copied")}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -661,8 +524,8 @@ function Composer({ name, streaming, onSend, onStop, autoFocus }: { name: string
   }
 
   return (
-    <div className="shrink-0 border-t border-border bg-bg px-3 pb-[calc(env(safe-area-inset-bottom)+4.5rem)] pt-3 md:px-6 md:pb-5">
-      <div className="mx-auto flex w-full max-w-3xl items-end gap-2 rounded-2xl border border-border bg-surface p-2 shadow-sm focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/15">
+    <div className="shrink-0 bg-bg px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 md:px-6 md:pb-5">
+      <div className="mx-auto flex w-full max-w-3xl items-end gap-1.5 rounded-3xl border border-border bg-subtle p-1.5 transition-colors focus-within:border-border-strong">
         <textarea
           ref={ref}
           rows={1}
@@ -674,21 +537,24 @@ function Composer({ name, streaming, onSend, onStop, autoFocus }: { name: string
           placeholder={t("chat.placeholder", { name })}
           aria-label={t("chat.message")}
           dir="auto"
-          className="max-h-[200px] min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-[15px] leading-6 placeholder:text-fg-subtle focus:outline-none"
+          className="max-h-[200px] min-h-[36px] flex-1 resize-none bg-transparent px-3 py-[7px] text-[15px] leading-[22px] placeholder:text-fg-subtle focus:outline-none"
         />
         {streaming ? (
-          <Button variant="secondary" size="icon" onClick={onStop} aria-label={t("chat.stop")} className="rounded-xl">
+          <button type="button" onClick={onStop} aria-label={t("chat.stop")} className="pressable grid h-9 w-9 shrink-0 place-items-center rounded-full bg-fg text-bg">
             <Square className="h-3.5 w-3.5 fill-current" />
-          </Button>
+          </button>
         ) : (
-          <Button size="icon" onClick={submit} disabled={!value.trim()} aria-label={t("chat.send")} className="rounded-xl">
-            <ArrowUp className="h-4 w-4" />
-          </Button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!value.trim()}
+            aria-label={t("chat.send")}
+            className="pressable grid h-9 w-9 shrink-0 place-items-center rounded-full bg-fg text-bg disabled:bg-muted disabled:text-fg-subtle"
+          >
+            <ArrowUp className="h-[18px] w-[18px]" strokeWidth={2.2} />
+          </button>
         )}
       </div>
-      <p className="mx-auto mt-2 hidden max-w-3xl text-center text-[11px] text-fg-subtle md:block">
-        {t("chat.footer", { name })}
-      </p>
     </div>
   );
 }

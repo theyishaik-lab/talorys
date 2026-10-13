@@ -18,16 +18,16 @@ type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline";
 type Size = "sm" | "md" | "icon";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-accent text-accent-fg hover:opacity-90 shadow-sm",
+  primary: "bg-accent text-accent-fg hover:opacity-90",
   secondary: "bg-muted text-fg hover:bg-border",
-  ghost: "text-fg-muted hover:bg-muted hover:text-fg",
+  ghost: "text-fg-muted hover:bg-subtle hover:text-fg",
   outline: "border border-border bg-surface text-fg hover:bg-subtle",
   danger: "bg-danger text-white hover:opacity-90",
 };
 const sizes: Record<Size, string> = {
-  sm: "h-8 px-3 text-sm gap-1.5",
-  md: "h-10 px-4 text-sm gap-2",
-  icon: "h-9 w-9 justify-center",
+  sm: "h-9 px-3.5 text-sm gap-1.5",
+  md: "h-11 px-4 text-[15px] gap-2",
+  icon: "h-10 w-10 justify-center",
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -46,7 +46,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type={type}
       disabled={disabled || loading}
       className={cn(
-        "inline-flex shrink-0 items-center rounded-lg font-medium transition-colors disabled:pointer-events-none disabled:opacity-50",
+        "pressable inline-flex shrink-0 items-center rounded-xl font-semibold disabled:pointer-events-none disabled:opacity-50",
         variants[variant],
         sizes[size],
         className,
@@ -60,10 +60,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 });
 
 const field =
-  "w-full rounded-lg border border-border bg-surface px-3 text-[15px] text-fg placeholder:text-fg-subtle transition-colors focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-60";
+  "w-full rounded-xl border border-border bg-subtle px-3.5 text-[15px] text-fg placeholder:text-fg-subtle transition-colors focus:border-accent focus:bg-surface focus:outline-none focus:ring-2 focus:ring-accent/20 disabled:opacity-60";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...props }, ref) {
-  return <input ref={ref} className={cn(field, "h-10", className)} {...props} />;
+  return <input ref={ref} className={cn(field, "h-11", className)} {...props} />;
 });
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea(
@@ -78,7 +78,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
   ref,
 ) {
   return (
-    <select ref={ref} className={cn(field, "h-10 pe-8", className)} {...props}>
+    <select ref={ref} className={cn(field, "h-11 pe-8", className)} {...props}>
       {children}
     </select>
   );
@@ -101,7 +101,7 @@ export function Badge({ children, tone = "neutral", className }: { children: Rea
     warning: "bg-warning/15 text-warning",
     success: "bg-success/15 text-success",
   };
-  return <span className={cn("inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium", tones[tone], className)}>{children}</span>;
+  return <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold", tones[tone], className)}>{children}</span>;
 }
 
 export function Spinner({ className }: { className?: string }) {
@@ -124,7 +124,8 @@ export function PageHeader({ title, description, actions }: { title: string; des
   return (
     <div className="flex flex-wrap items-end justify-between gap-4 pb-6">
       <div className="min-w-0">
-        <h1 className="text-2xl font-semibold tracking-tight text-fg">{title}</h1>
+        {/* On phones the shell's top bar already carries the page title. */}
+        <h1 className="hidden text-[28px] font-semibold leading-tight tracking-[-0.01em] text-fg lg:block">{title}</h1>
         {description && <p className="mt-1 text-sm text-fg-muted">{description}</p>}
       </div>
       {actions && <div className="flex items-center gap-2">{actions}</div>}
@@ -186,20 +187,26 @@ export function Dialog({
         if (e.target === ref.current) onClose();
       }}
       className={cn(
-        "m-auto w-[calc(100%-2rem)] rounded-xl border border-border bg-surface p-0 text-fg shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-[2px]",
-        wide ? "max-w-2xl" : "max-w-md",
+        // A bottom sheet on phones, a centered card from the tablet width up.
+        "fixed inset-x-0 bottom-0 top-auto m-0 w-full max-w-none rounded-t-3xl border-0 bg-surface p-0 text-fg shadow-card backdrop:bg-[var(--scrim)] sm:inset-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[calc(100%-2rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-3xl sm:border sm:border-border",
+        wide ? "sm:max-w-2xl" : "sm:max-w-md",
       )}
     >
       {open && (
-        <div className="animate-slide-up">
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <h2 className="text-base font-semibold">{title}</h2>
-            <button type="button" onClick={onClose} className="rounded-md p-1 text-fg-subtle hover:bg-muted hover:text-fg" aria-label={t("common.close")}>
+        <div className="animate-sheet-up sm:animate-slide-up">
+          <div className="mx-auto mt-2 h-1 w-9 rounded-full bg-border-strong sm:hidden" aria-hidden />
+          <div className="flex items-center justify-between px-5 pb-2 pt-3 sm:pt-4">
+            <h2 className="text-[17px] font-semibold">{title}</h2>
+            <button type="button" onClick={onClose} className="pressable rounded-full bg-subtle p-1.5 text-fg-muted hover:text-fg" aria-label={t("common.close")}>
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="max-h-[70vh] overflow-y-auto px-5 py-4">{children}</div>
-          {footer && <div className="flex justify-end gap-2 border-t border-border px-5 py-3">{footer}</div>}
+          <div className="max-h-[70dvh] overflow-y-auto px-5 py-3">{children}</div>
+          {footer ? (
+            <div className="flex justify-end gap-2 px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2 sm:pb-4">{footer}</div>
+          ) : (
+            <div className="h-[max(0.75rem,env(safe-area-inset-bottom))] sm:h-2" />
+          )}
         </div>
       )}
     </dialog>
@@ -255,15 +262,15 @@ export function Switch({ checked, onChange, label, disabled }: { checked: boolea
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={cn(
-        "relative inline-flex h-6 w-10 shrink-0 items-center rounded-full transition-colors disabled:opacity-50",
-        checked ? "bg-accent" : "bg-border-strong",
+        "relative inline-flex h-[26px] w-11 shrink-0 items-center rounded-full transition-colors duration-200 disabled:opacity-50",
+        checked ? "bg-success" : "bg-border-strong",
       )}
     >
-      <span className={cn("inline-block h-5 w-5 rounded-full bg-white shadow transition-transform", checked ? "translate-x-[18px] rtl:-translate-x-[18px]" : "translate-x-0.5 rtl:-translate-x-0.5")} />
+      <span className={cn("inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-200", checked ? "translate-x-[21px] rtl:-translate-x-[21px]" : "translate-x-[3px] rtl:-translate-x-[3px]")} />
     </button>
   );
 }
 
 export function Card({ children, className }: { children: ReactNode; className?: string }) {
-  return <section className={cn("rounded-xl border border-border bg-surface", className)}>{children}</section>;
+  return <section className={cn("rounded-2xl border border-border bg-surface", className)}>{children}</section>;
 }

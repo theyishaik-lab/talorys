@@ -1,31 +1,47 @@
 @import "tailwindcss";
+@import "@fontsource-variable/inter/index.css";
+@import "@fontsource-variable/heebo/index.css";
 
-@custom-variant dark (&:where(.dark, .dark *));
+/* Forced dark (.dark on <html>) or, with no explicit class, the device preference. */
+@custom-variant dark {
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not(.light), :root:not(.light) *) {
+      @slot;
+    }
+  }
+}
 
 /*
- * Talorys design tokens. Neutral foundation with a calm teal brand accent.
- * Semantic colors are CSS variables so light/dark modes swap in one place.
+ * Design tokens (redesign, Oct 2026). One calm neutral surface, one accent.
+ * Inter for Latin, Heebo for Hebrew (same stack, the browser picks per glyph).
+ * Every semantic color is a CSS variable so light/dark swap in one place;
+ * the accent is a placeholder indigo until the brand is chosen.
  */
 @theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Inter Variable", "Heebo Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
-  --color-brand-50: oklch(0.98 0.02 185);
-  --color-brand-100: oklch(0.95 0.05 185);
-  --color-brand-200: oklch(0.9 0.08 185);
-  --color-brand-300: oklch(0.83 0.11 185);
-  --color-brand-400: oklch(0.75 0.13 185);
-  --color-brand-500: oklch(0.65 0.12 185);
-  --color-brand-600: oklch(0.55 0.1 185);
-  --color-brand-700: oklch(0.47 0.085 185);
-  --color-brand-800: oklch(0.39 0.07 185);
-  --color-brand-900: oklch(0.32 0.055 185);
+  /* Brand scale kept for compatibility (Logo); indigo placeholder. */
+  --color-brand-50: #f3f2ff;
+  --color-brand-100: #eeedfd;
+  --color-brand-200: #d4d2ff;
+  --color-brand-300: #b5b2ff;
+  --color-brand-400: #8f8cff;
+  --color-brand-500: #6f6bf0;
+  --color-brand-600: #5a55e8;
+  --color-brand-700: #4c47e0;
+  --color-brand-800: #4038d4;
+  --color-brand-900: #3029a8;
 
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-subtle: var(--subtle);
   --color-muted: var(--muted);
   --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
   --color-fg-muted: var(--fg-muted);
   --color-fg-subtle: var(--fg-subtle);
   --color-border: var(--border);
@@ -33,13 +49,30 @@
   --color-accent: var(--accent);
   --color-accent-fg: var(--accent-fg);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-warning: var(--warning);
   --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-bubble-user: var(--bubble-user);
+  --color-bubble-user-fg: var(--bubble-user-fg);
 
+  /* 4-pt grid radii: 10 / 14 / 20 / 28 */
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
+  --radius-3xl: 28px;
+
+  --shadow-card: var(--shadow);
+  --shadow-sm: var(--shadow-sm);
+
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --animate-fade-in: fade-in 160ms ease-out;
-  --animate-slide-up: slide-up 180ms ease-out;
+  --animate-slide-up: slide-up 220ms var(--ease-out-quart);
+  --animate-sheet-up: sheet-up 260ms var(--ease-out-quart);
+  --animate-drawer-in: drawer-in 240ms var(--ease-out-quart);
 }
 
 @keyframes fade-in {
@@ -50,43 +83,102 @@
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes drawer-in {
+  from { transform: translateX(var(--drawer-from)); }
+  to { transform: translateX(0); }
+}
 
 :root {
-  --bg: oklch(0.99 0.002 240);
-  --surface: oklch(1 0 0);
-  --subtle: oklch(0.975 0.003 240);
-  --muted: oklch(0.955 0.004 240);
-  --fg: oklch(0.21 0.01 250);
-  --fg-muted: oklch(0.45 0.012 250);
-  --fg-subtle: oklch(0.6 0.01 250);
-  --border: oklch(0.92 0.004 250);
-  --border-strong: oklch(0.86 0.006 250);
-  --accent: var(--color-brand-700);
-  --accent-fg: oklch(0.99 0.01 185);
-  --accent-soft: var(--color-brand-50);
-  --danger: oklch(0.55 0.19 25);
-  --danger-soft: oklch(0.97 0.02 25);
-  --warning: oklch(0.7 0.14 70);
-  --success: oklch(0.58 0.13 155);
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --subtle: #f5f5f7;
+  --muted: #ececef;
+  --fg: #0e0e12;
+  --fg-2: #3c3c44;
+  --fg-muted: #71717c;
+  --fg-subtle: #a1a1aa;
+  --border: #e6e6ea;
+  --border-strong: #d4d4da;
+  --accent: #4c47e0;
+  --accent-fg: #ffffff;
+  --accent-soft: #eeedfd;
+  --accent-text: #4038d4;
+  --success: #15803d;
+  --success-soft: #e7f6ec;
+  --warning: #b45309;
+  --danger: #dc2626;
+  --danger-soft: #fdecec;
+  --bubble-user: #0e0e12;
+  --bubble-user-fg: #ffffff;
+  --scrim: rgba(10, 10, 14, 0.32);
+  --shadow: 0 1px 2px rgba(16, 16, 24, 0.06), 0 8px 24px rgba(16, 16, 24, 0.08);
+  --shadow-sm: 0 1px 2px rgba(16, 16, 24, 0.06);
+  --seg-on: #ffffff;
   color-scheme: light;
 }
 
 .dark {
-  --bg: oklch(0.17 0.006 250);
-  --surface: oklch(0.205 0.007 250);
-  --subtle: oklch(0.225 0.008 250);
-  --muted: oklch(0.26 0.009 250);
-  --fg: oklch(0.95 0.004 250);
-  --fg-muted: oklch(0.75 0.008 250);
-  --fg-subtle: oklch(0.6 0.01 250);
-  --border: oklch(0.29 0.009 250);
-  --border-strong: oklch(0.36 0.01 250);
-  --accent: var(--color-brand-400);
-  --accent-fg: oklch(0.18 0.03 185);
-  --accent-soft: oklch(0.27 0.04 185);
-  --danger: oklch(0.68 0.17 25);
-  --danger-soft: oklch(0.28 0.05 25);
+  --bg: #0b0b0e;
+  --surface: #18181d;
+  --subtle: #16161a;
+  --muted: #1f1f25;
+  --fg: #f2f2f4;
+  --fg-2: #c9c9d1;
+  --fg-muted: #8e8e99;
+  --fg-subtle: #5e5e68;
+  --border: #26262d;
+  --border-strong: #34343c;
+  --accent: #8f8cff;
+  --accent-fg: #0b0b0e;
+  --accent-soft: #1e1d3a;
+  --accent-text: #aba9ff;
+  --success: #4ade80;
+  --success-soft: #11281a;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --danger-soft: #2a1414;
+  --bubble-user: #26262e;
+  --bubble-user-fg: #f2f2f4;
+  --scrim: rgba(0, 0, 0, 0.55);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.45);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --seg-on: #2e2e36;
   color-scheme: dark;
+}
+/* Same values as .dark, for "auto" before any script runs (no flash on first paint). */
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+  --bg: #0b0b0e;
+  --surface: #18181d;
+  --subtle: #16161a;
+  --muted: #1f1f25;
+  --fg: #f2f2f4;
+  --fg-2: #c9c9d1;
+  --fg-muted: #8e8e99;
+  --fg-subtle: #5e5e68;
+  --border: #26262d;
+  --border-strong: #34343c;
+  --accent: #8f8cff;
+  --accent-fg: #0b0b0e;
+  --accent-soft: #1e1d3a;
+  --accent-text: #aba9ff;
+  --success: #4ade80;
+  --success-soft: #11281a;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --danger-soft: #2a1414;
+  --bubble-user: #26262e;
+  --bubble-user-fg: #f2f2f4;
+  --scrim: rgba(0, 0, 0, 0.55);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.45);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --seg-on: #2e2e36;
+  color-scheme: dark;
+  }
 }
 
 html,
@@ -95,14 +187,40 @@ body,
   height: 100%;
 }
 
+html {
+  /* Native feel: no rubber-band on the document, the app scrolls its own panes. */
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   @apply bg-bg text-fg font-sans antialiased;
   font-feature-settings: "cv11", "ss01";
   -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+/* Dynamic viewport height so the composer follows the on-screen keyboard. */
+.app-viewport {
+  height: 100dvh;
+}
+
+/* Press feedback, the way native buttons respond. */
+.pressable {
+  transition: transform 150ms var(--ease-out-quart), background-color 150ms ease, color 150ms ease, opacity 150ms ease;
+}
+.pressable:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component animations */
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
 
 ::selection {
-  background: color-mix(in oklch, var(--accent) 25%, transparent);
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
 :focus-visible {
@@ -116,9 +234,30 @@ select:focus-visible {
   outline: none;
 }
 
+/* Grouped settings rows: hairline between rows, inset from the start edge like native lists. */
+.settings-group > * + * {
+  position: relative;
+}
+.settings-group > * + *::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  inset-inline: 16px 0;
+  border-top: 1px solid var(--border);
+}
+.settings-group-inset > * + *::before {
+  inset-inline-start: 48px;
+}
+
+/* Thin scrollbars inside panes */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
 /* Markdown rendering for chat and notes */
 .prose-talorys {
-  @apply text-[15px] leading-7 text-fg;
+  @apply text-[15px] leading-[1.6] text-fg;
   overflow-wrap: anywhere;
 }
 .prose-talorys > * + * { margin-top: 0.75em; }
@@ -133,7 +272,7 @@ select:focus-visible {
 .prose-talorys code:not(pre code) {
   @apply rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em];
 }
-.prose-talorys pre { @apply overflow-x-auto rounded-lg bg-subtle p-4 font-mono text-[13px] leading-6 border border-border; }
+.prose-talorys pre { @apply overflow-x-auto rounded-xl bg-subtle p-4 font-mono text-[13px] leading-6 border border-border; }
 .prose-talorys table { @apply w-full text-sm border-collapse; }
 .prose-talorys th, .prose-talorys td { @apply border border-border px-3 py-1.5 text-start; }
 .prose-talorys hr { @apply border-border; }
@@ -170,10 +309,3 @@ select:focus-visible {
 .writer-layer .w-box { color: var(--accent); font-weight: 700; }
 .writer-layer .w-done { color: var(--fg-subtle); }
 .writer-layer .w-done .w-box { color: var(--success); }
-
-.scrollbar-thin { scrollbar-width: thin; }
-
-@media (prefers-reduced-motion: reduce) {
-  /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component animations */
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-}

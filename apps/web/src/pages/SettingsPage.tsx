@@ -1,88 +1,201 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
+import { BellButton, MenuButton, TopBar } from "../components/AppShell";
+import { DeviceNotificationsSection } from "../components/DeviceNotifications";
 import { useQueryClient } from "@tanstack/react-query";
 import { checkPasswordStrength, LIMIT_CEILINGS, type Limits, type MemoryHistorySettings, type Settings, TALORYS_VERSION } from "@talorys/shared";
-import { Download, ExternalLink, Languages, LogOut, Monitor, Moon, Sun, Upload } from "lucide-react";
+import { ChevronLeft, ChevronRight, Cpu, Download, ExternalLink, Info, Languages, Lock, LogOut, Moon, Settings2, ShieldCheck, Smartphone, Sun, Upload } from "lucide-react";
 import { GitHubIcon } from "../components/SourceLinks";
 import { ANDROID_REPO_URL, DEPLOY_DOC_URL, REPO_URL, UPSTREAM_URL } from "../lib/links";
-import { Badge, Button, Card, ConfirmDialog, ErrorNotice, Input, Label, PageHeader, Select, Spinner, Switch } from "../components/ui";
+import { Badge, Button, ConfirmDialog, ErrorNotice, Input, Label, Select, Spinner, Switch } from "../components/ui";
 import { SemanticRecallCard } from "../components/SemanticRecallCard";
 import { keys, useApiMutation, useSessions, useSettings, useSystemInfo, useUsage } from "../hooks/queries";
 import { useSession } from "../hooks/session";
 import { useToast, errorMessage } from "../hooks/toast";
 import { api, ApiError } from "../lib/api";
-import { applyTheme } from "../lib/theme";
+import { applyTheme, readThemePreference, type ThemePreference } from "../lib/theme";
 import { cn, relativeTime } from "../lib/utils";
 import { LOCALE_NAMES, LOCALES, type LocalePreference, useLocale } from "../lib/i18n";
 
 const TABS = ["General", "AI", "Privacy", "Security", "About"] as const;
 type Tab = (typeof TABS)[number];
 
+/** A settings row: label + hint on the start side, the control on the end side (stacked on phones). */
 function Row({ label, hint, children }: { label: string; hint?: ReactNode; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
-        <p className="text-sm font-medium">{label}</p>
-        {hint && <p className="mt-0.5 text-xs leading-5 text-fg-subtle">{hint}</p>}
+        <p className="text-[15px]">{label}</p>
+        {hint && <p className="mt-0.5 text-[12.5px] leading-5 text-fg-muted">{hint}</p>}
       </div>
       <div className="shrink-0 sm:w-64">{children}</div>
     </div>
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+/** A grouped box, the way native settings screens group rows. */
+function Section({ title, children, inset }: { title?: string; children: ReactNode; inset?: boolean }) {
   return (
-    <section className="space-y-2">
-      <h2 className="px-1 text-xs font-medium uppercase tracking-wider text-fg-subtle">{title}</h2>
-      <Card>
-        <div className="divide-y divide-border">{children}</div>
-      </Card>
+    <section>
+      {title && <h2 className="px-2 pb-1.5 text-[12.5px] font-semibold text-fg-muted">{title}</h2>}
+      <div className={cn("settings-group overflow-hidden rounded-xl bg-subtle", inset && "settings-group-inset")}>{children}</div>
     </section>
   );
 }
 
+/** A tappable row that opens a sub-screen. */
+function LinkRow({ icon: Icon, label, value, onClick }: { icon: typeof Lock; label: string; value?: ReactNode; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="pressable flex min-h-[50px] w-full items-center gap-3 px-3.5 text-start text-[15px] hover:bg-muted/60">
+      <span className="grid w-[22px] place-items-center text-fg-muted" aria-hidden>
+        <Icon className="h-[19px] w-[19px]" />
+      </span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="flex items-center gap-1 text-sm text-fg-muted">
+        {value}
+        <ChevronRight className="h-4 w-4 text-fg-subtle rtl:hidden" aria-hidden />
+        <ChevronLeft className="hidden h-4 w-4 text-fg-subtle rtl:block" aria-hidden />
+      </span>
+    </button>
+  );
+}
+
+const TAB_LABELS: Record<Tab, Parameters<ReturnType<typeof useLocale>["t"]>[0]> = {
+  General: "settings.tab.General",
+  AI: "settings.tab.AI",
+  Privacy: "settings.tab.Privacy",
+  Security: "settings.tab.Security",
+  About: "settings.tab.About",
+};
+
 export default function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const param = searchParams.get("tab");
-  const tab: Tab = TABS.find((t) => t === param) ?? "General";
-  const setTab = (t: Tab) => setSearchParams(t === "General" ? {} : { tab: t }, { replace: true });
+  const tab: Tab | null = TABS.find((t) => t === param) ?? null;
+  const setTab = (t: Tab | null) => setSearchParams(t ? { tab: t } : {}, { replace: true });
   const { data: settings, isLoading, error, refetch } = useSettings();
   const { t } = useLocale();
-  return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-8">
-      <PageHeader title={t("settings.title")} />
-      <div className="mb-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-border" role="tablist">
-        {TABS.map((tab_) => (
-          <button type="button"
-            key={tab_}
-            role="tab"
-            aria-selected={tab === tab_}
-            onClick={() => setTab(tab_)}
-            className={cn(
-              "-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-              tab === tab_ ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg",
-            )}
-          >
-            {t(`settings.tab.${tab_}`)}
-          </button>
-        ))}
-      </div>
-      {error ? (
-        <ErrorNotice error={error} onRetry={() => void refetch()} />
-      ) : isLoading || !settings ? (
-        <div className="flex justify-center py-16">
-          <Spinner />
-        </div>
-      ) : (
-        <div className="space-y-8 animate-fade-in">
-          {tab === "General" && <GeneralTab settings={settings} />}
-          {tab === "AI" && <AiTab settings={settings} />}
-          {tab === "Privacy" && <PrivacyTab />}
-          {tab === "Security" && <SecurityTab />}
-          {tab === "About" && <AboutTab />}
-        </div>
-      )}
+  const info = useSystemInfo();
+
+  const body = error ? (
+    <ErrorNotice error={error} onRetry={() => void refetch()} />
+  ) : isLoading || !settings ? (
+    <div className="flex justify-center py-16">
+      <Spinner />
     </div>
+  ) : tab === null ? (
+    <div className="space-y-5 animate-fade-in">
+      <AppearanceSection />
+      <DeviceNotificationsSection Section={Section} Row={Row} />
+      <Section title={t("settings.connections")} inset>
+        <LinkRow icon={Cpu} label={t("settings.model")} value={<span dir="ltr">{shortModel(settings.model)}</span>} onClick={() => setTab("AI")} />
+      </Section>
+      <Section title={t("settings.account")} inset>
+        <LinkRow icon={Settings2} label={t("settings.tab.General")} value={settings.agentName} onClick={() => setTab("General")} />
+        <LinkRow icon={ShieldCheck} label={t("settings.tab.Privacy")} onClick={() => setTab("Privacy")} />
+        <LinkRow icon={Lock} label={t("settings.tab.Security")} onClick={() => setTab("Security")} />
+        <LinkRow icon={Info} label={t("settings.tab.About")} value={<span dir="ltr">{info.data?.deployed_version ?? TALORYS_VERSION}</span>} onClick={() => setTab("About")} />
+      </Section>
+    </div>
+  ) : (
+    <div className="space-y-5 animate-fade-in">
+      {tab === "General" && <GeneralTab settings={settings} />}
+      {tab === "AI" && <AiTab settings={settings} />}
+      {tab === "Privacy" && <PrivacyTab />}
+      {tab === "Security" && <SecurityTab />}
+      {tab === "About" && <AboutTab />}
+    </div>
+  );
+
+  return (
+    <div className="flex h-full flex-col">
+      {tab === null ? (
+        <TopBar start={<MenuButton />} end={<BellButton />} />
+      ) : (
+        <TopBar
+          start={
+            <button type="button" onClick={() => setTab(null)} className="pressable flex h-10 items-center gap-0.5 rounded-xl pe-2 ps-1 text-[15px] text-accent-text hover:bg-subtle" aria-label={t("settings.back")}>
+              <ChevronLeft className="h-5 w-5 rtl:hidden" />
+              <ChevronRight className="hidden h-5 w-5 rtl:block" />
+              {t("settings.title")}
+            </button>
+          }
+          title={<h1 className="text-[16px] font-semibold">{t(TAB_LABELS[tab])}</h1>}
+        />
+      )}
+      <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-2xl px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-1 md:px-6">
+          {tab === null && <h1 className="px-1 pb-4 pt-1 text-[28px] font-semibold tracking-[-0.01em]">{t("settings.title")}</h1>}
+          {tab !== null && <div className="h-2" />}
+          {body}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function shortModel(id: string): string {
+  const last = id.split("/").at(-1) ?? id;
+  return last.replace(/-it$/, "").replace(/-a4b$/, "");
+}
+
+const THEMES: { value: ThemePreference; icon: typeof Sun; label: "settings.theme.light" | "settings.theme.dark" | "settings.theme.auto" }[] = [
+  { value: "light", icon: Sun, label: "settings.theme.light" },
+  { value: "dark", icon: Moon, label: "settings.theme.dark" },
+  { value: "system", icon: Smartphone, label: "settings.theme.auto" },
+];
+
+function AppearanceSection() {
+  const { t, preference, detected, setPreference } = useLocale();
+  const [theme, setTheme] = useState<ThemePreference>(readThemePreference);
+  return (
+    <Section title={t("settings.appearance")}>
+      <div className="px-3.5 py-3">
+        <div className="flex gap-[3px] rounded-[11px] bg-muted p-[3px]" role="radiogroup" aria-label={t("settings.theme")}>
+          {THEMES.map(({ value, icon: Icon, label }) => (
+            <button
+              type="button"
+              key={value}
+              role="radio"
+              aria-checked={theme === value}
+              onClick={() => {
+                applyTheme(value);
+                setTheme(value);
+              }}
+              className={cn(
+                "pressable flex h-[34px] flex-1 items-center justify-center gap-1.5 rounded-[9px] text-[13.5px] font-medium transition-colors",
+                theme === value ? "bg-[var(--seg-on)] text-fg shadow-sm" : "text-fg-muted",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {t(label)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="flex min-h-[50px] items-center gap-3 px-3.5">
+        <span className="grid w-[22px] place-items-center text-fg-muted" aria-hidden>
+          <Languages className="h-[19px] w-[19px]" />
+        </span>
+        <label htmlFor="settings-language" className="min-w-0 flex-1 text-[15px]">
+          {t("settings.language")}
+        </label>
+        <Select
+          id="settings-language"
+          value={preference}
+          onChange={(e) => setPreference(e.target.value as LocalePreference)}
+          aria-label={t("settings.language")}
+          className="h-9 w-auto border-0 bg-transparent py-0 pe-7 text-end text-sm text-fg-muted focus:ring-0"
+        >
+          <option value="auto">{t("settings.language.auto", { name: LOCALE_NAMES[detected] })}</option>
+          {LOCALES.map((l) => (
+            <option key={l} value={l}>
+              {LOCALE_NAMES[l]}
+            </option>
+          ))}
+        </Select>
+      </div>
+    </Section>
   );
 }
 
@@ -102,7 +215,7 @@ function useSaveSettings() {
 
 function GeneralTab({ settings }: { settings: Settings }) {
   const save = useSaveSettings();
-  const { t, preference, detected, setPreference } = useLocale();
+  const { t } = useLocale();
   const [name, setName] = useState(settings.agentName);
   const zones = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [settings.timezone];
   const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -141,45 +254,6 @@ function GeneralTab({ settings }: { settings: Settings }) {
             </option>
           ))}
         </Select>
-      </Row>
-      <Row label={t("settings.language")} hint={t("settings.languageHint")}>
-        <div className="flex items-center gap-2">
-          <Languages className="h-4 w-4 shrink-0 text-fg-subtle" aria-hidden />
-          <Select value={preference} onChange={(e) => setPreference(e.target.value as LocalePreference)} aria-label={t("settings.language")}>
-            <option value="auto">{t("settings.language.auto", { name: LOCALE_NAMES[detected] })}</option>
-            {LOCALES.map((l) => (
-              <option key={l} value={l}>
-                {LOCALE_NAMES[l]}
-              </option>
-            ))}
-          </Select>
-        </div>
-      </Row>
-      <Row label={t("settings.theme")}>
-        <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
-          {(
-            [
-              ["system", Monitor],
-              ["light", Sun],
-              ["dark", Moon],
-            ] as const
-          ).map(([value, Icon]) => (
-            <button type="button"
-              key={value}
-              onClick={() => {
-                applyTheme(value);
-                save.mutate({ theme: value });
-              }}
-              className={cn(
-                "flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium",
-                settings.theme === value ? "bg-surface shadow-sm" : "text-fg-muted",
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {t(`settings.theme.${value}`)}
-            </button>
-          ))}
-        </div>
       </Row>
     </Section>
   );
@@ -249,7 +323,7 @@ function AiTab({ settings }: { settings: Settings }) {
             />
           </Row>
         ))}
-        <div className="flex justify-end gap-2 px-5 py-3">
+        <div className="flex justify-end gap-2 px-4 py-3">
           <Button
             variant="ghost"
             disabled={!dirtyLimits}
