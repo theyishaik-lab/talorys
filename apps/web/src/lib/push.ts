@@ -1,4 +1,5 @@
 import type { PushPrefs, PushSubscriptionView } from "@talorys/shared";
+import { fromBase64Url } from "@talorys/shared/crypto";
 import { api } from "./api";
 
 /**
@@ -61,14 +62,6 @@ export function writeLastTest(result: LastTest): void {
   }
 }
 
-function toKey(base64url: string): Uint8Array {
-  const padded = base64url.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (base64url.length % 4)) % 4);
-  const bin = atob(padded);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
 async function registration(): Promise<ServiceWorkerRegistration> {
   const reg = await navigator.serviceWorker.getRegistration("/");
   if (reg) return reg;
@@ -126,7 +119,7 @@ export async function enablePush(publicKey: string, prefs?: Partial<PushPrefs>):
       await sub.unsubscribe().catch(() => false);
       sub = null;
     }
-    if (!sub) sub = await withTimeout(reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toKey(publicKey) as BufferSource }), 20_000);
+    if (!sub) sub = await withTimeout(reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: fromBase64Url(publicKey) as BufferSource }), 20_000);
   } catch (error) {
     throw new PushEnableError("subscribe", permission, error instanceof Error ? `${error.name}: ${error.message}` : String(error));
   }
@@ -144,7 +137,7 @@ export async function enablePush(publicKey: string, prefs?: Partial<PushPrefs>):
 
 function sameKey(stored: ArrayBuffer | ArrayBufferView, publicKey: string): boolean {
   const a = stored instanceof ArrayBuffer ? new Uint8Array(stored) : new Uint8Array(stored.buffer, stored.byteOffset, stored.byteLength);
-  const b = toKey(publicKey);
+  const b = fromBase64Url(publicKey);
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
   return true;

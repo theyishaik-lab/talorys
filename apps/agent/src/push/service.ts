@@ -51,7 +51,8 @@ const MAX_FAILURES = 8;
 const MAX_SUBSCRIPTIONS = 20;
 const MAX_BODY = 180;
 
-function parsePrefs(json: string): PushPrefs {
+/** A stored prefs JSON column, every kind on unless explicitly turned off (Web Push and native devices). */
+export function parsePrefs(json: string): PushPrefs {
   try {
     const raw = JSON.parse(json) as Partial<PushPrefs>;
     return { approval: raw.approval !== false, result: raw.result !== false, reminder: raw.reminder !== false };

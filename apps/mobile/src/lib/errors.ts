@@ -19,12 +19,6 @@ export function chatErrorKey(codeOrText: string | null | undefined): StringKey |
   return null;
 }
 
-/** The error text to show: the friendly translation when the error is recognised, else the original. */
-export function friendlyChatError(codeOrText: string, t: (key: StringKey) => string): string {
-  const key = chatErrorKey(codeOrText);
-  return key ? t(key) : codeOrText;
-}
-
 /**
  * The error bubble's two lines: the friendly headline, and — when the agent sent the attribution
  * (agent 0.1.13+) — which model(s) failed and why: "Gemini 3.8 Flash (Google): עומס 503 · …".

@@ -112,11 +112,6 @@ export function useHistoryLayer(open: boolean, onClose: () => void): void {
   );
 }
 
-/** Whether an overlay's own history entry is the current one (so a navigation should replace it). */
-export function layerIsCurrent(): boolean {
-  return typeof window !== "undefined" && !!(window.history.state as { tl?: string } | null)?.tl;
-}
-
 /** A short haptic tick where a native app would give one (approve, send, a drawer snapping). */
 export function haptic(kind: "tap" | "success" | "warning" = "tap"): void {
   try {

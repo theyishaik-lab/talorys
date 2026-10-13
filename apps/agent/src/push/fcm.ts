@@ -4,6 +4,7 @@
  * POST to messages:send. No Firebase SDK, no Node crypto. The native app (apps/mobile) registers its
  * FCM device token with the agent; see push/native.ts.
  */
+import { toBase64Url } from "@talorys/shared/crypto";
 import type { PushMessage } from "./service";
 
 export interface FcmCredentials {
@@ -41,12 +42,7 @@ export function parseFcmCredentials(raw: string | undefined): FcmCredentials | n
   return null;
 }
 
-const b64url = (bytes: ArrayBuffer | Uint8Array | string): string => {
-  const u8 = typeof bytes === "string" ? new TextEncoder().encode(bytes) : bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-  let s = "";
-  for (const b of u8) s += String.fromCharCode(b);
-  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-};
+const b64url = (bytes: ArrayBuffer | Uint8Array | string): string => toBase64Url(typeof bytes === "string" ? new TextEncoder().encode(bytes) : bytes);
 
 function pemToPkcs8(pem: string): ArrayBuffer {
   const body = pem.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----/g, "").replace(/\s+/g, "");

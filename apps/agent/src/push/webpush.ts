@@ -6,8 +6,13 @@
  *   push costs one ECDH, three HKDF rounds and one AES-GCM — well under a millisecond of CPU.
  *
  * The `web-push` npm package needs node:crypto and node:https, which Workers do not provide;
- * this file is the whole replacement. Test vectors: RFC 8291 Appendix A (`webpush.test.ts`).
+ * this file is the whole replacement. Test vectors: RFC 8291 Appendix A (`test/push.test.ts`).
  */
+
+import { fromBase64Url, toBase64Url } from "@talorys/shared/crypto";
+
+// Re-exported for the push tests and callers that already import them from here.
+export { fromBase64Url, toBase64Url };
 
 export interface PushKeys {
   /** Base64url, 65-byte uncompressed P-256 point. */
@@ -43,21 +48,6 @@ export interface SendResult {
 }
 
 const encoder = new TextEncoder();
-
-export function toBase64Url(bytes: ArrayBuffer | Uint8Array): string {
-  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-  let s = "";
-  for (const x of b) s += String.fromCharCode(x);
-  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-export function fromBase64Url(text: string): Uint8Array {
-  const padded = text.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (text.length % 4)) % 4);
-  const bin = atob(padded);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
 
 function concat(...parts: Uint8Array[]): Uint8Array {
   const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));

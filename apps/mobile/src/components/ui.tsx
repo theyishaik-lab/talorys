@@ -146,9 +146,3 @@ export function Separator() {
   const { c } = useTheme();
   return <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: c.border }} />;
 }
-
-export function Centered({ children }: { children: ReactNode }) {
-  return <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 12 }}>{children}</View>;
-}
-
-export const textStyles = StyleSheet.create({ title: { fontSize: 16 } satisfies TextStyle });

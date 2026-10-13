@@ -11,7 +11,7 @@ import { LIMIT_CEILINGS, TALORYS_VERSION } from "@talorys/shared/constants";
 import { checkPasswordStrength } from "@talorys/shared/password-policy";
 import { ChevronLeft, ChevronRight, Cpu, Download, ExternalLink, Info, Languages, Lock, LogOut, Moon, Settings2, ShieldCheck, Smartphone, Sun, Upload } from "lucide-react";
 import { GitHubIcon } from "../components/SourceLinks";
-import { ANDROID_REPO_URL, DEPLOY_DOC_URL, REPO_URL, UPSTREAM_URL } from "../lib/links";
+import { ANDROID_SOURCE_URL, DEPLOY_DOC_URL, REPO_URL, UPSTREAM_URL } from "../lib/links";
 import { Badge, Button, ConfirmDialog, ErrorNotice, Input, Label, Select, Spinner, Switch } from "../components/ui";
 import { SemanticRecallCard } from "../components/SemanticRecallCard";
 import { keys, useApiMutation, useSessions, useSettings, useSystemInfo, useUsage } from "../hooks/queries";
@@ -617,8 +617,8 @@ function AboutTab() {
           <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-accent hover:underline">
             <GitHubIcon className="h-3.5 w-3.5" /> theyishaik-lab/talorys <ExternalLink className="h-3.5 w-3.5" />
           </a>
-          <a href={ANDROID_REPO_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-accent hover:underline">
-            <GitHubIcon className="h-3.5 w-3.5" /> theyishaik-lab/talorys-android <ExternalLink className="h-3.5 w-3.5" />
+          <a href={ANDROID_SOURCE_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-accent hover:underline">
+            <GitHubIcon className="h-3.5 w-3.5" /> talorys/apps/mobile <ExternalLink className="h-3.5 w-3.5" />
           </a>
         </div>
       </Row>

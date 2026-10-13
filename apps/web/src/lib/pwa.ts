@@ -89,7 +89,3 @@ export function initPwa(): void {
       .catch((error) => console.warn("service worker registration failed", error));
   });
 }
-
-export function swSupported(): boolean {
-  return typeof navigator !== "undefined" && "serviceWorker" in navigator;
-}

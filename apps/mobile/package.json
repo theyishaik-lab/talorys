@@ -3,8 +3,6 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
-    "@expo-google-fonts/heebo": "^0.4.2",
-    "@expo-google-fonts/inter": "^0.4.2",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@shopify/flash-list": "2.0.2",
     "expo": "~57.0.28",
@@ -13,7 +11,6 @@
     "expo-device": "~57.0.2",
     "expo-font": "~57.0.4",
     "expo-haptics": "~57.0.3",
-    "expo-image": "~57.0.5",
     "expo-linking": "~57.0.12",
     "expo-localization": "~57.0.2",
     "expo-navigation-bar": "~57.0.3",

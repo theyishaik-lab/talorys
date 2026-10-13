@@ -1,7 +1,7 @@
 import type { Database } from "../db/database";
 import { newId, now } from "../db/database";
 import { type FcmCredentials, type FcmSendResult, sendFcm } from "./fcm";
-import { DEFAULT_PREFS, type PushMessage, type PushPrefs } from "./service";
+import { DEFAULT_PREFS, type PushMessage, type PushPrefs, parsePrefs } from "./service";
 
 /**
  * Native devices (the Android app) registered for Firebase Cloud Messaging. Same kinds and
@@ -30,15 +30,6 @@ interface Row {
 
 const MAX_FAILURES = 8;
 const MAX_DEVICES = 20;
-
-function parsePrefs(json: string): PushPrefs {
-  try {
-    const raw = JSON.parse(json) as Partial<PushPrefs>;
-    return { approval: raw.approval !== false, result: raw.result !== false, reminder: raw.reminder !== false };
-  } catch {
-    return { ...DEFAULT_PREFS };
-  }
-}
 
 function present(r: Row): PushDeviceView {
   return { id: r.id, label: r.label, platform: r.platform === "ios" ? "ios" : "android", prefs: parsePrefs(r.prefs), created_at: r.created_at, last_used_at: r.last_used_at, failures: r.failures };

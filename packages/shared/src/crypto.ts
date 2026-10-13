@@ -8,9 +8,9 @@
 export const PBKDF2_ITERATIONS = 100_000;
 const HASH_BYTES = 32;
 
-export function toBase64Url(bytes: Uint8Array): string {
+export function toBase64Url(bytes: Uint8Array | ArrayBuffer): string {
   let binary = "";
-  for (const b of bytes) binary += String.fromCharCode(b);
+  for (const b of bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)) binary += String.fromCharCode(b);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 

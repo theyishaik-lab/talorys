@@ -1,6 +1,7 @@
 import { existsSync, mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 import { describe, expect, it } from "vitest";
 import { exec } from "../src/exec";
 import { scaffoldProject, templatesDir } from "../src/scaffold";
@@ -30,7 +31,8 @@ describe.skipIf(!hasTemplates)("generated project with real Wrangler (offline)",
 
   it("Worker config and bundle pass `wrangler deploy --dry-run`", async () => {
     const r = await wrangler(["deploy", "--dry-run", "--outdir", join(dir, "out"), "--config", "wrangler.jsonc"], join(dir, "agent"));
-    const out = r.stdout + r.stderr;
+    // The box may force colour (FORCE_COLOR); match Wrangler's table without ANSI codes.
+    const out = stripVTControlCharacters(r.stdout + r.stderr);
     expect(r.code, out).toBe(0);
     expect(out).toMatch(/env\.TalorysAgent \(TalorysAgent\)\s+Durable Object/);
     expect(out).toMatch(/env\.AI\s+AI/);

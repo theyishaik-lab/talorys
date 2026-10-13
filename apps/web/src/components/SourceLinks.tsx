@@ -1,4 +1,4 @@
-import { ANDROID_REPO_URL, REPO_URL } from "../lib/links";
+import { ANDROID_SOURCE_URL, REPO_URL } from "../lib/links";
 import { cn } from "../lib/utils";
 import { useT } from "../lib/i18n";
 
@@ -23,7 +23,7 @@ export function SourceLinks({ className }: { className?: string }) {
         {t("source.source")}
       </a>
       <span aria-hidden>·</span>
-      <a href={ANDROID_REPO_URL} target="_blank" rel="noopener noreferrer" className={linkClass} title="Android app source on GitHub">
+      <a href={ANDROID_SOURCE_URL} target="_blank" rel="noopener noreferrer" className={linkClass} title="Android app source on GitHub">
         {t("source.android")}
       </a>
     </p>
