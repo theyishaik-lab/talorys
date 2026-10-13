@@ -55,6 +55,14 @@ export TALORYS_KEYSTORE_PATH=… TALORYS_KEYSTORE_PASSWORD=… TALORYS_KEY_ALIAS
   schedules). The tag counts
   releases (0.1.x); `expo.version` (shown in About) runs one minor ahead (0.2.x) since the first build. Releases live on GitHub (`theyishaik-lab/talorys`, prerelease per tag) because the
   APK (~40 MB) is too big to send as a chat attachment.
+- **Metro cannot bundle `@talorys/shared` values.** tsc and vitest resolve the package through aliases,
+  Metro does not (and its barrel pulls in zod). `src/` imports only TYPES from `@talorys/shared`; runtime
+  helpers come from `src/lib/shared.ts`, which re-exports the dependency-free `attribution.ts` / `chain.ts`
+  (`metro.config.js` watches `packages/shared/src`). `tests/shared-runtime.test.ts` fails on a value import.
+  Green tsc + tests do not prove the bundle: `npx expo export:embed --platform android --dev false
+  --entry-file node_modules/expo-router/entry.js --bundle-output /tmp/b.js --assets-dest /tmp/res` (~40 s)
+  does. (v0.1.3's first build died at `createBundleReleaseJsAndAssets` on exactly this, Oct 13, 2026.)
+- v0.1.3 build (Oct 13, 2026): 6.5 min with `~/.gradle` already warm, APK 38.2 MB (36.4 MiB), 24 arm64 `.so`.
 - `expo prebuild --clean` wipes `android/` (so `.cxx` for the app) but the library builds under
   `node_modules/*/android/build` survive — a rebuild after `--clean` is ~10 min, not 25.
   (Oct 13, 2026 box cleanup: `~/.gradle/caches` and those library builds were cleared, so the next
