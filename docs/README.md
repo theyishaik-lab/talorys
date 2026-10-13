@@ -20,7 +20,7 @@ This folder has two kinds of documents:
 | [UI.md](system/UI.md) | Where the front end lives and how to change it, run it and ship it |
 | [MOBILE.md](system/MOBILE.md) | The native Android app (`apps/mobile`): build, signing key, releases, push, keyboard |
 | [SECRETS.md](system/SECRETS.md) | Every secret and config value by NAME and where it lives (never the values) |
-| [MODELS.md](system/MODELS.md) | Model providers (Workers AI, Gemini, OpenRouter), the picker, the fallback chain, error attribution, the leak guard and bench |
+| [MODELS.md](system/MODELS.md) | Model providers (Workers AI, Gemini, OpenRouter, OpenAI-compatible endpoints), the picker, the fallback chain, error attribution, the leak guard and bench |
 | [NOTIFICATIONS.md](system/NOTIFICATIONS.md) | The installable app (PWA), Web Push (per-install VAPID keys) and native push (FCM) |
 | [ROADMAP.md](system/ROADMAP.md) | Known issues, limits and what comes next |
 

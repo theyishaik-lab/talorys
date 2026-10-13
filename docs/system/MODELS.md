@@ -99,18 +99,19 @@ Hebrew one-liner + a `list_tasks` tool call per model, his own keys.
 
 `*-latest` aliases are left out of the chain (they point at a model already in it).
 
-### The order (strongest first)
+### The order (live since Oct 13 ~23:10 IL)
 
-primary `gemini/gemini-3.8-flash` → backup `openrouter/nvidia/nemotron-3-ultra-550b-a55b:free` → chain
-`gemini-3.7-flash` → `gemini-3.6-flash` → `gemini-3.5-flash` → `gemini-3-flash-preview` →
-`openrouter/nvidia/nemotron-3-super-120b-a12b:free` → `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` →
-`gemini/gemma-4-26b-a4b-it` → `workers-ai/@cf/google/gemma-4-26b-a4b-it` → `workers-ai/@cf/openai/gpt-oss-120b`.
+Nemotron 3 Ultra first: as good in Hebrew as the Gemini Flash models in the test and it answers now,
+while Gemini 3.8/3.7 are mostly "high demand". OpenRouter's 50 free requests/day are shared by both
+Nemotrons; once spent, both are paused until 00:00 UTC and the Gemini rungs take over.
 
-```json
-{ "modelProvider": "gemini", "model": "gemini-3.8-flash",
-  "fallback": { "enabled": true, "provider": "openrouter", "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
-    "chain": [ {"provider":"gemini","model":"gemini-3.7-flash"}, … ] } }
-```
+1. `openrouter/nvidia/nemotron-3-ultra-550b-a55b:free` (primary)
+2. `openrouter/nvidia/nemotron-3-super-120b-a12b:free` (selected backup)
+3. `gemini/gemini-3.8-flash` → 4. `gemini-3-flash-preview` → 5. `gemini-3.7-flash` → 6. `gemini-3.6-flash` → 7. `gemini-3.5-flash`
+8. (Groq slot: `openai-compatible/groq/…` once a key exists)
+9. `gemini-3.5-flash-lite` → 10. `gemini-3.1-flash-lite` → 11. `gemini/gemma-4-26b-a4b-it`
+12. `workers-ai/@cf/google/gemma-4-26b-a4b-it` → 13. `workers-ai/@cf/openai/gpt-oss-120b`
+14. `openai-compatible/ovh/Qwen3.5-397B-A17B` → 15. `openai-compatible/ovh/gpt-oss-120b`
 
 ### Cooldowns — a spent model is skipped, not asked on every message (`apps/agent/src/ai/cooldown.ts`)
 
@@ -130,6 +131,26 @@ primary `gemini/gemini-3.8-flash` → backup `openrouter/nvidia/nemotron-3-ultra
 - Stored in `tal_settings` under `ai_cooldowns` (no migration). `GET /api/ai/cooldowns` lists them (also
   in `GET /api/ai/models` as `cooldowns`); `DELETE /api/ai/cooldowns` clears them. Each pause is logged
   as activity `ai.cooldown`.
+
+### OpenAI-compatible endpoints (agent 0.1.15-endpoints)
+
+A fourth provider, `openai-compatible`, so any free OpenAI-compatible source joins the chain without
+new code. Model ids are `<endpoint id>/<model>` (`ovh/gpt-oss-120b`, `groq/openai/gpt-oss-120b`).
+
+- `GET /api/ai/endpoints` → `{endpoints:[{id,name,baseURL,key:{set,hint}}], presets}`;
+  `PUT /api/ai/endpoints/:id {name?, baseURL?, key?}` (a preset id needs no body; `key` is stored
+  encrypted like the provider keys under `endpoint:<id>`, `key: null` removes it); `DELETE` removes the
+  endpoint and its key. https only. Presets (`apps/agent/src/ai/openai-compatible.ts`): `ovh` (no key),
+  `groq`, `cerebras`, `mistral`, `github`, `nvidia`.
+- A chain entry on a missing endpoint fails `NOT_CONFIGURED` and the chain moves on. The error and
+  "ענה:" lines name the endpoint: "GPT OSS 120B (OVH)".
+- Adding Groq later: `PUT /api/ai/endpoints/groq {"key":"gsk_…"}`, then add
+  `{"provider":"openai-compatible","model":"groq/openai/gpt-oss-120b"}` (and/or `groq/qwen/qwen3.8-27b`)
+  to `fallback.chain` after the Gemini Flash models.
+- OVH AI Endpoints, anonymous (checked Oct 13, 2026 from the box): `gpt-oss-120b` tool call 2.1 s;
+  `Qwen3.5-397B-A17B` Hebrew 4.6 s, tool call 1.3 s. Limit **2 requests/minute per IP and per model**
+  (`RateLimit-Limit: 2`, `RateLimit-Reset` seconds — read by `quotaHints`), so they are the last rungs.
+  From a Worker the IP is Cloudflare's, possibly shared; a 429 just pauses that model for the reset.
 
 ### Limits (`LIMIT_CEILINGS` in packages/shared/src/constants.ts)
 

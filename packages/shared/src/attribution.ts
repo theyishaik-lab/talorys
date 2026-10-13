@@ -51,7 +51,17 @@ export interface AiAttribution {
 }
 
 /** Short provider names for chips and error lines. */
-export const PROVIDER_SHORT_NAMES: Record<string, string> = { gemini: "Google", openrouter: "OpenRouter", "workers-ai": "Workers AI" };
+export const PROVIDER_SHORT_NAMES: Record<string, string> = { gemini: "Google", openrouter: "OpenRouter", "workers-ai": "Workers AI", "openai-compatible": "API" };
+
+/** How well-known OpenAI-compatible endpoints are named ("ovh/gpt-oss-120b" → "OVH"). */
+const ENDPOINT_NAMES: Record<string, string> = { ovh: "OVH", groq: "Groq", cerebras: "Cerebras", mistral: "Mistral", github: "GitHub Models", nvidia: "NVIDIA", together: "Together", sambanova: "SambaNova" };
+
+/** The endpoint's display name from an "<endpoint>/<model>" id. */
+export function endpointShortName(model: string | null | undefined): string {
+  const id = (model ?? "").split("/")[0] ?? "";
+  if (!id) return "";
+  return ENDPOINT_NAMES[id] ?? id.charAt(0).toUpperCase() + id.slice(1);
+}
 
 export function providerShortName(provider: string | null | undefined): string {
   if (!provider) return "";
@@ -92,7 +102,7 @@ export function modelLabel(id: string | null | undefined): string {
 /** The model as a person reads it: "Gemini 3.5 Flash (Google)". */
 export function modelDisplayName(ref: { provider?: string | null; model?: string | null }): string {
   const name = modelLabel(ref.model);
-  const provider = providerShortName(ref.provider);
+  const provider = ref.provider === "openai-compatible" ? endpointShortName(ref.model) || providerShortName(ref.provider) : providerShortName(ref.provider);
   return name && provider ? `${name} (${provider})` : name || provider;
 }
 

@@ -9,7 +9,7 @@ models, secrets, roadmap). This page is the short version.
 
 | | |
 | --- | --- |
-| App | https://talorys-lxl5w9o0-web.pages.dev (agent `0.1.14-max` from this fork + OpenConnector tools, installation `lxl5w9o0`) |
+| App | https://talorys-lxl5w9o0-web.pages.dev (agent `0.1.15-endpoints` from this fork + OpenConnector tools, installation `lxl5w9o0`) |
 | Cloudflare account | `25e3dffccdb99cd3801798bcc4a5b54a`, free plan, no card; login email is Tab's mailbox for Yishai |
 | Agent Worker | `talorys-lxl5w9o0-agent` (private) — deployed from this repo's `main` with `deploy/agent.wrangler.jsonc` |
 | Web | Pages project `talorys-lxl5w9o0-web` |

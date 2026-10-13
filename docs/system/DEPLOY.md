@@ -16,7 +16,7 @@ see SECRETS.md). Account id `25e3dffccdb99cd3801798bcc4a5b54a`.
 ```bash
 npm install
 npm run typecheck
-npm test -w @talorys/agent      # 398 tests, ~40 s (runs inside workerd)
+npm test -w @talorys/agent      # 401 tests, ~40 s (runs inside workerd)
 npm test -w @talorys/web        # when apps/web changed
 ```
 
@@ -28,14 +28,14 @@ npx wrangler deploy --config deploy/agent.wrangler.jsonc
 ```
 
 - `deploy/agent.wrangler.jsonc` is the production config: same Worker name, Durable Object binding and
-  class (`TalorysAgent`), migration tag `v1`, the `AI` binding and the `OPEN_CONNECTOR` service
-  binding. A deploy keeps all data, the URL and every logged-in session.
+  class (`TalorysAgent`), migration tag `v1`, the `AI` binding and the `OPEN_CONNECTOR_URL` var (OpenConnector is called over
+  its public URL, not a service binding — see the comment in the config). A deploy keeps all data, the URL and every logged-in session.
 - Secrets (`OWNER_PASSWORD_HASH`, `SESSION_SECRET`, `OPEN_CONNECTOR_TOKEN`, `OPEN_CONNECTOR_ADMIN_TOKEN`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `FCM_SERVICE_ACCOUNT` for the native app's notifications) live on the Worker and are
   untouched by a deploy. Set or replace one with `npx wrangler secret put NAME --config deploy/agent.wrangler.jsonc`.
 - **Never rename** the Durable Object binding or class and never add a DO migration — that would
   orphan the database. Schema changes go into `apps/agent/src/db/migrations.ts` (append-only); they run
   automatically on first use after the deploy.
-- Bump `TALORYS_DEPLOYED_VERSION` in the config when you ship something notable (now `0.1.14-max`).
+- Bump `TALORYS_DEPLOYED_VERSION` in the config when you ship something notable (now `0.1.15-endpoints`).
 - Bundle: ~632 KiB gzip (`npx wrangler deploy --dry-run --outdir /tmp/x --config deploy/agent.wrangler.jsonc`), far under the 3 MiB free limit.
 
 Check: `curl https://talorys-lxl5w9o0-web.pages.dev/api/health` → `"ok":true`; after login,

@@ -1,8 +1,9 @@
-import { AI_PROVIDERS, type AiProviderId, type ModelCatalog, providerKeySchema } from "@talorys/shared";
+import { AI_PROVIDERS, type AiProviderId, aiEndpointUpdateSchema, ENDPOINT_ID, type ModelCatalog, providerKeySchema } from "@talorys/shared";
 import { Hono } from "hono";
 import { listGeminiModels } from "../../ai/gemini";
 import type { KeyProvider } from "../../ai/keys";
 import { checkOpenRouterKey } from "../../ai/openrouter";
+import { ENDPOINT_PRESETS, endpointKeyName } from "../../ai/openai-compatible";
 import { PROVIDER_NAMES } from "../../ai/provider";
 import { openConnectorClient } from "../../openconnector";
 import type { AppEnv } from "../app";
@@ -24,6 +25,46 @@ aiRoutes.get("/ai/models", async (c) => {
   return c.json({ ...catalog, keys_available: s.providerKeys.available, fallback: settings.fallback, cooldowns: s.cooldowns.list() });
 });
 
+/**
+ * OpenAI-compatible endpoints (OVH, Groq, …): each one's name, base URL and whether a key is stored
+ * (only its hint). Its models are used as provider "openai-compatible", model "<id>/<model>".
+ */
+function endpointView(c: { env: AppEnv["Bindings"] }, e: { id: string; name: string; baseURL: string }) {
+  return { ...e, key: c.env.agent.services.providerKeys.infoOf(endpointKeyName(e.id)) };
+}
+
+aiRoutes.get("/ai/endpoints", (c) => {
+  const s = c.env.agent.services;
+  return c.json({ endpoints: s.endpoints.list().map((e) => endpointView(c, e)), presets: ENDPOINT_PRESETS });
+});
+
+/** Adds or changes an endpoint (a preset id needs nothing else); `key` stores its API key encrypted, `key: null` removes it. */
+aiRoutes.put("/ai/endpoints/:id", async (c) => {
+  const s = c.env.agent.services;
+  const id = c.req.param("id");
+  if (!ENDPOINT_ID.test(id)) throw new AppError("VALIDATION_ERROR", "An endpoint id is lower-case letters, digits and dashes (up to 32).");
+  const patch = await body(c, aiEndpointUpdateSchema);
+  const endpoint = s.endpoints.upsert(id, { name: patch.name, baseURL: patch.baseURL });
+  if (patch.key) {
+    if (!s.providerKeys.available) throw new AppError("NOT_CONFIGURED", "The Worker has no SESSION_SECRET, so keys cannot be stored encrypted.");
+    await s.providerKeys.set(endpointKeyName(id), patch.key);
+  } else if (patch.key === null) {
+    s.providerKeys.delete(endpointKeyName(id));
+  }
+  s.cooldowns.clear("openai-compatible");
+  s.activity.record("ai.endpoint_set", `${endpoint.name} (${endpoint.baseURL})${patch.key ? " with a key" : ""}`);
+  return c.json({ endpoint: endpointView(c, endpoint) });
+});
+
+aiRoutes.delete("/ai/endpoints/:id", (c) => {
+  const s = c.env.agent.services;
+  const id = c.req.param("id");
+  if (!s.endpoints.delete(id)) throw new NotFoundError("Unknown endpoint.");
+  s.providerKeys.delete(endpointKeyName(id));
+  s.activity.record("ai.endpoint_removed", id);
+  return c.json({ ok: true });
+});
+
 /** Models paused after a quota / overload failure, and when each comes back. */
 aiRoutes.get("/ai/cooldowns", (c) => c.json({ cooldowns: c.env.agent.services.cooldowns.list() }));
 
@@ -37,6 +78,7 @@ aiRoutes.delete("/ai/cooldowns", (c) => {
 
 function keyProvider(raw: string): KeyProvider {
   if (raw === "gemini" || raw === "openrouter") return raw;
+  if (raw === "openai-compatible") throw new AppError("VALIDATION_ERROR", "An endpoint's key is set with PUT /api/ai/endpoints/:id.");
   if ((AI_PROVIDERS as readonly string[]).includes(raw)) throw new AppError("VALIDATION_ERROR", `${PROVIDER_NAMES[raw as AiProviderId]} needs no API key.`);
   throw new NotFoundError("Unknown provider.");
 }

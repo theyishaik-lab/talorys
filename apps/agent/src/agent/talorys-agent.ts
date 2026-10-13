@@ -10,6 +10,7 @@ import type { AiProviderId, Settings } from "@talorys/shared";
 import { CloudflareWorkersAIProvider } from "../ai/workers-ai";
 import { GeminiProvider } from "../ai/gemini";
 import { OpenRouterProvider } from "../ai/openrouter";
+import { OpenAICompatibleProvider } from "../ai/openai-compatible";
 import { FallbackProvider, fallbackOrder } from "../ai/fallback";
 import { modelLabel } from "@talorys/shared";
 import { MockAIProvider } from "../ai/mock";
@@ -132,6 +133,8 @@ export class TalorysAgent extends Agent<Env, AgentState> {
         return new GeminiProvider(model, () => keys.get("gemini"));
       case "openrouter":
         return new OpenRouterProvider(model, () => keys.get("openrouter"));
+      case "openai-compatible":
+        return new OpenAICompatibleProvider(model, this.services.endpoints, keys);
       default:
         return this.env.AI ? new CloudflareWorkersAIProvider(this.env.AI, model) : null;
     }

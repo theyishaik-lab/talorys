@@ -3,7 +3,7 @@ import type { z } from "zod";
 import { AppError } from "../api/errors";
 
 /** Human names of the providers, used in error messages (the UI localizes by code, not by this text). */
-export const PROVIDER_NAMES: Record<AiProviderId, string> = { "workers-ai": "Cloudflare Workers AI", gemini: "Google Gemini", openrouter: "OpenRouter" };
+export const PROVIDER_NAMES: Record<AiProviderId, string> = { "workers-ai": "Cloudflare Workers AI", gemini: "Google Gemini", openrouter: "OpenRouter", "openai-compatible": "The OpenAI-compatible endpoint" };
 
 export interface ModelMessage {
   role: "user" | "assistant";
@@ -146,6 +146,9 @@ export function quotaHints(error: unknown, provider: AiProviderId): { retry_afte
   const headers = headersOf(error);
   const retryAfter = headers["retry-after"];
   if (retryAfter && /^\d+(\.\d+)?$/.test(retryAfter.trim())) out.retry_after_s = Math.ceil(Number(retryAfter));
+  // IETF RateLimit-Reset (OVH and others): seconds until the window resets.
+  const delta = Number(headers["ratelimit-reset"]);
+  if (out.retry_after_s === undefined && Number.isFinite(delta) && delta > 0 && delta < 1e6) out.retry_after_s = Math.ceil(delta);
   const reset = Number(headers["x-ratelimit-reset"]);
   if (out.retry_after_s === undefined && Number.isFinite(reset) && reset > 0) {
     const ms = reset > 1e12 ? reset : reset * 1000;

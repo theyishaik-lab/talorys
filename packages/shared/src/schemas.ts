@@ -390,18 +390,53 @@ export type MemoryHistorySettings = z.infer<typeof memoryHistorySettingsSchema>;
 
 // ---------- AI providers & models ----------
 
-/** Where the chat model runs. Workers AI is built in; the others need an API key stored on the agent. */
-export const AI_PROVIDERS = ["workers-ai", "gemini", "openrouter"] as const;
+/**
+ * Where the chat model runs. Workers AI is built in; Gemini and OpenRouter need an API key stored on
+ * the agent; "openai-compatible" is any OpenAI-compatible endpoint the owner registered
+ * (`/api/ai/endpoints`), its model id written "<endpoint id>/<model>" — e.g. "ovh/gpt-oss-120b",
+ * "groq/openai/gpt-oss-120b".
+ */
+export const AI_PROVIDERS = ["workers-ai", "gemini", "openrouter", "openai-compatible"] as const;
 export type AiProviderId = (typeof AI_PROVIDERS)[number];
 export const aiProviderSchema = z.enum(AI_PROVIDERS);
 
 const WORKERS_AI_MODEL = /^@(cf|hf)\/[\w.\-/]+$/;
 const OPEN_MODEL_ID = /^[\w.\-/:]+$/;
-/** A model id for a given provider: Workers AI ids start with @cf/ or @hf/; the others are plain ids. */
+/** An OpenAI-compatible endpoint's id: lower-case letters, digits and dashes ("ovh", "groq"). */
+export const ENDPOINT_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
+const ENDPOINT_MODEL_ID = /^[a-z0-9][a-z0-9-]{0,31}\/[\w.\-/:]+$/;
+/** A model id for a given provider: Workers AI ids start with @cf/ or @hf/; endpoint models are "<endpoint>/<model>"; the others are plain ids. */
 export function isModelIdFor(provider: AiProviderId, model: string): boolean {
   if (model.length === 0 || model.length > 200) return false;
-  return provider === "workers-ai" ? WORKERS_AI_MODEL.test(model) : OPEN_MODEL_ID.test(model);
+  if (provider === "workers-ai") return WORKERS_AI_MODEL.test(model);
+  if (provider === "openai-compatible") return ENDPOINT_MODEL_ID.test(model);
+  return OPEN_MODEL_ID.test(model);
 }
+
+/** Splits an endpoint model id: "groq/openai/gpt-oss-120b" → { endpoint: "groq", model: "openai/gpt-oss-120b" }. */
+export function splitEndpointModel(id: string): { endpoint: string; model: string } | null {
+  const i = id.indexOf("/");
+  if (i <= 0 || i === id.length - 1) return null;
+  const endpoint = id.slice(0, i);
+  return ENDPOINT_ID.test(endpoint) ? { endpoint, model: id.slice(i + 1) } : null;
+}
+
+/** An OpenAI-compatible endpoint (its key, when it needs one, is stored encrypted apart from this). */
+export const aiEndpointSchema = z.object({
+  name: z.string().trim().min(1).max(60),
+  baseURL: z
+    .string()
+    .url()
+    .max(300)
+    .refine((v) => v.startsWith("https://"), "The endpoint must be https"),
+});
+export type AiEndpoint = z.infer<typeof aiEndpointSchema> & { id: string };
+/** PUT /api/ai/endpoints/:id — every field optional for a preset id (ovh, groq, …); `key: null` removes a stored key. */
+export const aiEndpointUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(60).optional(),
+  baseURL: aiEndpointSchema.shape.baseURL.optional(),
+  key: z.string().trim().min(8).max(500).nullable().optional(),
+});
 
 /** Any provider's model id: no spaces, no URL (a model is chosen by id, never fetched from an address). */
 const modelIdString = z

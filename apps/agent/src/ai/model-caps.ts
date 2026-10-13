@@ -31,6 +31,13 @@ const WORKERS_AI: [RegExp, ModelCaps][] = [
   [/glm-4\.7/, { context: 131_072, maxOutput: 32_768 }],
 ];
 
+/** Models on OpenAI-compatible endpoints (OVH's /v1/models lists context = max completion). */
+const ENDPOINT_MODELS: [RegExp, ModelCaps][] = [
+  [/qwen3\.5-397b|qwen3\.[5-9]-|qwen3-/, { context: 262_144, maxOutput: 32_768 }],
+  [/gpt-oss-(120|20)b/, { context: 131_072, maxOutput: 32_768 }],
+  [/llama-3[._]3-70b|mistral-small|mistral-nemo/, { context: 131_072, maxOutput: 16_384 }],
+];
+
 /** The caps of a (provider, model) pair; unknown models get a conservative default. */
 export function modelCaps(provider: AiProviderId | string, model: string): ModelCaps {
   const id = model.toLowerCase();
@@ -38,9 +45,9 @@ export function modelCaps(provider: AiProviderId | string, model: string): Model
     if (/^gemma-/.test(id)) return { context: 262_144, maxOutput: 32_768 };
     return { context: 1_048_576, maxOutput: 65_536 };
   }
-  const table = provider === "openrouter" ? OPENROUTER : provider === "workers-ai" ? WORKERS_AI : [];
+  const table = provider === "openrouter" ? OPENROUTER : provider === "workers-ai" ? WORKERS_AI : provider === "openai-compatible" ? ENDPOINT_MODELS : [];
   for (const [re, caps] of table) if (re.test(id)) return caps;
-  return provider === "openrouter" ? { context: 131_072, maxOutput: 16_384 } : { context: 32_768, maxOutput: 4_096 };
+  return provider === "openrouter" || provider === "openai-compatible" ? { context: 131_072, maxOutput: 16_384 } : { context: 32_768, maxOutput: 4_096 };
 }
 
 /**

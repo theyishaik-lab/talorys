@@ -17,6 +17,7 @@ import { excerpt, PushService, pushKeysFromEnv } from "../push/service";
 import { ProviderKeyStore } from "../ai/keys";
 import { ModelCatalogService } from "../ai/catalog";
 import { ModelCooldowns } from "../ai/cooldown";
+import { EndpointStore } from "../ai/openai-compatible";
 
 /** All data services for the single owner, bound to one Durable Object's storage. */
 export interface Services {
@@ -42,6 +43,8 @@ export interface Services {
   catalog: ModelCatalogService;
   /** Models paused after a quota / overload failure (skipped by the fallback chain until then). */
   cooldowns: ModelCooldowns;
+  /** OpenAI-compatible endpoints the owner registered (OVH, Groq, …). */
+  endpoints: EndpointStore;
 }
 
 /** Runs a background promise; the Durable Object passes `ctx.waitUntil`. Errors never surface to the request. */
@@ -71,6 +74,7 @@ export function createServices(storage: DurableObjectStorage, env: Env, schedule
     providerKeys,
     catalog,
     cooldowns: new ModelCooldowns(settings),
+    endpoints: new EndpointStore(settings),
     db,
     tasks: new TaskRepository(db),
     memories,
