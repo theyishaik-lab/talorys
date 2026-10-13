@@ -66,7 +66,8 @@ export default function ModelScreen() {
   }, [t]);
 
   useEffect(() => {
-    load();
+    // Fetching, not synchronizing state: the first setState happens after an await.
+    Promise.resolve().then(() => load());
   }, [load]);
 
   const choose = async (provider: CatalogProvider, model: CatalogModel) => {

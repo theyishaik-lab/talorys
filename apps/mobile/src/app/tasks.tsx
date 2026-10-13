@@ -9,7 +9,7 @@ import { api } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { useTheme } from "../lib/theme";
 
-const TaskRow = memo(function TaskRow({ task, reload }: { task: Task; reload: () => void }) {
+const TaskRow = memo(function TaskRow({ task, reload, renderedAt }: { task: Task; reload: () => void; renderedAt: number }) {
   const { c } = useTheme();
   const { t } = useI18n();
   const done = task.status === "done";
@@ -28,7 +28,7 @@ const TaskRow = memo(function TaskRow({ task, reload }: { task: Task; reload: ()
       },
     ]);
   const due = task.due_at ? new Date(task.due_at) : null;
-  const overdue = due && !done && due.getTime() < Date.now();
+  const overdue = due && !done && due.getTime() < renderedAt;
   return (
     <Card style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
       <Press onPress={toggle} hitSlop={8} accessibilityLabel={done ? t("m.tasks.reopen") : t("m.tasks.markDone")}>
@@ -60,7 +60,10 @@ export default function TasksScreen() {
   const { t } = useI18n();
   const { c } = useTheme();
   const [view, setView] = useState<"open" | "done">("open");
+  // "Overdue" is judged against the moment the list was loaded (a render must stay pure).
+  const [renderedAt, setRenderedAt] = useState(() => Date.now());
   const load = useCallback(async () => {
+    setRenderedAt(Date.now());
     const { tasks } = await api<{ tasks: Task[] }>(`/tasks?status=${view === "open" ? "open" : "done"}`);
     return tasks;
   }, [view]);
@@ -80,7 +83,7 @@ export default function TasksScreen() {
           ))}
         </View>
       }
-      render={(task, reload) => <TaskRow task={task} reload={reload} />}
+      render={(task, reload) => <TaskRow task={task} reload={reload} renderedAt={renderedAt} />}
     />
   );
 }

@@ -4,9 +4,10 @@ import { Stack, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
-import { Platform, View } from "react-native";
+import { Platform, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { ErrorBoundary, GlobalErrorOverlay } from "../components/ErrorScreen";
 import { AuthProvider, useAuth } from "../lib/auth";
 import { AppProviders, useAppPreferences } from "../lib/providers";
 import { ensureChannels, targetOf } from "../lib/push";
@@ -14,14 +15,33 @@ import { palettes, useTheme } from "../lib/theme";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 SplashScreen.setOptions({ duration: 250, fade: true });
+// Whatever happens in JS, the splash never stays up for more than a few seconds.
+const SPLASH_MAX_MS = 4000;
+setTimeout(() => SplashScreen.hideAsync().catch(() => {}), SPLASH_MAX_MS);
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),
 });
 
 export default function RootLayout() {
+  return (
+    <ErrorBoundary>
+      <Root />
+      <GlobalErrorOverlay />
+    </ErrorBoundary>
+  );
+}
+
+function Root() {
   const prefs = useAppPreferences();
-  if (!prefs.ready) return <View style={{ flex: 1, backgroundColor: palettes.light.bg }} />;
+  if (!prefs.ready) {
+    // Plain, visible, and short-lived: useAppPreferences gives up on the stores after a timeout.
+    return (
+      <View style={{ flex: 1, backgroundColor: palettes.light.bg, alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ color: "#6B6B76", fontSize: 14 }}>Talorys…</Text>
+      </View>
+    );
+  }
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>

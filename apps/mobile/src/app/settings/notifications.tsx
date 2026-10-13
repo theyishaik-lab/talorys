@@ -20,7 +20,7 @@ export default function NotificationsScreen() {
   const load = useCallback(async () => {
     setPerm(await permissionState());
     const cfg = await pushConfig().catch(() => null);
-    if (!cfg) {
+    if (!cfg || !cfg.enabled) {
       setConfig("unsupported");
       return;
     }
@@ -30,7 +30,8 @@ export default function NotificationsScreen() {
   }, []);
 
   useEffect(() => {
-    load();
+    // Fetching, not synchronizing state: the first setState happens after an await.
+    Promise.resolve().then(load);
   }, [load]);
 
   const enable = async (on: boolean) => {
@@ -49,6 +50,8 @@ export default function NotificationsScreen() {
         setDevice(null);
       }
       await load();
+    } catch (e) {
+      setNote(t("m.notifications.testFailed", { error: e instanceof Error ? e.message : "?" }));
     } finally {
       setBusy(false);
     }

@@ -18,6 +18,8 @@ export interface AuthState {
   refresh: () => Promise<void>;
 }
 
+const AUTH_TIMEOUT_MS = 6000;
+
 const AuthContext = createContext<AuthState>({ ready: false, authenticated: false, agentName: "Talorys", server: "", signIn: async () => {}, signOut: async () => {}, refresh: async () => {} });
 export const useAuth = () => useContext(AuthContext);
 
@@ -39,18 +41,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    loadSession().then(async ({ token, server: s }) => {
-      setServer(s);
-      if (token) {
-        setAuthenticated(true);
-        await refresh();
-      }
-      setReady(true);
-    });
-    return onUnauthorized(() => {
+    // Never wait forever on the keystore or the network: the shell opens after AUTH_TIMEOUT_MS at the latest.
+    const timer = setTimeout(() => setReady(true), AUTH_TIMEOUT_MS);
+    loadSession()
+      .then(async ({ token, server: s }) => {
+        setServer(s);
+        if (token) {
+          setAuthenticated(true);
+          await refresh();
+        }
+      })
+      .catch((e) => console.warn("loadSession failed", e))
+      .finally(() => {
+        clearTimeout(timer);
+        setReady(true);
+      });
+    const off = onUnauthorized(() => {
       setAuthenticated(false);
       setSession({ token: null }).catch(() => {});
     });
+    return () => {
+      clearTimeout(timer);
+      off();
+    };
   }, [refresh]);
 
   const signIn = useCallback(async (serverUrl: string, password: string) => {
@@ -60,7 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await setSession({ token: res.token });
     setAuthenticated(true);
     refresh().catch(() => {});
-    registerForPush().catch(() => {});
+    // One Android permission prompt right after sign-in; the Settings toggle covers a later change of mind.
+    registerForPush({ ask: true }).catch(() => {});
   }, [refresh]);
 
   const signOut = useCallback(async () => {

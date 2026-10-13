@@ -3,6 +3,8 @@ import { useColorScheme } from "react-native";
 import { I18nContext, type Locale, type LocalePreference, applyDirection, readLocalePreference, resolveLocale, translate, writeLocalePreference } from "./i18n";
 import { ThemeContext, type ThemeMode, palettes, readThemeMode, resolveScheme, writeThemeMode } from "./theme";
 
+const PREFS_TIMEOUT_MS = 2500;
+
 /** Theme + locale providers. `ready` becomes true once both preferences were read from disk. */
 export function useAppPreferences(): { ready: boolean; themeMode: ThemeMode; localePref: LocalePreference; needsRestart: boolean } & {
   setThemeMode: (m: ThemeMode) => void;
@@ -14,12 +16,27 @@ export function useAppPreferences(): { ready: boolean; themeMode: ThemeMode; loc
   const [needsRestart, setNeedsRestart] = useState(false);
 
   useEffect(() => {
-    Promise.all([readThemeMode(), readLocalePreference()]).then(([theme, locale]) => {
+    // The stores answer in milliseconds; if one never answers (a broken native module, a locked
+    // keystore) the app still opens with defaults after PREFS_TIMEOUT_MS instead of a blank screen.
+    let done = false;
+    const finish = (theme: ThemeMode, locale: LocalePreference) => {
+      if (done) return;
+      done = true;
       setThemeModeState(theme);
       setLocalePrefState(locale);
-      applyDirection(resolveLocale(locale));
+      try {
+        applyDirection(resolveLocale(locale));
+      } catch (e) {
+        console.warn("applyDirection failed", e);
+      }
       setReady(true);
-    });
+    };
+    const timer = setTimeout(() => finish("system", "auto"), PREFS_TIMEOUT_MS);
+    Promise.all([readThemeMode(), readLocalePreference()])
+      .then(([theme, locale]) => finish(theme, locale))
+      .catch(() => finish("system", "auto"))
+      .finally(() => clearTimeout(timer));
+    return () => clearTimeout(timer);
   }, []);
 
   const setThemeMode = useCallback((m: ThemeMode) => {

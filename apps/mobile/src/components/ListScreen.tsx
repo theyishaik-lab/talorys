@@ -38,7 +38,7 @@ export function ListScreen<T_ extends { id: string }>({
   }, [load]);
 
   useEffect(() => {
-    reload();
+    Promise.resolve().then(reload);
   }, [reload]);
 
   return (

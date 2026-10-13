@@ -172,3 +172,19 @@ Secrets: `FCM_SERVICE_ACCOUNT` (the service-account JSON, verbatim; SECRETS.md) 
 `PUBLIC_APP_URL` var. Android channels `approvals` (high) and `updates` (default); a tap opens the
 chat in `data.conversation_id`. Approve/Decline buttons on the tray notification are not there yet
 (MOBILE.md).
+
+### Status on this install (Oct 13, 2026, agent `0.1.10-fcm`)
+
+Live. Firebase project **`talorys-app`** (Spark plan, no billing, Analytics and Gemini off) on the
+owner's Google account — deliberately *not* added to `talorys-connector`, whose billing account would
+have put Firebase on the pay-as-you-go Blaze plan (irreversible). Android app `dev.talorys.app`
+registered; `FCM_SERVICE_ACCOUNT` = the project's `firebase-adminsdk-fbsvc@…` key; `PUBLIC_APP_URL`
+set so `data.url` is absolute. `GET /api/push/native` → `enabled: true`.
+
+Verified end to end without a phone: a node FCM client (`@eneris/push-receiver`, holding a genuine
+registration token for `talorys-app`) was registered through `POST /api/push/devices`, then
+`POST /api/push/devices/test` answered `200` with `name: projects/talorys-app/messages/95e5aa47-…`
+and the client received that exact message (title, body, `data.url`) 0.3 s later; a second send after
+the `PUBLIC_APP_URL` deploy carried the absolute URL. The test row was deleted afterwards. The
+first real phone is the owner's, with APK `native-v0.1.1` (versionCode 3, `google-services.json`
+baked in) — a notification shown in the Android tray has not been seen by Tab.

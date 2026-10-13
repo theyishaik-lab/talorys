@@ -39,12 +39,21 @@ export TALORYS_KEYSTORE_PATH=… TALORYS_KEYSTORE_PASSWORD=… TALORYS_KEY_ALIAS
 - First build compiles the native modules (Reanimated, Screens, Gesture Handler, SVG, Worklets…) —
   about 25 minutes on 4 CPUs and **2–3 GB of RAM**; later builds reuse `.cxx` and take ~5 minutes.
   The script builds **arm64-v8a only** (every phone since 2017; add `armeabi-v7a` for old ones).
-- R8 (minify) is **off**: with 8 GB RAM shared with other work it ran out of heap; the APK is ~75 MB
-  instead of ~35 MB. Turn it back on in `app.json` (`expo-build-properties`) on a bigger machine.
+- R8 (minify + resource shrinking) is **on** (`app.json` → `expo-build-properties`): the APK is
+  ~39 MB. R8 needs heap: at `-Xmx1536m` it died with "GC overhead limit exceeded"; `-Xmx3072m`
+  (set in `android/gradle.properties` after prebuild, when nothing else heavy runs on the box)
+  builds it in ~2 min. Everything else builds fine at 1.5 GB.
 - Yishai's keystore: `/home/user/tab/state/talorys-mobile-keystore/talorys-release.jks` on Tab's box,
   alias `talorys`, password in `talorys-secrets.json` → `mobile_keystore` (never in git). **Losing it
   means the next APK cannot update the installed app** — it would have to be uninstalled first.
 - Version: `expo.version` / `android.versionCode` in `app.json`; bump `versionCode` every release.
+  Released: `native-v0.1.0` = versionCode 2 (0.2.0, no Firebase), `native-v0.1.1` = versionCode 3
+  (0.2.1, FCM). Releases live on GitHub (`theyishaik-lab/talorys`, prerelease per tag) because the
+  APK (~49 MB) is too big to send as a chat attachment.
+- `expo prebuild --clean` wipes `android/` (so `.cxx` for the app) but the library builds under
+  `node_modules/*/android/build` survive — a rebuild after `--clean` is ~10 min, not 25.
+- `npm run lint` (expo lint, React Compiler rules): fetch-on-mount effects call the loader through
+  `Promise.resolve().then(...)`, and `Date.now()` never runs in render (tasks.tsx `renderedAt`).
 
 ## Install on the phone
 
@@ -64,6 +73,16 @@ toggles as Web Push (`approval`, `result`, `reminder`); the two channels live si
 `PushService` (`push.native`). Android channels: **approvals** (high importance, vibrates) and
 **updates** (default). A tap opens the chat the notification is about (`data.conversation_id`).
 
+Status on this install: **set up Oct 13, 2026** — Firebase project `talorys-app` (free Spark
+plan, no billing; a separate project on purpose, because adding Firebase to `talorys-connector`
+would have moved that billed project onto Firebase's Blaze pay-as-you-go plan), Android app
+`dev.talorys.app` registered, `FCM_SERVICE_ACCOUNT` + `PUBLIC_APP_URL` on the Worker (agent
+`0.1.10-fcm`), `google-services.json` and the service-account key kept on Tab's box under
+`state/talorys-firebase/` (paths in `talorys-secrets.json` → `firebase_project`). APK
+`native-v0.1.1` (versionCode 3) is the first build with it. After sign-in the app asks Android's
+notification permission once and registers; Settings → Notifications shows the registered state,
+the three toggles and "Send test notification" (the server's FCM answer is shown on failure).
+
 Per-install setup (the thing the PWA never needed):
 
 1. Firebase project on the owner's Google account (add Firebase to the existing GCP project
@@ -80,6 +99,21 @@ Not done yet: Approve / Decline **buttons on the notification itself** (the tray
 FCM's own while the app is in the background; buttons need a data-only message + a background task)
 — today the tap opens the approval card, one more tap approves.
 
+## The black screen of native-v0.1.0 (fixed in v0.1.1)
+
+Yishai's Pixel 9 Pro opened v0.1.0 to a black screen that never changed and never crashed (15:13
+Oct 13). Cause: a scaffold leftover, `src/app/index.tsx` (`<View><Text>Talorys</Text></View>`). In
+expo-router a root `index` owns the launch path `/`, ahead of the real home `(main)/index`, and sat
+outside the login guard — so every cold start rendered that stub: default black text on the dark
+background. `scripts/check-routes.cjs` (part of `npm test`) resolves `/` with expo-router's own
+resolver and fails unless it lands on `(main) > index`; with the stray file it printed `index`.
+Hardening that came with the fix (`src/components/ErrorScreen.tsx`, `_layout.tsx`): a root
+ErrorBoundary and a global JS error handler paint the error text (Hebrew hint, stack, selectable)
+instead of a black window; the splash is forced down after 4 s; the preference stores (2.5 s) and the
+keystore/session read (6 s) time out into defaults; a "Talorys…" placeholder shows while loading.
+Checked on the v0.1.0 APK and ruled out: Hermes bytecode present and matching the engine
+(250829098.0.17), all 25 arm64 `.so` files, 16 KB page alignment (`zipalign -c -P 16`).
+
 ## Tests and checks
 
 - `apps/mobile`: `npm test` (vitest, native modules stubbed), `npm run typecheck`, `npm run lint`
@@ -88,3 +122,5 @@ FCM's own while the app is in the background; buttons need a data-only message +
   cache, FCM message shape, 404 → device dropped, routes).
 - No emulator on Tab's box (no KVM) — the APK was built and its JS bundle verified, but the screens
   were **not** run on a device by Tab; Yishai's phone is the first device.
+- FCM delivery was verified from the Worker to a node FCM client holding a real `talorys-app`
+  token (NOTIFICATIONS.md "Status on this install"); the Android tray itself was not observed.

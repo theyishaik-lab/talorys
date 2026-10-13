@@ -38,6 +38,8 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~57.0.2",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -45,7 +47,7 @@
     "android": "expo run:android",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "node ../../node_modules/vitest/vitest.mjs run",
+    "test": "node ../../node_modules/vitest/vitest.mjs run && node scripts/check-routes.cjs",
     "prebuild": "expo prebuild --platform android"
   },
   "private": true
