@@ -104,7 +104,8 @@ npm run deploy:cloudflare
 curl https://open-connector.yishai-kaminsky.workers.dev/health   # {"ok":true}
 ```
 
-- Watch the size line: **3,034 KiB gzip of the 3,072 KiB free limit**. An upstream merge that adds
+- Watch the size line: **3,034 KiB gzip of the 3,072 KiB free limit** (web console assets are uploaded
+  separately and do not count — a console-only change leaves it unchanged, verified Oct 13, 2026). An upstream merge that adds
   providers can push it over; the fix is excluding unused providers from the Cloudflare bundle (the way
   Aliyun OSS, MQTT and Postman already are) or a paid plan.
 - Merging upstream (`upstream-main`, 330 commits ahead) needs conflict resolution in the action runner,
