@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppError } from "../src/api/errors";
 import { ModelCatalogService, tiersOf, workersAiModelsFromCatalog } from "../src/ai/catalog";
 import { FallbackProvider } from "../src/ai/fallback";
-import { isGeminiChatModel } from "../src/ai/gemini";
+import { geminiThinking, isGeminiChatModel } from "../src/ai/gemini";
 import { hintOf } from "../src/ai/keys";
 import { classifyAiError, type AgentEvent, type AIProvider, type GenerateRequest, type ToolRequest } from "../src/ai/provider";
 import { inAgent, loggedIn } from "./helpers";
@@ -214,5 +214,52 @@ describe("settings → model", () => {
       await expect(p.generate({ system: "", messages: [{ role: "user", content: "hi" }], maxOutputTokens: 5 })).rejects.toMatchObject({ code: "NOT_CONFIGURED" });
     });
     await c.json("/api/settings", { method: "PATCH", body: { modelProvider: "workers-ai", model: "@cf/zai-org/glm-4.7-flash", fallback: { enabled: false } } });
+  });
+});
+
+describe("latency guards", () => {
+  it("asks Gemini for the lowest thinking level each model accepts", () => {
+    expect(geminiThinking("gemini-3.8-flash")).toEqual({ thinkingLevel: "low" });
+    expect(geminiThinking("gemini-3.5-flash")).toEqual({ thinkingLevel: "low" });
+    expect(geminiThinking("gemini-3.5-flash-lite")).toEqual({ thinkingLevel: "minimal" });
+    expect(geminiThinking("gemini-2.5-flash")).toEqual({ thinkingBudget: 0 });
+    expect(geminiThinking("gemini-2.5-pro")).toEqual({ thinkingBudget: 128 });
+  });
+
+  it("moves to the backup when the chosen model stays silent, and cancels the silent call", async () => {
+    let primarySignal: AbortSignal | undefined;
+    const silent: AIProvider = {
+      ...scripted("gemini", "gemini-3.8-flash", "never"),
+      async *generateWithTools(r: ToolRequest): AsyncIterable<AgentEvent> {
+        primarySignal = r.signal;
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        yield { type: "text", delta: "too late" };
+      },
+    };
+    const seen: AppError[] = [];
+    const p = new FallbackProvider(silent, scripted("gemini", "gemini-3.5-flash-lite", "fast answer"), (e) => seen.push(e), 30);
+    const events: AgentEvent[] = [];
+    const started = Date.now();
+    for await (const e of p.generateWithTools(req)) events.push(e);
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(events[0]).toEqual({ type: "provider", provider: "gemini", model: "gemini-3.5-flash-lite" });
+    expect(events.filter((e) => e.type === "text").map((e) => (e as { delta: string }).delta).join("")).toBe("fast answer");
+    expect(primarySignal?.aborted).toBe(true);
+    expect(seen[0]?.message).toContain("gemini-3.8-flash");
+  });
+
+  it("keeps a primary that answers in time, even when it is slower than the watchdog afterwards", async () => {
+    const slowTail: AIProvider = {
+      ...scripted("gemini", "g", "x"),
+      async *generateWithTools(): AsyncIterable<AgentEvent> {
+        yield { type: "text", delta: "first " };
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        yield { type: "text", delta: "second" };
+      },
+    };
+    const p = new FallbackProvider(slowTail, scripted("gemini", "b", "backup"), undefined, 30);
+    const text: string[] = [];
+    for await (const e of p.generateWithTools(req)) if (e.type === "text") text.push(e.delta);
+    expect(text.join("")).toBe("first second");
   });
 });

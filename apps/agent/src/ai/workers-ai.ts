@@ -16,6 +16,8 @@ export class AiSdkProvider implements AIProvider {
     readonly id: AiProviderId,
     readonly modelId: string,
     private readonly resolveModel: () => Promise<LanguageModel>,
+    /** Per-provider request options (e.g. Gemini's thinking level), passed to every call. */
+    private readonly providerOptions?: Record<string, Record<string, unknown>>,
   ) {}
 
   private model(): Promise<LanguageModel> {
@@ -33,6 +35,7 @@ export class AiSdkProvider implements AIProvider {
         abortSignal: req.signal,
         // Retries would be model calls the daily budget cannot see; the UI offers Retry instead.
         maxRetries: 0,
+        ...(this.providerOptions ? { providerOptions: this.providerOptions as never } : {}),
       });
       return {
         text: result.text,
@@ -96,6 +99,7 @@ export class AiSdkProvider implements AIProvider {
         abortSignal: controller.signal,
         // Retries would be model calls the daily budget cannot see; the UI offers Retry instead.
         maxRetries: 0,
+        ...(this.providerOptions ? { providerOptions: this.providerOptions as never } : {}),
         ...(hasTools
           ? {
               tools,

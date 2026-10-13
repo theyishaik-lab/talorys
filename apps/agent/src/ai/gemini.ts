@@ -13,8 +13,22 @@ export class GeminiProvider extends AiSdkProvider {
       const key = await apiKey();
       if (!key) throw new AppError("NOT_CONFIGURED", "Google Gemini needs an API key. Add one in Settings → Model.", { provider: "gemini" });
       return createGoogleGenerativeAI({ apiKey: key })(modelId) as LanguageModel;
-    });
+    }, { google: { thinkingConfig: geminiThinking(modelId) } });
   }
+}
+
+/**
+ * The thinking setting for a chat turn. Gemini 3.x models think at "high" when nothing is sent,
+ * which costs seconds before the first word of a simple answer; a personal assistant turn wants
+ * the lowest level each model accepts ("minimal" only exists on the lite models). 2.5 models
+ * take a token budget instead (0 = off; Pro cannot turn it off, 128 is its floor).
+ * Measured Oct 13, 2026 on the free tier, short Hebrew prompt: gemini-3.5-flash low 3.2 s to
+ * first token, gemini-3.5-flash-lite minimal 0.7 s.
+ */
+export function geminiThinking(modelId: string): { thinkingLevel?: "minimal" | "low"; thinkingBudget?: number } {
+  const id = modelId.toLowerCase();
+  if (/^gemini-2\./.test(id)) return { thinkingBudget: id.includes("pro") ? 128 : 0 };
+  return { thinkingLevel: id.includes("lite") ? "minimal" : "low" };
 }
 
 /** A usable model from the Gemini `models` list: generateContent, and not an image/audio/live/embedding variant. */

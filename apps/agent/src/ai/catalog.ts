@@ -21,8 +21,9 @@ const RECOMMENDED = new Set<string>([
   "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
   "@cf/qwen/qwen3-30b-a3b-fp8",
   "@cf/mistralai/mistral-small-3.1-24b-instruct",
-  "gemini-3.8-flash",
+  "gemini-3.5-flash",
   "gemini-3.5-flash-lite",
+  "gemini-3.8-flash",
   "gemini-2.5-flash",
   "google/gemma-4-26b-a4b-it:free",
 ]);
