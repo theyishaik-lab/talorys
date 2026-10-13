@@ -17,7 +17,8 @@ function talorysServiceWorker(): Plugin {
     configResolved(config) {
       outDir = config.build.outDir;
     },
-    closeBundle() {
+    closeBundle(error?: unknown) {
+      if (error) return; // a failed build writes no worker (an old dist must not get a fresh sw.js)
       const root = outDir;
       const files: string[] = [];
       const walk = (dir: string) => {
