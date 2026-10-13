@@ -9,13 +9,13 @@ secrets, roadmap). This page is the short version.
 
 | | |
 | --- | --- |
-| App | https://talorys-lxl5w9o0-web.pages.dev (Talorys 0.1.5 + OpenConnector tools, installation `lxl5w9o0`) |
+| App | https://talorys-lxl5w9o0-web.pages.dev (Talorys 0.1.6-push + OpenConnector tools, installation `lxl5w9o0`) |
 | Cloudflare account | `25e3dffccdb99cd3801798bcc4a5b54a`, free plan, no card; login email is Tab's mailbox for Yishai |
 | Agent Worker | `talorys-lxl5w9o0-agent` (private) — deployed from this repo's `main` with `deploy/agent.wrangler.jsonc` |
 | Web | Pages project `talorys-lxl5w9o0-web` |
 | Model | Workers AI `@cf/zai-org/glm-4.7-flash` |
 | OpenConnector | Worker `open-connector`, https://open-connector.yishai-kaminsky.workers.dev ([theyishaik-lab/open-connector](https://github.com/theyishaik-lab/open-connector)) |
-| Android | [theyishaik-lab/talorys-android](https://github.com/theyishaik-lab/talorys-android) (private), package `bot.tab.talorys.yishai` |
+| Phone app | Install from Chrome (Settings → Device notifications → Install) or iOS Share → Add to Home Screen — [docs/system/NOTIFICATIONS.md](docs/system/NOTIFICATIONS.md). The WebView APK ([talorys-android](https://github.com/theyishaik-lab/talorys-android)) is deprecated |
 | App timezone | `Asia/Jerusalem` (app setting) |
 
 ## Deploy in three lines

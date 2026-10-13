@@ -25,6 +25,7 @@ you ever need one, ask Tab; it travels privately.
 | `SESSION_SECRET` | Worker secret | Keys the session-token hashes; changing it signs out every device | Cloudflare |
 | `OPEN_CONNECTOR_TOKEN` | Worker secret | OpenConnector runtime token (same value as `OOMOL_CONNECT_RUNTIME_TOKEN`) | Cloudflare + Tab's secret store (`openconnector-secrets.json`, `runtime_token`) |
 | `OPEN_CONNECTOR_ADMIN_TOKEN` | Worker secret | OpenConnector admin token; only the server-side connect step uses it (CONNECTIONS.md) | Cloudflare + Tab's secret store (`openconnector-secrets.json`, `admin_token`) |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Worker secrets | Web Push signing keys (one P-256 pair per install) and the `mailto:` contact push services see — set Oct 13, 2026 (NOTIFICATIONS.md). The public key is not secret (every browser gets it); the private key must never be rotated casually, every device would have to re-enable notifications | Cloudflare + Tab's secret store (`talorys-secrets.json`, `vapid_*`) |
 | Owner password (plain) | — | What Yishai types to sign in. Changing it in the app (Settings → Security → Change password) signs out other devices; tell Tab so its copy stays right | Yishai + Tab's secret store (`talorys-secrets.json`) |
 | `AI` | binding | Workers AI | `deploy/agent.wrangler.jsonc` |
 | `TalorysAgent` | DO binding | the database | `deploy/agent.wrangler.jsonc` |

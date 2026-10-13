@@ -21,6 +21,7 @@ This folder has two kinds of documents:
 | [ANDROID.md](system/ANDROID.md) | The Android app: package, versions, signing key, rebuild |
 | [SECRETS.md](system/SECRETS.md) | Every secret and config value by NAME and where it lives (never the values) |
 | [MODELS.md](system/MODELS.md) | Which Workers AI chat model is used and why (benchmark), the leak guard, how to re-run the bench |
+| [NOTIFICATIONS.md](system/NOTIFICATIONS.md) | The installable app (PWA) and device notifications (Web Push with per-install VAPID keys) |
 | [ROADMAP.md](system/ROADMAP.md) | Known issues, limits and what comes next |
 
 ## Upstream reference docs

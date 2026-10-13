@@ -130,8 +130,10 @@ owner taps Cancel  -> POST /api/actions/:id/cancel -> nothing runs
 ```
 
 The card shows the final state ("Approved and done", "Approved, but it failed", cancelled, expired).
-The bell list refreshes every 30 seconds while the app is open. There are no push notifications —
-neither on the web nor in the Android app.
+The bell list refreshes every 30 seconds while the app is open, and every notification that lands
+in it (plus every proposed approval) is also sent as a device notification (Web Push) to the phones
+that enabled it in Settings → Device notifications — see NOTIFICATIONS.md. The old Android WebView
+app never gets them; the installable web app does.
 
 ## OpenConnector itself
 

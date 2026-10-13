@@ -1,4 +1,10 @@
-# Android app
+# Android app — DEPRECATED (Oct 13, 2026)
+
+> The WebView app is replaced by the **installable web app** (`docs/system/NOTIFICATIONS.md`): on
+> Android, open the site in Chrome → Settings → Device notifications → Install. A WebView has no
+> Push API, so this APK can never show device notifications. Nothing here is maintained any more;
+> the repo and the keystore stay until Yishai confirms the installed app and its notifications work
+> on his phone, then both go (the download page too).
 
 | Item | Value |
 | --- | --- |

@@ -30,12 +30,12 @@ npx wrangler deploy --config deploy/agent.wrangler.jsonc
 - `deploy/agent.wrangler.jsonc` is the production config: same Worker name, Durable Object binding and
   class (`TalorysAgent`), migration tag `v1`, the `AI` binding and the `OPEN_CONNECTOR` service
   binding. A deploy keeps all data, the URL and every logged-in session.
-- Secrets (`OWNER_PASSWORD_HASH`, `SESSION_SECRET`, `OPEN_CONNECTOR_TOKEN`, `OPEN_CONNECTOR_ADMIN_TOKEN`) live on the Worker and are
+- Secrets (`OWNER_PASSWORD_HASH`, `SESSION_SECRET`, `OPEN_CONNECTOR_TOKEN`, `OPEN_CONNECTOR_ADMIN_TOKEN`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`) live on the Worker and are
   untouched by a deploy. Set or replace one with `npx wrangler secret put NAME --config deploy/agent.wrangler.jsonc`.
 - **Never rename** the Durable Object binding or class and never add a DO migration — that would
   orphan the database. Schema changes go into `apps/agent/src/db/migrations.ts` (append-only); they run
   automatically on first use after the deploy.
-- Bump `TALORYS_DEPLOYED_VERSION` in the config when you ship something notable (now `0.1.5-openconnector`).
+- Bump `TALORYS_DEPLOYED_VERSION` in the config when you ship something notable (now `0.1.6-push`).
 - Bundle: ~632 KiB gzip (`npx wrangler deploy --dry-run --outdir /tmp/x --config deploy/agent.wrangler.jsonc`), far under the 3 MiB free limit.
 
 Check: `curl https://talorys-lxl5w9o0-web.pages.dev/api/health` → `"ok":true`; after login,
@@ -45,6 +45,10 @@ Check: `curl https://talorys-lxl5w9o0-web.pages.dev/api/health` → `"ok":true`;
 
 Needed only when `apps/web` changed. Android picks the change up automatically (the app loads the live
 site), so no APK rebuild is needed for UI work.
+
+The build also writes `dist/sw.js` (the service worker, see NOTIFICATIONS.md) with a hash of this
+build: every deploy installs a new worker on the phones and drops the old shell cache. If the build
+fails, no `sw.js` is written — never deploy a `dist/` from a failed build.
 
 The Pages deploy must contain **three things side by side**: the built `dist/`, the `functions/`
 folder (the `/api` proxy — without it every API call 404s and the app breaks), and a `wrangler.jsonc`
@@ -61,7 +65,9 @@ cd /tmp/talorys-web
 npx wrangler pages deploy dist --project-name talorys-lxl5w9o0-web --branch main
 ```
 
-Then open the site, sign in, send one chat message, and check the bell. Rolling back: Cloudflare
+Then open the site, sign in, send one chat message, and check the bell. For the app shell: `/sw.js`
+and `/manifest.webmanifest` must answer 200 with `cache-control: no-cache`, and Settings → Device
+notifications → "Send test notification" must arrive on a subscribed phone. Rolling back: Cloudflare
 dashboard → Workers & Pages → `talorys-lxl5w9o0-web` → Deployments → "Rollback" on the previous one.
 
 > Status (Oct 13, 2026, 03:13 IL): the procedure above was run for the first time (preview branch

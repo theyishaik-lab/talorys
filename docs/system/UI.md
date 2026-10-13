@@ -41,7 +41,7 @@ apps/web/
                              BellButton, IconButton, useShell()
       Drawer.tsx             the one navigation surface: search, new chat, pages, chats by day,
                              account row (ConversationList lives here)
-      DeviceNotifications.tsx Settings → "Device notifications" group (Phase 2 fills it in)
+      DeviceNotifications.tsx Settings → "Device notifications": install, enable push, per-kind toggles, test (NOTIFICATIONS.md)
       NotificationCenter.tsx the bell list (approval results land here)
       ChatUsage.tsx          "AI usage today" popover
       Markdown.tsx           how assistant messages render
@@ -147,7 +147,8 @@ One calm neutral surface, one accent, content first. Phone first, the same layou
   blocked unless you bundle it or extend the policy deliberately. `frame-ancestors 'none'` — the app
   cannot be embedded in an iframe (the Android WebView is not affected).
 - **Polling:** notifications refresh every 30 s, chat polls every 1.5 s only while a reply is
-  streaming; device push arrives with Phase 2 (PWA + Web Push, `docs/system/NOTIFICATIONS.md`).
+  streaming; a device push received while the app is open refreshes both at once (PWA + Web Push,
+  `docs/system/NOTIFICATIONS.md`).
 - **Mobile:** the same layout serves the Android WebView; test at phone width (about 390 px) and with
   the on-screen keyboard (the Android app uses `adjustResize`).
 - Keep the bundle lean: the app is served from Pages (no size limit worth worrying about), but the

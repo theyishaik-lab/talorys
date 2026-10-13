@@ -10,7 +10,7 @@
 | 4 | **Google setup in progress** | Gmail/Calendar/Drive not usable yet | See CONNECTIONS.md |
 | 5 | **Live web lags `main`** | The "AI usage today" popover (upstream `980331b`) is on `main` but not live | Next web deploy from the fork (DEPLOY.md §3) |
 | 6 | ~~No right-to-left support in the UI~~ | **Done Oct 13, 2026** (`9b41c85`): Hebrew locale + RTL layout, Settings → General → Language | Remaining: translate the Memory/Tasks/Notes/Automations pages and the other Settings tabs — UI.md → "Hebrew / right-to-left" |
-| 7 | **No push notifications** | Results of approved actions and reminders appear only in the bell while the app is open | Web Push or FCM in the Android app (below) |
+| 7 | ~~No push notifications~~ **done Oct 13, 2026** | Web Push from the agent Worker with per-install VAPID keys; installable app (PWA); the WebView APK is deprecated — `NOTIFICATIONS.md` | — |
 | 8 | **Daily AI budget** | 200 AI requests/day (Talorys) and the Workers AI free Neuron allocation; when it runs out the chat stops answering until the next UTC day (03:00 Israel time in summer, 02:00 in winter) | Settings → AI; the usage popover after the web deploy |
 | 9 | **Single runtime token with full access** | Talorys's runtime token can run any action on any connection (writes still need Yishai's Approve) | Create a scoped key in OpenConnector's Access page (per-service / per-action grants, from Yishai's grants commit) and swap `OPEN_CONNECTOR_TOKEN` |
 | 10 | **Installer `update` is a trap** | Overwrites the connector integration | Never run it; deploy from the fork |
