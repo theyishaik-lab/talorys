@@ -31,6 +31,12 @@ export interface AiAttempt {
   timeout_s?: number;
   /** The agent's English message for this attempt (short; for logs and tooltips). */
   error: string;
+  /**
+   * True when the model was not called this turn: it failed recently (`reason`) and is paused
+   * until `until` (ISO time) so the turn did not wait on it again. Absent on older agents.
+   */
+  skipped?: boolean;
+  until?: string;
 }
 
 /** Stored on an assistant message: who answered it (or whose failure ended it) and who failed before. */
@@ -111,7 +117,14 @@ const REASON_EN: Record<AiFailureReason, string> = {
 };
 
 /** The short reason word: "עומס 503", "מכסה", "לא הגיב 15 ש׳", "לא מוגדר" (or the English equivalents). */
-export function attemptReason(attempt: Pick<AiAttempt, "reason" | "status" | "timeout_s">, lang: "he" | "en" = "en"): string {
+export function attemptReason(attempt: Pick<AiAttempt, "reason" | "status" | "timeout_s"> & { skipped?: boolean }, lang: "he" | "en" = "en"): string {
+  const base = reasonWord(attempt, lang);
+  // A model skipped for a cooldown failed earlier, not in this turn.
+  if (attempt.skipped) return lang === "he" ? `${base} (בהשהיה)` : `${base} (paused)`;
+  return base;
+}
+
+function reasonWord(attempt: Pick<AiAttempt, "reason" | "status" | "timeout_s">, lang: "he" | "en"): string {
   const reason = (attempt.reason in REASON_EN ? attempt.reason : "error") as AiFailureReason;
   const word = (lang === "he" ? REASON_HE : REASON_EN)[reason];
   if (reason === "timeout") {

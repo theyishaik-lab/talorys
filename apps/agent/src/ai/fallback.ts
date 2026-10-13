@@ -1,7 +1,18 @@
 import type { AiAttempt } from "@talorys/shared";
 import { AppError } from "../api/errors";
 import { attemptOf, chainError } from "./attribution";
+import { type CooldownEntry, skippedAttempt } from "./cooldown";
 import type { AgentEvent, AIProvider, GenerateRequest, ToolRequest } from "./provider";
+
+/**
+ * Optional memory of recent failures (cooldown.ts): a paused candidate is skipped without a
+ * request, a failure may pause it, and a success ends its pause.
+ */
+export interface CandidateCooldowns {
+  active(provider: string, model: string): CooldownEntry | null;
+  failed(provider: string, model: string, error: AppError): void;
+  succeeded(provider: string, model: string): void;
+}
 
 /**
  * How long a model may stay silent before the turn moves on to the next one in the chain. A
@@ -34,6 +45,7 @@ export class FallbackProvider implements AIProvider {
     chain: AIProvider[],
     private readonly onFallback?: (error: AppError, from: AIProvider, to: AIProvider) => void,
     private readonly firstEventTimeoutMs = FIRST_EVENT_TIMEOUT_MS,
+    private readonly cooldowns?: CandidateCooldowns,
   ) {
     if (chain.length === 0) throw new Error("FallbackProvider needs at least one provider");
     this.chain = chain;
@@ -47,17 +59,89 @@ export class FallbackProvider implements AIProvider {
     return this.chain;
   }
 
+  /**
+   * The history budget that fits every candidate (see model-caps.ts): a turn may end on any of
+   * them, so the prompt is sized for the smallest window in the chain.
+   */
+  promptBudget(maxOutputTokens: number): number {
+    let budget = Number.POSITIVE_INFINITY;
+    for (const c of this.chain) if (c.promptBudget) budget = Math.min(budget, c.promptBudget(maxOutputTokens));
+    return budget;
+  }
+
+  /**
+   * This turn's candidates, in order: paused ones (cooldown) are left out and reported as skipped
+   * attempts. When every candidate is paused, all of them are tried anyway.
+   */
+  private plan(): { order: AIProvider[]; skipped: Map<AIProvider, AiAttempt> } {
+    const skipped = new Map<AIProvider, AiAttempt>();
+    if (!this.cooldowns) return { order: this.chain, skipped };
+    const order: AIProvider[] = [];
+    for (const c of this.chain) {
+      let entry: CooldownEntry | null = null;
+      try {
+        entry = this.cooldowns.active(c.id, c.modelId ?? "");
+      } catch (error) {
+        console.error("cooldown read failed", error);
+      }
+      if (entry) skipped.set(c, skippedAttempt(c.id, c.modelId ?? "", entry));
+      else order.push(c);
+    }
+    if (order.length === 0) return { order: this.chain, skipped: new Map() };
+    return { order, skipped };
+  }
+
+  /** The skipped attempts that come before `candidate` in the chain's own order. */
+  private skippedBefore(candidate: AIProvider | undefined, skipped: Map<AIProvider, AiAttempt>, taken: Set<AIProvider>): AiAttempt[] {
+    const out: AiAttempt[] = [];
+    for (const c of this.chain) {
+      if (c === candidate) break;
+      const a = skipped.get(c);
+      if (a && !taken.has(c)) {
+        taken.add(c);
+        out.push(a);
+      }
+    }
+    return out;
+  }
+
+  private noteFailure(candidate: AIProvider, error: unknown): void {
+    if (!this.cooldowns || !shouldFallBack(error)) return;
+    try {
+      this.cooldowns.failed(candidate.id, candidate.modelId ?? "", error as AppError);
+    } catch (e) {
+      console.error("cooldown write failed", e);
+    }
+  }
+
+  private noteSuccess(candidate: AIProvider): void {
+    try {
+      this.cooldowns?.succeeded(candidate.id, candidate.modelId ?? "");
+    } catch (e) {
+      console.error("cooldown write failed", e);
+    }
+  }
+
   async generate(req: GenerateRequest) {
     const attempts: AiAttempt[] = [];
+    const { order, skipped } = this.plan();
+    const taken = new Set<AIProvider>();
     for (let i = 0; ; i++) {
-      const candidate = this.chain[i] as AIProvider;
-      const next = this.chain[i + 1];
+      const candidate = order[i] as AIProvider;
+      const next = order[i + 1];
+      attempts.push(...this.skippedBefore(candidate, skipped, taken));
       try {
-        return await candidate.generate(req);
+        const result = await candidate.generate(req);
+        this.noteSuccess(candidate);
+        return result;
       } catch (error) {
         if (req.signal?.aborted) throw error;
+        this.noteFailure(candidate, error);
         attempts.push(attemptOf(error, candidate.id, candidate.modelId ?? ""));
-        if (!next || !shouldFallBack(error)) throw chainError(error, attempts);
+        if (!next || !shouldFallBack(error)) {
+          attempts.push(...this.skippedBefore(undefined, skipped, taken));
+          throw chainError(error, attempts);
+        }
         this.onFallback?.(error as AppError, candidate, next);
       }
     }
@@ -74,19 +158,31 @@ export class FallbackProvider implements AIProvider {
    */
   async *generateWithTools(req: ToolRequest): AsyncIterable<AgentEvent> {
     const attempts: AiAttempt[] = [];
-    for (let i = 0; i < this.chain.length; i++) {
-      const candidate = this.chain[i] as AIProvider;
-      const next = this.chain[i + 1];
-      let outcome: { kind: "done" } | { kind: "failed"; error: AppError };
+    const { order, skipped } = this.plan();
+    const taken = new Set<AIProvider>();
+    for (let i = 0; i < order.length; i++) {
+      const candidate = order[i] as AIProvider;
+      const next = order[i + 1];
+      attempts.push(...this.skippedBefore(candidate, skipped, taken));
+      // Any candidate other than the chosen model is a backup, and is announced as one.
+      const isBackup = candidate !== this.chain[0];
+      let outcome: { kind: "done"; answered: boolean } | { kind: "failed"; error: AppError };
       try {
-        outcome = yield* this.attempt(candidate, req, next !== undefined, i > 0 ? attempts : null);
+        outcome = yield* this.attempt(candidate, req, next !== undefined, isBackup ? attempts : null);
       } catch (error) {
         if (req.signal?.aborted) throw error;
         throw chainError(error, [...attempts, attemptOf(error, candidate.id, candidate.modelId ?? "")]);
       }
-      if (outcome.kind === "done") return;
+      if (outcome.kind === "done") {
+        if (outcome.answered) this.noteSuccess(candidate);
+        return;
+      }
+      this.noteFailure(candidate, outcome.error);
       attempts.push(attemptOf(outcome.error, candidate.id, candidate.modelId ?? ""));
-      if (!next) throw chainError(outcome.error, attempts);
+      if (!next) {
+        attempts.push(...this.skippedBefore(undefined, skipped, taken));
+        throw chainError(outcome.error, attempts);
+      }
       // Nothing useful was emitted and a next candidate exists.
       this.onFallback?.(outcome.error, candidate, next);
     }
@@ -103,7 +199,7 @@ export class FallbackProvider implements AIProvider {
     hasNext: boolean,
     /** The failures before this candidate when it is a backup (it is then announced), else null. */
     before: AiAttempt[] | null,
-  ): AsyncGenerator<AgentEvent, { kind: "done" } | { kind: "failed"; error: AppError }> {
+  ): AsyncGenerator<AgentEvent, { kind: "done"; answered: boolean } | { kind: "failed"; error: AppError }> {
     const watchdogMs = hasNext ? this.firstEventTimeoutMs : null;
     let committed = false;
     // Bookkeeping events seen before the first real one: forwarded once the candidate commits,
@@ -136,7 +232,7 @@ export class FallbackProvider implements AIProvider {
             void Promise.resolve()
               .then(() => cut.return?.(undefined))
               .catch(() => {});
-            if (req.signal?.aborted) return { kind: "done" };
+            if (req.signal?.aborted) return { kind: "done", answered: false };
             return {
               kind: "failed",
               error: new AppError("AI_UNAVAILABLE", `No answer from ${candidate.modelId ?? candidate.id} within ${Math.round(watchdogMs / 1000)} s; switched to the next model.`, {
@@ -153,7 +249,7 @@ export class FallbackProvider implements AIProvider {
           // A candidate that ends having said nothing still answered (an empty answer is the
           // turn's to judge); flush its bookkeeping.
           for (const e of pending) yield e;
-          return { kind: "done" };
+          return { kind: "done", answered: !req.signal?.aborted };
         }
         const event = next.value;
         if (committed) {
@@ -176,7 +272,9 @@ export class FallbackProvider implements AIProvider {
         yield event;
       }
     } catch (error) {
-      if (committed || req.signal?.aborted || !hasNext || !shouldFallBack(error)) throw error;
+      // A failure before any content is the candidate's (it may be paused, and the next one runs);
+      // the caller ends the turn when there is no next candidate.
+      if (committed || req.signal?.aborted || !shouldFallBack(error)) throw error;
       return { kind: "failed", error: error as AppError };
     } finally {
       req.signal?.removeEventListener("abort", onAbort);

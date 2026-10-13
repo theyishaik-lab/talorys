@@ -21,6 +21,11 @@ export interface Env {
   /** Informational, written by the installer. */
   TALORYS_INSTALLATION_ID?: string;
   TALORYS_DEPLOYED_VERSION?: string;
+  /**
+   * Subrequests one invocation may make: 50 on the Workers Free plan (the default), 10,000 on Paid.
+   * A chat turn stops calling tools before it reaches this wall (runner.ts SubrequestGuard).
+   */
+  TALORYS_SUBREQUEST_LIMIT?: string;
   /** OpenConnector (optional): a service binding to the connector Worker in the same account … */
   OPEN_CONNECTOR?: Fetcher;
   /** … or its public URL when no binding is configured. */

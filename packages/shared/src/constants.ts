@@ -48,14 +48,27 @@ export const DEFAULT_MEMORY_HISTORY = {
   aiConflictCheck: false,
 } as const;
 
-/** Hard ceilings the owner cannot exceed through settings. */
+/**
+ * Hard ceilings the owner cannot exceed through settings — set to what the models and the Workers
+ * runtime technically allow (Oct 13, 2026), not to a budget. The agent clamps per model at run
+ * time, so a ceiling above what one model takes never breaks a request:
+ *  - maxOutputTokens: the largest output any supported model takes (OpenRouter's Nemotron 3 Super
+ *    lists 235,929; Gemini 3.x 65,536); each provider is clamped to its model's own maximum.
+ *  - maxContextTokens: Gemini's 1,048,576-token window; the history is cut to the smallest window
+ *    in the fallback chain (see apps/agent/src/ai/model-caps.ts).
+ *  - maxToolCalls / maxAgentIterations: per turn. On the Workers Free plan one invocation may make
+ *    50 subrequests (each model step and each connector call is one), and the runner stops a turn
+ *    before that wall (TALORYS_SUBREQUEST_LIMIT); on Workers Paid the wall is 10,000.
+ *  - maxScheduledAiRunsPerDay: one AI automation run per minute, all day.
+ *  - maxAiRequestsPerDay: the Workers Free plan's 100,000 requests a day.
+ */
 export const LIMIT_CEILINGS = {
-  maxOutputTokens: 4096,
-  maxToolCalls: 20,
-  maxAgentIterations: 10,
-  maxContextTokens: 32000,
-  maxScheduledAiRunsPerDay: 48,
-  maxAiRequestsPerDay: 2000,
+  maxOutputTokens: 262_144,
+  maxToolCalls: 500,
+  maxAgentIterations: 200,
+  maxContextTokens: 1_048_576,
+  maxScheduledAiRunsPerDay: 1440,
+  maxAiRequestsPerDay: 100_000,
 } as const;
 
 // ---------- Entity vocabularies (plain arrays; the zod schemas in ./schemas build on them) ----------

@@ -16,6 +16,7 @@ import { NativePushService } from "../push/native";
 import { excerpt, PushService, pushKeysFromEnv } from "../push/service";
 import { ProviderKeyStore } from "../ai/keys";
 import { ModelCatalogService } from "../ai/catalog";
+import { ModelCooldowns } from "../ai/cooldown";
 
 /** All data services for the single owner, bound to one Durable Object's storage. */
 export interface Services {
@@ -39,6 +40,8 @@ export interface Services {
   providerKeys: ProviderKeyStore;
   /** The model lists Settings shows (cached per Durable Object). */
   catalog: ModelCatalogService;
+  /** Models paused after a quota / overload failure (skipped by the fallback chain until then). */
+  cooldowns: ModelCooldowns;
 }
 
 /** Runs a background promise; the Durable Object passes `ctx.waitUntil`. Errors never surface to the request. */
@@ -67,6 +70,7 @@ export function createServices(storage: DurableObjectStorage, env: Env, schedule
     push,
     providerKeys,
     catalog,
+    cooldowns: new ModelCooldowns(settings),
     db,
     tasks: new TaskRepository(db),
     memories,

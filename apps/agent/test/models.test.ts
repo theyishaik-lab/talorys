@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { MAX_FALLBACK_CHAIN } from "@talorys/shared";
 import { AppError } from "../src/api/errors";
 import { ModelCatalogService, tiersOf, workersAiModelsFromCatalog } from "../src/ai/catalog";
 import { FallbackProvider } from "../src/ai/fallback";
@@ -235,7 +236,7 @@ describe("settings → fallback chain", () => {
     });
     const badChain = await c.call("/api/settings", { method: "PATCH", body: { fallback: { chain: [{ provider: "workers-ai", model: "gemini-3.5-flash" }] } } });
     expect(badChain.status).toBe(400);
-    const tooLong = await c.call("/api/settings", { method: "PATCH", body: { fallback: { chain: Array.from({ length: 5 }, (_, i) => ({ provider: "openrouter", model: `m${i}:free` })) } } });
+    const tooLong = await c.call("/api/settings", { method: "PATCH", body: { fallback: { chain: Array.from({ length: MAX_FALLBACK_CHAIN + 1 }, (_, i) => ({ provider: "openrouter", model: `m${i}:free` })) } } });
     expect(tooLong.status).toBe(400);
     const cleared = await c.json("/api/settings", { method: "PATCH", body: { fallback: { chain: [] } } });
     expect(cleared.settings.fallback.chain).toEqual([]);

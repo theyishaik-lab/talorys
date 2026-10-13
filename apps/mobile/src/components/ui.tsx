@@ -1,7 +1,7 @@
 import * as Haptics from "expo-haptics";
 import type { LucideIcon } from "lucide-react-native";
 import type { ReactNode } from "react";
-import { ActivityIndicator, Pressable, type PressableProps, StyleSheet, Text as RNText, type TextProps, type TextStyle, View, type ViewStyle } from "react-native";
+import { ActivityIndicator, Pressable, type PressableProps, StyleSheet, Text as RNText, type TextProps, View, type ViewStyle } from "react-native";
 import { useI18n } from "../lib/i18n";
 import { fonts, radii, useTheme } from "../lib/theme";
 

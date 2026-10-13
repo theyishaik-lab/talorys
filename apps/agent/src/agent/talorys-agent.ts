@@ -4,13 +4,14 @@ import type { Env } from "../env";
 import { migrate } from "../db/migrations";
 import { createServices, type Services } from "../services/container";
 import type { Scheduler } from "./scheduling";
-import { AgentRunner } from "./runner";
+import { AgentRunner, subrequestLimitFrom } from "./runner";
 import { createApi } from "../api/app";
 import type { AiProviderId, Settings } from "@talorys/shared";
 import { CloudflareWorkersAIProvider } from "../ai/workers-ai";
 import { GeminiProvider } from "../ai/gemini";
 import { OpenRouterProvider } from "../ai/openrouter";
 import { FallbackProvider, fallbackOrder } from "../ai/fallback";
+import { modelLabel } from "@talorys/shared";
 import { MockAIProvider } from "../ai/mock";
 import type { AIProvider } from "../ai/provider";
 import { localDayBounds, formatLocal } from "../services/time";
@@ -91,8 +92,23 @@ export class TalorysAgent extends Agent<Env, AgentState> {
     const chain = this.providerChain(settings);
     if (chain.length === 0) return null;
     if (chain.length === 1) return chain[0] as AIProvider;
-    return new FallbackProvider(chain, (error, from, to) =>
-      this.services.activity.record("ai.fallback", `${from.modelId ?? from.id} → ${to.modelId ?? to.id}: ${error.message.slice(0, 200)}`),
+    const cooldowns = this.services.cooldowns;
+    const activity = this.services.activity;
+    return new FallbackProvider(
+      chain,
+      (error, from, to) => activity.record("ai.fallback", `${from.modelId ?? from.id} → ${to.modelId ?? to.id}: ${error.message.slice(0, 200)}`),
+      undefined,
+      {
+        active: (provider, model) => cooldowns.active(provider, model),
+        failed: (provider, model, error) => {
+          const entry = cooldowns.failed(provider, model, error);
+          if (entry) {
+            const who = entry.scope === "provider" ? `${provider} (all models)` : `${modelLabel(model)} (${provider})`;
+            activity.record("ai.cooldown", `${who} paused until ${entry.until}: ${entry.reason}`);
+          }
+        },
+        succeeded: (provider, model) => cooldowns.succeeded(provider, model),
+      },
     );
   }
 
@@ -122,7 +138,12 @@ export class TalorysAgent extends Agent<Env, AgentState> {
   }
 
   runner(): AgentRunner {
-    return new AgentRunner(this.services, this.aiProvider(), withOpenConnector(semanticExtensions(this.services, this.env), this.services, this.env));
+    return new AgentRunner(
+      this.services,
+      this.aiProvider(),
+      withOpenConnector(semanticExtensions(this.services, this.env), this.services, this.env),
+      subrequestLimitFrom(this.env.TALORYS_SUBREQUEST_LIMIT),
+    );
   }
 
   /** Every tool an approved action may belong to: upstream's plus the connector tools when configured. */

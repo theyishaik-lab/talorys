@@ -18,8 +18,8 @@ common models (others: the provider's description), speed / quality / tools / fr
 checked. The backup ("fallback") model takes over when the chosen one fails on quota, configuration or an
 outage before it has said a word; in chat a spent quota shows a Hebrew message with a button to Settings → Model.
 
-**Yishai's installation (Oct 13, 2026 ~14:20 IL):** `gemini` / `gemini-3.5-flash`, backup `gemini` /
-`gemini-3.5-flash-lite` (Workers AI's daily allowance was spent until 03:00).
+**Yishai's installation (Oct 13, 2026 ~23:30 IL, agent 0.1.14-max):** best-first cascade over every free
+model his keys can call — see "Best-first cascade, cooldowns and limits" below for the order and why.
 
 ## Latency (Oct 13, 2026)
 
@@ -54,7 +54,7 @@ single backup was not enough. `settings.fallback` gained an additive `chain`:
 
 - Order tried: the chosen model → `fallback.provider/model` (the selected backup, what the picker has always
   written) → each `chain` entry. Duplicate (provider, model) pairs are tried once; a provider with no binding
-  is skipped; `enabled: false` turns the whole chain off. At most 4 chain entries (`MAX_FALLBACK_CHAIN`).
+  is skipped; `enabled: false` turns the whole chain off. At most 16 chain entries (`MAX_FALLBACK_CHAIN`; 4 before 0.1.14-max).
 - Backwards compatible: settings stored before `chain` read as `chain: []`; a `PATCH /api/settings` whose
   `fallback` has no `chain` (the current web and mobile pickers) keeps the stored chain; `chain: []` clears
   it. `GET /api/ai/models` returns the whole `fallback` including `chain`.
@@ -69,6 +69,83 @@ single backup was not enough. `settings.fallback` gained an additive `chain`:
 - Tests: `apps/agent/test/fallback-chain.test.ts` (503→503→ok, timeout per candidate, no retry after text /
   tool, abort, non-fallback errors, slow last candidate, `generate()`, ordering/dedupe) and the settings API
   test in `models.test.ts`.
+
+## Best-first cascade, cooldowns and limits (agent 0.1.14-max, Oct 13, 2026)
+
+Yishai, Oct 13 22:27: "the maximum that's technically possible — start from the best model, and when its
+tokens run out, step down through every option; don't limit anything we don't have to."
+
+### Which free models his keys can actually call (real requests, Oct 13 ~22:35–22:55 IL)
+
+Hebrew one-liner + a `list_tasks` tool call per model, his own keys.
+
+| Model | Result |
+|---|---|
+| `gemini-4-argon`, `gemini-pro-latest`, `gemini-3.1-pro-preview(-customtools)` | **429 "limit: 0"** — no free-tier quota at all for Pro models on his key |
+| `gemini-2.5-pro`, `gemini-2.5-flash(-lite)` | 404 "no longer available to new users" |
+| `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-flash-latest` | 503 "high demand" at test time (3.8 answered earlier the same day after 68–87 s, 3.7 after 145 s) |
+| `gemini-3.6-flash`, `gemini-3.5-flash` | tool call OK (2.0 s / 1.4 s); also 503 on a second try minutes later — flaky under load |
+| `gemini-3-flash-preview` | Hebrew 2.2–2.8 s, tool call 1.0 s |
+| `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`, `gemini-flash-lite-latest` | Hebrew + tools OK (0.6–6 s) |
+| `gemma-4-26b-a4b-it` (Gemini API) | Hebrew OK in 11 s (thinks ~450 tokens), tool call 2.7 s; **rejects `thinkingConfig`** (400) → `geminiThinking()` sends none for Gemma |
+| `gemma-4-31b-it` (Gemini API) | 500 "Internal error" twice (once after 62 s) — rejected |
+| OpenRouter `nvidia/nemotron-3-ultra-550b-a55b:free` | Hebrew 2.4 s (fluent), tool call 1.3 s |
+| OpenRouter `nvidia/nemotron-3-super-120b-a12b:free` | verified earlier Oct 13 (Hebrew 3 s, tool 1.1 s) |
+| OpenRouter `poolside/laguna-s-2.1:free` | tool call OK, Hebrew request 429 "rate-limited upstream" — not included (Hebrew unverified; a coding model) |
+| OpenRouter `google/gemma-4-31b-it:free` | 429 "rate-limited upstream" (also earlier) — rejected |
+| OpenRouter `dots-studio/dots-3-note-preview:free` | 400 from its provider on a tool request — rejected |
+| OpenRouter `thinkingmachines/inkling(-small):free` | 403 "only available on agentic harnesses" — rejected |
+| Workers AI | daily 10,000 neurons spent (4006) at test time; `@cf/google/gemma-4-26b-a4b-it` 5/6 and `@cf/openai/gpt-oss-120b` 2/2 in the Oct 13 bench (below) |
+
+`*-latest` aliases are left out of the chain (they point at a model already in it).
+
+### The order (strongest first)
+
+primary `gemini/gemini-3.8-flash` → backup `openrouter/nvidia/nemotron-3-ultra-550b-a55b:free` → chain
+`gemini-3.7-flash` → `gemini-3.6-flash` → `gemini-3.5-flash` → `gemini-3-flash-preview` →
+`openrouter/nvidia/nemotron-3-super-120b-a12b:free` → `gemini-3.5-flash-lite` → `gemini-3.1-flash-lite` →
+`gemini/gemma-4-26b-a4b-it` → `workers-ai/@cf/google/gemma-4-26b-a4b-it` → `workers-ai/@cf/openai/gpt-oss-120b`.
+
+```json
+{ "modelProvider": "gemini", "model": "gemini-3.8-flash",
+  "fallback": { "enabled": true, "provider": "openrouter", "model": "nvidia/nemotron-3-ultra-550b-a55b:free",
+    "chain": [ {"provider":"gemini","model":"gemini-3.7-flash"}, … ] } }
+```
+
+### Cooldowns — a spent model is skipped, not asked on every message (`apps/agent/src/ai/cooldown.ts`)
+
+- `classifyAiError` now also records the provider's own hints in `details`: `retry_after_s` (Retry-After,
+  X-RateLimit-Reset, Gemini's "Please retry in 4h26m27s" / `retryDelay`), `quota_window` ("day" for
+  Gemini `…PerDay…`, OpenRouter `free-models-per-day`, Workers AI 4006; "minute" otherwise) and `scope`
+  ("provider" for OpenRouter's free allowance and Workers AI neurons, which are the account's).
+- `FallbackProvider` takes optional cooldown hooks. A failure before any content pauses that model:
+  daily quota → until the provider's reset hint, else next 00:00 UTC (10 min … 24 h); per-minute limit →
+  the hint or 60 s; 503 / unknown error → 1 min doubling per consecutive failure to 30 min; 15 s silence →
+  5 min doubling to 30 min; 404 model → 6 h; rejected key 1 h; no key 10 min. A success ends the pause;
+  a new key (`PUT /api/ai/keys/:p`) ends that provider's pauses.
+- A paused model is not called; it appears in the turn's `attempts` as `{…, skipped: true, until}` and
+  reads "Gemini 3.8 Flash (Google): מכסה (בהשהיה)". If **every** model is paused, all are tried anyway.
+  A backup is announced (`model` event, "ענה: …") whenever the answering model is not the chosen one,
+  including when the chosen one was skipped.
+- Stored in `tal_settings` under `ai_cooldowns` (no migration). `GET /api/ai/cooldowns` lists them (also
+  in `GET /api/ai/models` as `cooldowns`); `DELETE /api/ai/cooldowns` clears them. Each pause is logged
+  as activity `ai.cooldown`.
+
+### Limits (`LIMIT_CEILINGS` in packages/shared/src/constants.ts)
+
+| Limit | Old ceiling | New ceiling = his live value | What actually bounds it |
+|---|---|---|---|
+| maxOutputTokens | 4,096 | 262,144 | clamped per model (`model-caps.ts`): Gemini 65,536, Gemma 32,768, Nemotron 65,536, Workers AI gemma 32,768 / gpt-oss 32,000 |
+| maxContextTokens | 32,000 | 1,048,576 | history is cut to the smallest window in the chain: (context − output) × 0.5 (`estimateTokens` is chars/4; Hebrew is ~2× that). With gpt-oss-120b (128k) last in his chain that is 48,000 estimated tokens ≈ 190k characters of history |
+| maxToolCalls | 20 | 500 | `SubrequestGuard`: Workers Free allows **50 subrequests per invocation**; model steps + tool calls stop at 38 (12 kept for fallback hops, keys, push), then the model must answer. `TALORYS_SUBREQUEST_LIMIT` (Worker var) raises it on a Paid plan (10,000) |
+| maxAgentIterations | 10 | 200 | same guard |
+| maxScheduledAiRunsPerDay | 48 | 1,440 | one AI routine per minute; scheduled runs keep their own per-run caps (4 tools, 3 steps, 600 output tokens) |
+| maxAiRequestsPerDay | 2,000 | 100,000 | Workers Free's 100,000 requests/day; in practice the providers' free quotas end first |
+
+Guards kept: the subrequest guard, per-tool caps and duplicate-call detection (`ToolExecutor`), the
+leak guard's stuck-loop stop, the scheduled-run caps, and the daily request counter. Nothing can cost
+money: no card on Cloudflare (Workers AI refuses past 10k neurons), $0 OpenRouter credits, Gemini free
+tier (no billing account).
 
 # Workers AI model benchmark (free plan)
 

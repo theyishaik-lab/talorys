@@ -21,7 +21,18 @@ aiRoutes.get("/ai/models", async (c) => {
   const settings = s.settings.get();
   const refresh = c.req.query("refresh") === "1";
   const catalog: ModelCatalog = await s.catalog.catalog({ provider: settings.modelProvider, model: settings.model }, { refresh });
-  return c.json({ ...catalog, keys_available: s.providerKeys.available, fallback: settings.fallback });
+  return c.json({ ...catalog, keys_available: s.providerKeys.available, fallback: settings.fallback, cooldowns: s.cooldowns.list() });
+});
+
+/** Models paused after a quota / overload failure, and when each comes back. */
+aiRoutes.get("/ai/cooldowns", (c) => c.json({ cooldowns: c.env.agent.services.cooldowns.list() }));
+
+/** Ends every pause now (the next turn tries each model again). */
+aiRoutes.delete("/ai/cooldowns", (c) => {
+  const s = c.env.agent.services;
+  s.cooldowns.clear();
+  s.activity.record("ai.cooldown", "All model pauses cleared");
+  return c.json({ cooldowns: [] });
 });
 
 function keyProvider(raw: string): KeyProvider {
@@ -57,6 +68,8 @@ aiRoutes.put("/ai/keys/:provider", async (c) => {
   const check = await verifyKey(provider, key.trim());
   const info = await s.providerKeys.set(provider, key.trim());
   s.catalog.invalidate(provider);
+  // A new key may lift a quota or a "key rejected" pause.
+  s.cooldowns.clear(provider);
   s.activity.record("ai.key_set", `${PROVIDER_NAMES[provider]} API key saved (${info.hint})`);
   return c.json({ key: info, check });
 });

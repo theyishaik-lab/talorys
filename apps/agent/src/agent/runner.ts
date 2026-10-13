@@ -9,6 +9,43 @@ import { buildSystemPrompt } from "./prompt";
 import { SUMMARIZE_THRESHOLD, buildContextWindow, memoryTokenBudget, selectRelevantMemories, summarizationPrompt } from "./memory";
 import type { RunnerExtensions } from "../semantic/hooks";
 
+/**
+ * Cloudflare's Workers Free plan allows 50 subrequests per invocation (10,000 on Paid); a chat turn
+ * spends one per model step and up to one per tool call (connector tools call out; built-in ones
+ * do not, but are counted to be safe). A turn that hit the wall would die mid-answer, so near it
+ * the model is told to answer with what it has, and one step later the loop stops.
+ */
+export const DEFAULT_SUBREQUEST_LIMIT = 50;
+/** Left for what a turn also fetches: a fallback hop per failed model, key lookups, push. */
+export const SUBREQUEST_RESERVE = 12;
+
+export class SubrequestGuard {
+  private steps = 1;
+  constructor(private readonly limit: number = DEFAULT_SUBREQUEST_LIMIT) {}
+
+  private used(toolCalls: number): number {
+    return this.steps + toolCalls;
+  }
+
+  /** True when the next step must be the final, tool-free answer. */
+  mustAnswer(toolCalls: number): boolean {
+    return this.used(toolCalls) + 1 >= this.limit - SUBREQUEST_RESERVE;
+  }
+
+  /** Records one more model step; false when even the final answer would not fit. */
+  nextStep(toolCalls: number): boolean {
+    if (this.used(toolCalls) + 1 > this.limit - SUBREQUEST_RESERVE + 1) return false;
+    this.steps++;
+    return true;
+  }
+}
+
+/** TALORYS_SUBREQUEST_LIMIT, else the Free plan's 50. */
+export function subrequestLimitFrom(value: string | undefined): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 20 ? Math.floor(n) : DEFAULT_SUBREQUEST_LIMIT;
+}
+
 export interface TurnInput {
   conversationId?: string;
   message: string;
@@ -55,6 +92,7 @@ export class AgentRunner {
     private readonly services: Services,
     private readonly provider: AIProvider | null,
     private readonly ext?: RunnerExtensions,
+    private readonly subrequestLimit: number = DEFAULT_SUBREQUEST_LIMIT,
   ) {}
 
   async *chat(input: TurnInput): AsyncGenerator<ChatStreamEvent> {
@@ -126,7 +164,9 @@ export class AgentRunner {
         conversationSummary: summary,
         connectors: this.ext?.connectors,
       });
-      const historyBudget = Math.max(500, limits.maxContextTokens - estimateTokens(baseSystem) - 600);
+      // The owner's context limit, cut to what the smallest model in the chain takes (model-caps.ts).
+      const contextTokens = Math.min(limits.maxContextTokens, this.provider.promptBudget?.(limits.maxOutputTokens) ?? Number.POSITIVE_INFINITY);
+      const historyBudget = Math.max(500, contextTokens - estimateTokens(baseSystem) - 600);
       let window = buildContextWindow(history, historyBudget, summaryUpto);
 
       // Summarizing is an extra model call: only when the budget leaves room for the reply too.
@@ -177,6 +217,8 @@ export class AgentRunner {
 
       // Memory selection and summarizing may have spent budget since the first check.
       if (!s.usage.reserveAi(limits)) throw aiLimitReached(limits.maxAiRequestsPerDay);
+      // The runtime's own wall: each model step and each tool call may be one subrequest.
+      const subrequests = new SubrequestGuard(this.subrequestLimit);
       let usageRecorded = false;
       for await (const event of this.provider.generateWithTools({
         system,
@@ -185,8 +227,8 @@ export class AgentRunner {
         maxIterations: limits.maxAgentIterations,
         maxOutputTokens: limits.maxOutputTokens,
         temperature: settings.temperature,
-        toolBudgetExhausted: () => executor.budgetExhausted(),
-        reserveNextStep: () => s.usage.reserveAi(limits),
+        toolBudgetExhausted: () => executor.budgetExhausted() || subrequests.mustAnswer(executor.callCount),
+        reserveNextStep: () => subrequests.nextStep(executor.callCount) && s.usage.reserveAi(limits),
         signal: input.signal,
       })) {
         if (event.type === "text") {

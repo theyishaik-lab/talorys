@@ -412,8 +412,12 @@ const modelIdString = z
   .refine((v) => !v.includes("://"), "Not a model id");
 
 const modelRef = z.object({ provider: aiProviderSchema, model: z.string().min(1).max(200) }).refine((v) => isModelIdFor(v.provider, v.model), "Not a model id of that provider");
-/** At most this many extra backups after the selected one (each costs up to a watchdog of silence). */
-export const MAX_FALLBACK_CHAIN = 4;
+/**
+ * At most this many extra backups after the selected one. Each costs at most one watchdog of
+ * silence, and a model that failed on quota or overload is skipped for a cooldown, so a long chain
+ * does not slow every turn (apps/agent/src/ai/cooldown.ts).
+ */
+export const MAX_FALLBACK_CHAIN = 16;
 /** One extra backup model in the fallback chain. */
 export const fallbackChainEntrySchema = z.object({ provider: aiProviderSchema, model: modelIdString }).refine((v) => isModelIdFor(v.provider, v.model), "Not a model id of that provider");
 export type FallbackChainEntry = z.infer<typeof fallbackChainEntrySchema>;

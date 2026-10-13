@@ -159,7 +159,7 @@ Yishai's personal account `yishaik`.
 
 | Repo | Visibility | Branches | What is deployed |
 | --- | --- | --- | --- |
-| [theyishaik-lab/talorys](https://github.com/theyishaik-lab/talorys) | public | `main` only (feature branches are deleted once merged); tags `native-v0.1.x` carry the APK releases | Agent Worker and web are both deployed from `main` (agent `0.1.13-attrib`, Oct 13, 2026); `/api/system` → `deployed_version` is the marker |
+| [theyishaik-lab/talorys](https://github.com/theyishaik-lab/talorys) | public | `main` only (feature branches are deleted once merged); tags `native-v0.1.x` carry the APK releases | Agent Worker and web are both deployed from `main` (agent `0.1.14-max`, Oct 13, 2026); `/api/system` → `deployed_version` is the marker |
 | upstream [rociiu/talorys](https://github.com/rociiu/talorys) | public | `main` | remote `upstream` in the local clone |
 | [theyishaik-lab/open-connector](https://github.com/theyishaik-lab/open-connector) | public | `main` (= deployed), `upstream-main` (upstream's newer main, 330 commits ahead, not merged) | Worker `open-connector` = `main` @ `4d5a7bc3`, deployed Oct 13 00:18 IL |
 | theyishaik-lab/talorys-android | archived | `main` | Nothing — the old WebView APK, retired Oct 13, 2026 (archived; to be deleted) |

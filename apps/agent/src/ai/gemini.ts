@@ -13,8 +13,14 @@ export class GeminiProvider extends AiSdkProvider {
       const key = await apiKey();
       if (!key) throw new AppError("NOT_CONFIGURED", "Google Gemini needs an API key. Add one in Settings → Model.", { provider: "gemini", model: modelId, reason: "not_configured" });
       return createGoogleGenerativeAI({ apiKey: key })(modelId) as LanguageModel;
-    }, { google: { thinkingConfig: geminiThinking(modelId) } });
+    }, geminiOptions(modelId));
   }
+}
+
+/** Provider options for a model: the thinking level, when the model takes one. */
+function geminiOptions(modelId: string): Record<string, Record<string, unknown>> | undefined {
+  const thinking = geminiThinking(modelId);
+  return Object.keys(thinking).length > 0 ? { google: { thinkingConfig: thinking } } : undefined;
 }
 
 /**
@@ -27,6 +33,8 @@ export class GeminiProvider extends AiSdkProvider {
  */
 export function geminiThinking(modelId: string): { thinkingLevel?: "minimal" | "low"; thinkingBudget?: number } {
   const id = modelId.toLowerCase();
+  // Gemma through the Gemini API answers 400 "Thinking level is not supported for this model" (Oct 13, 2026).
+  if (/^gemma-/.test(id)) return {};
   if (/^gemini-2\./.test(id)) return { thinkingBudget: id.includes("pro") ? 128 : 0 };
   return { thinkingLevel: id.includes("lite") ? "minimal" : "low" };
 }
@@ -34,7 +42,8 @@ export function geminiThinking(modelId: string): { thinkingLevel?: "minimal" | "
 /** A usable model from the Gemini `models` list: generateContent, and not an image/audio/live/embedding variant. */
 export function isGeminiChatModel(name: string, methods: string[] | undefined): boolean {
   const id = name.replace(/^models\//, "");
-  if (!/^gemini-\d/.test(id)) return false;
+  // Gemma (open models Google also serves on the Gemini API) has its own free quota.
+  if (!/^(gemini|gemma)-\d/.test(id)) return false;
   // The 2.x generation still shows up in the list but answers 404 "no longer available to new
   // users" to new keys (seen Oct 13, 2026 on a key made that day): offering it would only fail.
   if (/^gemini-[12]\./.test(id)) return false;

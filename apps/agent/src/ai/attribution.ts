@@ -9,6 +9,17 @@ export interface AiErrorDetails {
   reason?: AiFailureReason;
   timeout_s?: number;
   attempts?: AiAttempt[];
+  /** The provider's own "try again in" hint, in seconds (Retry-After, X-RateLimit-Reset, Gemini's "retry in 4h26m"). */
+  retry_after_s?: number;
+  /** "day" when a daily allowance is spent (it will not come back within minutes). */
+  quota_window?: "day" | "minute";
+  /** "provider" when the limit is the whole account's, not this model's (OpenRouter's free requests/day, Workers AI neurons). */
+  scope?: "model" | "provider";
+}
+
+/** The failure that ended the turn: the last attempt that actually ran (skipped ones never ran). */
+function lastTried(attempts: readonly AiAttempt[]): AiAttempt | undefined {
+  return [...attempts].reverse().find((a) => !a.skipped) ?? attempts.at(-1);
 }
 
 export function detailsOf(error: unknown): AiErrorDetails {
@@ -48,7 +59,7 @@ export function attemptOf(error: unknown, provider: string, model: string): AiAt
  * `details` — `provider`/`model` kept there too, which older web clients read.
  */
 export function chainError(last: unknown, attempts: AiAttempt[]): AppError {
-  const final = attempts.at(-1);
+  const final = lastTried(attempts);
   const code = last instanceof AppError ? last.code : (final?.code ?? "AI_UNAVAILABLE");
   const original = last instanceof Error ? last.message : String(last);
   const message =
@@ -71,7 +82,7 @@ export function chainError(last: unknown, attempts: AiAttempt[]): AppError {
 export function attributionFromError(error: unknown, fallback: { provider: string; model: string }, before: AiAttempt[] = []): AiAttribution {
   const d = detailsOf(error);
   if (Array.isArray(d.attempts) && d.attempts.length > 0) {
-    const last = d.attempts.at(-1) as AiAttempt;
+    const last = lastTried(d.attempts) as AiAttempt;
     return { provider: last.provider, model: last.model, fallback: d.attempts.length > 1 || before.length > 0, attempts: d.attempts };
   }
   const provider = d.provider ?? fallback.provider;

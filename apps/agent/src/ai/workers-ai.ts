@@ -4,6 +4,7 @@ import type { AiProviderId } from "@talorys/shared";
 import type { AgentEvent, AIProvider, GenerateRequest, ToolRequest } from "./provider";
 import { classifyAiError } from "./provider";
 import { gracefulStopText, LEAK_MARKERS, LeakGuard, parseLeakedToolCalls } from "./leak-guard";
+import { type ModelCaps, modelCaps, outputFor, promptBudgetFor } from "./model-caps";
 
 /**
  * Any chat model behind the AI SDK (Workers AI, Gemini, OpenRouter) with Talorys's turn loop:
@@ -24,13 +25,22 @@ export class AiSdkProvider implements AIProvider {
     return this.resolveModel();
   }
 
+  /** This model's window and output maximum (model-caps.ts); requests are clamped to them. */
+  get caps(): ModelCaps {
+    return modelCaps(this.id, this.modelId);
+  }
+
+  promptBudget(maxOutputTokens: number): number {
+    return promptBudgetFor(this.caps, maxOutputTokens);
+  }
+
   async generate(req: GenerateRequest) {
     try {
       const result = await generateText({
         model: await this.model(),
         instructions: req.system,
         messages: req.messages,
-        maxOutputTokens: req.maxOutputTokens,
+        maxOutputTokens: outputFor(this.caps, req.maxOutputTokens),
         temperature: req.temperature,
         abortSignal: req.signal,
         // Retries would be model calls the daily budget cannot see; the UI offers Retry instead.
@@ -94,7 +104,7 @@ export class AiSdkProvider implements AIProvider {
         model,
         instructions: req.system,
         messages: messages as never,
-        maxOutputTokens: req.maxOutputTokens,
+        maxOutputTokens: outputFor(this.caps, req.maxOutputTokens),
         temperature: req.temperature,
         abortSignal: controller.signal,
         // Retries would be model calls the daily budget cannot see; the UI offers Retry instead.
