@@ -137,8 +137,19 @@ function parseRpc(body: string): { result?: unknown; error?: unknown } {
 export function describe(error: unknown): string {
   if (typeof error === "string") return error.slice(0, 300);
   if (error && typeof error === "object") {
-    const e = error as { message?: unknown; code?: unknown; error?: unknown };
-    if (typeof e.message === "string") return `${typeof e.code === "string" ? `${e.code}: ` : ""}${e.message}`.slice(0, 300);
+    const e = error as { message?: unknown; code?: unknown; error?: unknown; details?: unknown };
+    if (typeof e.message === "string") {
+      // Schema failures carry the actual reason ("…required property \"calendarId\"") in details;
+      // without it the model only reads "does not match the action schema" and retries blind.
+      const reasons = Array.isArray(e.details)
+        ? e.details
+            .map((d) => (d && typeof d === "object" && typeof (d as { error?: unknown }).error === "string" ? ((d as { error: string }).error) : ""))
+            .filter(Boolean)
+            .slice(0, 3)
+        : [];
+      const head = `${typeof e.code === "string" ? `${e.code}: ` : ""}${e.message}`;
+      return (reasons.length ? `${head} ${reasons.join(" ")}` : head).slice(0, 300);
+    }
     if (e.error !== undefined) return describe(e.error);
   }
   return JSON.stringify(error)?.slice(0, 300) ?? "unknown error";

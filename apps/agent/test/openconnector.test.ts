@@ -5,7 +5,7 @@ import type { Env } from "../src/env";
 import { compactResult, isPlatformLimitError, servicesHintedBy, truncateResult } from "../src/openconnector/client";
 import { rankCatalogRows, schemaInputLines } from "../src/openconnector/tools";
 import { OpenConnectorClient, isReadOnlyAction, openConnectorTools, toolsWithOpenConnector, withOpenConnector } from "../src/openconnector";
-import { guideInputs, proposalSummary } from "../src/openconnector/tools";
+import { guideInputs, proposalSummary, withActionDefaults } from "../src/openconnector/tools";
 import { ALL_TOOLS, runApprovedAction, ToolExecutor, type ToolContext } from "../src/tools";
 import type { DestructiveTool, ImmediateTool } from "../src/tools/registry";
 
@@ -114,6 +114,47 @@ describe("openconnector tools", () => {
       expect(calls[0]).toMatchObject({ name: "execute_action", arguments: { actionId: "arxiv.get_paper", input: { id: "1706.03762" } } });
       expect(result.truncated).toBe(true);
       expect(result.text).toContain("Attention Is All You Need");
+    });
+  });
+
+  it("run_action defaults a Google Calendar event read to the primary calendar", async () => {
+    const { tools, calls } = fakeConnector(() => ({ ok: true, data: { items: [] } }));
+    await inAgent(async (a) => {
+      await immediate(tools, "run_action").execute({ action: "googlecalendar.list_events", input: { timeMin: "2026-10-13T00:00:00Z" } }, ctx(a.services));
+      expect(calls[0]).toMatchObject({ arguments: { actionId: "googlecalendar.list_events", input: { timeMin: "2026-10-13T00:00:00Z", calendarId: "primary" } } });
+    });
+  });
+
+  it("calendar defaults never override a named calendar or touch other actions", () => {
+    expect(withActionDefaults("googlecalendar.list_events", { calendarId: "work@x" })).toEqual({ calendarId: "work@x" });
+    expect(withActionDefaults("googlecalendar.find_event", { calendarId: " " })).toEqual({ calendarId: "primary" });
+    expect(withActionDefaults("googlecalendar.list_calendars", {})).toEqual({});
+    expect(withActionDefaults("googlecalendar.clear_calendar", {})).toEqual({});
+    expect(withActionDefaults("googlecalendar.delete_calendar", {})).toEqual({});
+    expect(withActionDefaults("gmail.search_threads", {})).toEqual({});
+  });
+
+  it("propose_action shows the defaulted calendar in what the owner approves", async () => {
+    const { tools } = fakeConnector(() => ({ ok: true, data: {} }));
+    await inAgent(async (a) => {
+      const conversation = a.services.conversations.create("test");
+      const prepared = await destructive(tools, "propose_action").prepare({ action: "googlecalendar.create_event", input: { summary: "Gym" } }, ctx(a.services, conversation.id));
+      expect(JSON.parse(prepared.targetId).input).toEqual({ summary: "Gym", calendarId: "primary" });
+      expect(prepared.summary).toContain("primary");
+    });
+  });
+
+  it("a schema failure tells the model which input is missing", async () => {
+    const { tools } = fakeConnector(() => ({
+      ok: false,
+      error: {
+        code: "invalid_input",
+        message: "Action input does not match the action schema.",
+        details: [{ keyword: "required", error: 'Instance does not have required property "issueNumber".' }],
+      },
+    }));
+    await inAgent(async (a) => {
+      await expect(immediate(tools, "run_action").execute({ action: "github.get_issue", input: {} }, ctx(a.services))).rejects.toThrow(/required property "issueNumber"/);
     });
   });
 

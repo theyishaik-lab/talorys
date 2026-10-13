@@ -55,6 +55,41 @@ interface CatalogActionRow {
 }
 
 /** Input lines from a JSON schema, the shape `GET /v1/actions/<id>` answers with. */
+/**
+ * Google Calendar event actions whose `calendarId` OpenConnector's schema marks required while its
+ * description says "omit to use the primary calendar". Models take the description at its word and
+ * every call fails schema validation (seen live Oct 13, 2026 on gemma-4: four 400s, then an apology).
+ * Only event-level actions get the default; calendar- and ACL-level ones (clear, delete a calendar…)
+ * must name their calendar, and actions without the field would reject an extra property.
+ */
+const PRIMARY_CALENDAR_ACTIONS = new Set(
+  [
+    "list_events",
+    "list_event_instances",
+    "sync_events",
+    "find_event",
+    "get_event",
+    "create_event",
+    "quick_add_event",
+    "import_event",
+    "update_event",
+    "patch_event",
+    "move_event",
+    "delete_event",
+    "add_attendee",
+    "remove_attendee",
+  ].map((name) => `googlecalendar.${name}`),
+);
+
+/** Fills inputs the catalog promises a default for but still validates as required. */
+export function withActionDefaults(action: string, input: Record<string, unknown>): Record<string, unknown> {
+  if (PRIMARY_CALENDAR_ACTIONS.has(action.toLowerCase())) {
+    const id = input.calendarId;
+    if (id === undefined || id === null || (typeof id === "string" && id.trim() === "")) return { ...input, calendarId: "primary" };
+  }
+  return input;
+}
+
 export function schemaInputLines(schema: CatalogActionRow["inputSchema"]): string[] {
   const required = new Set(schema?.required ?? []);
   return Object.entries(schema?.properties ?? {})
@@ -260,7 +295,8 @@ export function openConnectorTools(client: OpenConnectorClient): ToolDefinition[
             note: `${i.action} changes data (it sends, creates, edits or deletes). Call propose_action with the same action and input; the owner will approve it in the app.`,
           };
         }
-        return truncateResult(await client.data("execute_action", { actionId: i.action, input: i.input, ...(i.connection ? { connectionName: i.connection } : {}) }));
+        const input = withActionDefaults(i.action, i.input);
+        return truncateResult(await client.data("execute_action", { actionId: i.action, input, ...(i.connection ? { connectionName: i.connection } : {}) }));
       },
     }),
     defineTool({
@@ -275,7 +311,7 @@ export function openConnectorTools(client: OpenConnectorClient): ToolDefinition[
       }),
       label: (i) => `Proposing ${i.action}`,
       prepare: (i) => {
-        const run: ProposedRun = { action: i.action, input: i.input, ...(i.connection ? { connection: i.connection } : {}) };
+        const run: ProposedRun = { action: i.action, input: withActionDefaults(i.action, i.input), ...(i.connection ? { connection: i.connection } : {}) };
         return { targetId: JSON.stringify(run), summary: proposalSummary(run.action, run.input, run.connection) };
       },
       commit: async (targetId, ctx: ToolContext) => {
