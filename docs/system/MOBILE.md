@@ -48,12 +48,66 @@ export TALORYS_KEYSTORE_PATH=… TALORYS_KEYSTORE_PASSWORD=… TALORYS_KEY_ALIAS
   means the next APK cannot update the installed app** — it would have to be uninstalled first.
 - Version: `expo.version` / `android.versionCode` in `app.json`; bump `versionCode` every release.
   Released: `native-v0.1.0` = versionCode 2 (0.2.0, no Firebase), `native-v0.1.1` = versionCode 3
-  (0.2.1, FCM). Releases live on GitHub (`theyishaik-lab/talorys`, prerelease per tag) because the
+  (0.2.1, FCM), `native-v0.1.2` = versionCode 4 (0.2.2, keyboard + stream recovery). The tag counts
+  releases (0.1.x); `expo.version` (shown in About) runs one minor ahead (0.2.x) since the first build. Releases live on GitHub (`theyishaik-lab/talorys`, prerelease per tag) because the
   APK (~49 MB) is too big to send as a chat attachment.
 - `expo prebuild --clean` wipes `android/` (so `.cxx` for the app) but the library builds under
   `node_modules/*/android/build` survive — a rebuild after `--clean` is ~10 min, not 25.
 - `npm run lint` (expo lint, React Compiler rules): fetch-on-mount effects call the loader through
   `Promise.resolve().then(...)`, and `Date.now()` never runs in render (tasks.tsx `renderedAt`).
+
+## Keyboard (Android 15+ edge-to-edge) — v0.1.2
+
+Yishai, 16:17 Oct 13 on v0.1.1 / Pixel 9 Pro: "when the keyboard is open you can't see the text box".
+Expo SDK 57 apps are always edge-to-edge, and Android 15+ enforces it: **the window is not resized for
+the keyboard** whatever `windowSoftInputMode` says (`softwareKeyboardLayoutMode: "resize"` →
+`adjustResize` is still set, it just no longer moves anything). The keyboard is drawn over the app and
+reported only as an IME inset; React Native's `KeyboardAvoidingView` with `behavior={undefined}` on
+Android therefore did nothing and the composer sat under the keyboard.
+
+How it works now (`react-native-keyboard-controller` 1.21.9, the SDK 57 bundled version):
+- `KeyboardProvider statusBarTranslucent navigationBarTranslucent preserveEdgeToEdge` at the root
+  (`src/app/_layout.tsx`), so keyboard heights are the **full** IME inset from the screen edge.
+- The chat column is `[header][list flex:1][composer][KeyboardSpacer]`. The spacer
+  (`src/components/KeyboardSpacer.tsx`) is an Animated.View whose height follows the keyboard frame by
+  frame on the UI thread: `max(keyboardHeight, navigationBarInset)` (`composerBottomSpace` in
+  `src/lib/keyboard.ts`). Closed → the composer clears the gesture pill / 3-button bar; open → it sits
+  flush on the keyboard. The multi-line input grows upward (the list gives up the room).
+- The list stays on the latest message: `onScroll` tracks "near the end" (96 dp); while pinned, every
+  list resize (keyboard opening, composer growing) calls `scrollToEnd`, plus once on `keyboardDidShow`.
+- Login and every `Screen` (Settings → Model's API-key fields) use `KeyboardAwareScrollView`, which
+  scrolls the focused field above the keyboard. Connect-card key fields live in the chat list, which
+  stays pinned to the end, so the latest card stays above the composer.
+- Verified without a device: `tests/keyboard.test.ts` lays out the chat column on a Pixel 9 Pro
+  (915 dp, Gboard 336 dp inset, gesture 24 dp / 3-button 48 dp) and checks the composer's bottom edge
+  equals the keyboard's top edge at every animation frame, plus wiring checks. Nobody has watched it
+  on a phone yet.
+
+## Chat streams on a phone — v0.1.2 (agent 0.1.11-streams)
+
+Yishai, 16:18 Oct 13 on v0.1.1: every message ended in "Software caused connection abort", then
+"A response is already being generated in this conversation". Found on his agent: none of the three
+turns had a saved answer. Causes and fixes:
+- **The app killed its own stream on a new chat.** The home screen moves to `/chat/[id]` as soon as the
+  agent names the conversation, and its unmount aborted the request. Now the stores of an in-flight
+  turn are registered by conversation id (`inFlight` in `src/lib/chat.ts`), the new screen picks up
+  the same stores, and leaving a screen never aborts (only Stop does, through `/chat/cancel`).
+- **The agent threw the answer away when the client vanished** (it aborted on the first failed write)
+  and a write that stalled kept the conversation claimed. Now writes are never awaited, a dropped
+  client no longer stops the turn (it finishes and is saved), a claim with no progress for 150 s is
+  released (`STALE_RUN_MS`), and an SSE comment `: ping` goes out every 10 s so a silent model never
+  leaves an idle connection for a carrier or proxy to drop. Semantic recall is capped at 3 s.
+- **Recovery in the app.** A drop mid-turn ("Software caused connection abort" is Android's text for a
+  connection torn down under the TLS read) or a stream that ends without `done` → the row says
+  "החיבור נקטע. מביא את התשובה מהשרת…" and the app polls `GET /conversations/:id` every 2 s (up to
+  4 min) until `streaming` is false, then shows history. CONFLICT → our bubble says it wasn't sent
+  (Hebrew) and the previous answer is fetched. Opening a chat whose reply is still running polls too.
+- **Errors in Hebrew.** `src/lib/errors.ts` maps codes and the agent's English messages (busy, daily
+  limit, quota, model unavailable, network, generic) to `chat.err.*` strings; unknown text shows as is.
+- Measured Oct 13 with OkHttp 4.12 over HTTP/2 (the app's own stack) against his agent: with
+  gemini-3.8-flash selected the stream sat **68–71 s silent** before the first word (Google's free tier
+  queueing). The drop test (cut the connection right after `start`) left a saved reply and a free
+  conversation 2.6 s later.
 
 ## Install on the phone
 
