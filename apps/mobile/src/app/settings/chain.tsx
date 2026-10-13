@@ -1,15 +1,5 @@
 import * as Haptics from "expo-haptics";
-import {
-  type AiProviderId,
-  type ChainRef,
-  type ChainStatus,
-  type ChainStatusEntry,
-  endpointIdFromName,
-  MAX_FALLBACK_CHAIN,
-  modelLabel,
-  moveItem,
-  settingsPatchForChain,
-} from "@talorys/shared";
+import type { AiProviderId, ChainRef, ChainStatus, ChainStatusEntry } from "@talorys/shared";
 import { ChevronDown, ChevronUp, Plus, RefreshCw, RotateCcw, Server, Trash2, X } from "lucide-react-native";
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Switch, TextInput, View } from "react-native";
@@ -18,6 +8,7 @@ import { Group, Row } from "../../components/SettingsList";
 import { Button, IconButton, Press, T, useFont } from "../../components/ui";
 import { api } from "../../lib/api";
 import { quotaLine, stateText } from "../../lib/chain-view";
+import { endpointIdFromName, MAX_FALLBACK_CHAIN, modelLabel, moveItem, settingsPatchForChain } from "../../lib/shared";
 import { useI18n } from "../../lib/i18n";
 import { radii, useTheme } from "../../lib/theme";
 

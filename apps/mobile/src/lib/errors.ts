@@ -1,5 +1,6 @@
-import { type AiAttribution, formatAttempts, modelDisplayName } from "@talorys/shared";
+import type { AiAttribution } from "@talorys/shared";
 import type { StringKey } from "./i18n";
+import { formatAttempts, modelDisplayName } from "./shared";
 
 /**
  * Maps what went wrong in a chat turn (an error code, the agent's English message, or the phone's
