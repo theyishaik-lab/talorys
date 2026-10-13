@@ -72,7 +72,7 @@ export const Drawer = memo(function Drawer({ activeId, go, onClose }: { activeId
         </button>
       </div>
 
-      <nav className="px-2 pt-2" aria-label="Main">
+      <nav className="px-2 pt-2" aria-label={t("drawer.main")}>
         {PAGES.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}

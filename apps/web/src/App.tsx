@@ -6,6 +6,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { ChatPage } from "./pages/ChatPage";
 import { Spinner, ErrorNotice } from "./components/ui";
 import { Logo } from "./components/Logo";
+import { useT } from "./lib/i18n";
 
 const loaders = {
   memory: () => import("./pages/MemoryPage"),
@@ -39,6 +40,7 @@ function FullScreen({ children }: { children: React.ReactNode }) {
 }
 
 export function App() {
+  const t = useT();
   const { session, loading, error, refresh } = useSession();
   usePrefetchPages(!!session?.authenticated);
 
@@ -55,7 +57,7 @@ export function App() {
       <FullScreen>
         <Logo className="h-10 w-10" />
         <div className="w-full max-w-sm">
-          <ErrorNotice error={error ?? new Error("Talorys is unreachable.")} onRetry={() => void refresh()} />
+          <ErrorNotice error={error ?? new Error(t("app.unreachable"))} onRetry={() => void refresh()} />
         </div>
       </FullScreen>
     );

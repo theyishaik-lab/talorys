@@ -19,7 +19,7 @@ that still has it, uninstall it (the two can sit side by side).
 | Hebrew | Strings ported from `apps/web/src/lib/i18n.tsx` (`src/lib/strings.json`, every key in both languages, tested). Language = device (auto) / עברית / English. Hebrew flips the whole app to RTL through `I18nManager.forceRTL` — Android applies that on the next start, so the Settings row says to restart after a change. The drawer opens from the start edge (the right in Hebrew). |
 | Auth | The agent's session, as a bearer token kept in the Android keystore (`expo-secure-store`). `POST /api/auth/login` with header `x-talorys-client: native` returns `{ token }` instead of setting the cookie; every call sends `Authorization: Bearer …` (`apps/agent/src/api/middleware.ts`, `readSessionToken`). Same CSRF header as the web. |
 | Streaming | `expo/fetch` (streaming bodies; React Native's own fetch buffers) + the same SSE framing as the web (`src/lib/api.ts`, unit-tested). |
-| Model picker | Settings → Model reads `GET /api/ai/models` (the Settings worker's catalog, grouped by provider, with free/paid, tools, speed, quality, context tags), `PATCH /api/settings { modelProvider, model }` to choose, `PUT/DELETE /api/ai/keys/:provider` + `test` for Gemini / OpenRouter keys (masked, never echoed). An older agent without `/api/ai/models` shows the current model read-only. |
+| Model picker | Settings → Model reads `GET /api/ai/models` (the Settings worker's catalog, grouped by provider, with free/paid, tools, speed, quality, context tags), `PATCH /api/settings { modelProvider, model }` to choose, `PUT/DELETE /api/ai/keys/:provider` + `test` for Gemini / OpenRouter keys (masked, never echoed). An older agent without `/api/ai/models` shows the current model read-only. From v0.1.3 a "Model chain" row opens `settings/chain.tsx`: the whole fallback chain with status and quota left, reorder (↑/↓), remove, add a model or an OpenAI-compatible endpoint (MODELS.md, "Chain editor and quota view"). |
 | Push | Native (FCM) — see NOTIFICATIONS.md "Native push" and below. |
 
 Source layout: `src/app` (routes), `src/components`, `src/lib` (api, session, chat store, theme, i18n,
@@ -49,7 +49,10 @@ export TALORYS_KEYSTORE_PATH=… TALORYS_KEYSTORE_PASSWORD=… TALORYS_KEY_ALIAS
   means the next APK cannot update the installed app** — it would have to be uninstalled first.
 - Version: `expo.version` / `android.versionCode` in `app.json`; bump `versionCode` every release.
   Released: `native-v0.1.0` = versionCode 2 (0.2.0, no Firebase), `native-v0.1.1` = versionCode 3
-  (0.2.1, FCM), `native-v0.1.2` = versionCode 4 (0.2.2, keyboard + stream recovery). The tag counts
+  (0.2.1, FCM), `native-v0.1.2` = versionCode 4 (0.2.2, keyboard + stream recovery),
+  `native-v0.1.3` = versionCode 5 (0.2.3: per-model error attribution and the "ענה: …" note, the model
+  chain editor with quota view, Hebrew for task priorities / memory categories / automation kinds and
+  schedules). The tag counts
   releases (0.1.x); `expo.version` (shown in About) runs one minor ahead (0.2.x) since the first build. Releases live on GitHub (`theyishaik-lab/talorys`, prerelease per tag) because the
   APK (~40 MB) is too big to send as a chat attachment.
 - `expo prebuild --clean` wipes `android/` (so `.cxx` for the app) but the library builds under

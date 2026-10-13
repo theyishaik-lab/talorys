@@ -136,7 +136,7 @@ export function PageHeader({ title, description, actions }: { title: string; des
 
 export function ErrorNotice({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const t = useT();
-  const message = error instanceof Error ? error.message : "Something went wrong.";
+  const message = error instanceof Error ? error.message : t("common.somethingWrong");
   return (
     <div role="alert" className="flex items-start justify-between gap-3 rounded-lg border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">
       <span>{message}</span>

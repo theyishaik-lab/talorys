@@ -56,12 +56,22 @@ export async function listOpenRouterModels(opts: { apiKey?: string | null; freeO
 }
 
 /** Verifies a key with the account endpoint (costs nothing). */
-export async function checkOpenRouterKey(apiKey: string, signal?: AbortSignal): Promise<{ label: string | null; limit_remaining: number | null }> {
+export async function checkOpenRouterKey(
+  apiKey: string,
+  signal?: AbortSignal,
+): Promise<{ label: string | null; limit_remaining: number | null; free_daily: { used: number | null; limit: number | null; remaining: number | null } | null }> {
   const r = await fetch(`${OPENROUTER_BASE_URL}/key`, { headers: { Authorization: `Bearer ${apiKey}` }, signal });
   if (r.status === 401 || r.status === 403) throw new Error("OpenRouter rejected the key");
   if (!r.ok) throw new Error(`OpenRouter answered ${r.status}`);
-  const body = (await r.json()) as { data?: { label?: string; limit_remaining?: number | null } };
-  return { label: body.data?.label ?? null, limit_remaining: body.data?.limit_remaining ?? null };
+  const body = (await r.json()) as { data?: { label?: string; limit_remaining?: number | null; free_model_daily_requests?: { used?: number; limit?: number; remaining?: number } } };
+  const f = body.data?.free_model_daily_requests;
+  const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  return {
+    label: body.data?.label ?? null,
+    limit_remaining: body.data?.limit_remaining ?? null,
+    // The free allowance (50 requests/day without credits), shared by every :free model.
+    free_daily: f ? { used: n(f.used), limit: n(f.limit), remaining: n(f.remaining) } : null,
+  };
 }
 
 const round = (n: number) => Math.round(n * 1000) / 1000;

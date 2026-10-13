@@ -4,3 +4,4 @@ export * from "./password-policy";
 export * from "./recurrence";
 export * from "./crypto";
 export * from "./attribution";
+export * from "./chain";

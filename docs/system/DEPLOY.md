@@ -16,7 +16,7 @@ see SECRETS.md). Account id `25e3dffccdb99cd3801798bcc4a5b54a`.
 ```bash
 npm install
 npm run typecheck
-npm test -w @talorys/agent      # 401 tests, ~40 s (runs inside workerd)
+npm test -w @talorys/agent      # 410 tests, ~40 s (runs inside workerd)
 npm test -w @talorys/web        # when apps/web changed
 ```
 
@@ -35,7 +35,7 @@ npx wrangler deploy --config deploy/agent.wrangler.jsonc
 - **Never rename** the Durable Object binding or class and never add a DO migration — that would
   orphan the database. Schema changes go into `apps/agent/src/db/migrations.ts` (append-only); they run
   automatically on first use after the deploy.
-- Bump `TALORYS_DEPLOYED_VERSION` in the config when you ship something notable (now `0.1.15-endpoints`).
+- Bump `TALORYS_DEPLOYED_VERSION` in the config when you ship something notable (now `0.1.16-chain`).
 - Bundle: ~632 KiB gzip (`npx wrangler deploy --dry-run --outdir /tmp/x --config deploy/agent.wrangler.jsonc`), far under the 3 MiB free limit.
 
 Check: `curl https://talorys-lxl5w9o0-web.pages.dev/api/health` → `"ok":true`; after login,

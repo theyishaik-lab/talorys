@@ -393,7 +393,18 @@ function MemoryHistorySection({ settings }: { settings: Settings }) {
   );
 }
 
+const IMPORT_COUNT_KEYS: Record<string, StringKey> = {
+  conversations: "privacy.count.conversations",
+  messages: "privacy.count.messages",
+  memories: "privacy.count.memories",
+  tasks: "privacy.count.tasks",
+  notes: "privacy.count.notes",
+  projects: "privacy.count.projects",
+  automations: "privacy.count.automations",
+};
+
 function PrivacyTab() {
+  const { t } = useLocale();
   const toast = useToast();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -403,7 +414,7 @@ function PrivacyTab() {
     (what: "history" | "memories") => api(what === "history" ? "/conversations" : "/memories", { method: "DELETE", body: { confirm: "DELETE" } }),
     {
       invalidate: [["conversations"], ["memories"]],
-      success: (r) => `Deleted ${(r as { deleted: number }).deleted} item(s)`,
+      success: (r) => t("privacy.deletedItems", { n: (r as { deleted: number }).deleted }),
       onSuccess: () => setConfirm(null),
     },
   );
@@ -411,7 +422,7 @@ function PrivacyTab() {
   async function onImport(file: File) {
     setImporting(true);
     try {
-      if (file.size > 25 * 1024 * 1024) throw new Error("Backup file is larger than 25 MB.");
+      if (file.size > 25 * 1024 * 1024) throw new Error(t("privacy.tooLarge"));
       const json = JSON.parse(await file.text());
       const r = await api<{ imported: Record<string, number> & { automations_paused: number; ignored_settings: string[] } }>("/import", {
         method: "POST",
@@ -419,13 +430,16 @@ function PrivacyTab() {
       });
       const { automations_paused, ignored_settings, ...counts } = r.imported;
       const notes = [
-        automations_paused ? `${automations_paused} automation(s) imported paused — enable them in Automations` : "",
-        ignored_settings.length ? `kept your current ${ignored_settings.join(", ")} settings` : "",
+        automations_paused ? t("privacy.importedPaused", { n: automations_paused }) : "",
+        ignored_settings.length ? t("privacy.keptSettings", { names: ignored_settings.join(", ") }) : "",
       ].filter(Boolean);
-      toast(`Imported ${Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(", ")}${notes.length ? `. ${notes.join("; ")}.` : ""}`);
+      const countText = Object.entries(counts)
+        .map(([k, v]) => (IMPORT_COUNT_KEYS[k] ? t(IMPORT_COUNT_KEYS[k], { n: v }) : `${v} ${k}`))
+        .join(", ");
+      toast(`${t("privacy.imported", { counts: countText })}${notes.length ? `. ${notes.join("; ")}.` : ""}`);
       await qc.invalidateQueries();
     } catch (error) {
-      toast(error instanceof SyntaxError ? "That file is not valid JSON." : errorMessage(error), "error");
+      toast(error instanceof SyntaxError ? t("privacy.invalidJson") : errorMessage(error), "error");
     } finally {
       setImporting(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -434,39 +448,39 @@ function PrivacyTab() {
 
   return (
     <>
-      <Section title="Your data">
+      <Section title={t("privacy.yourData")}>
         <div className="px-5 py-4 text-sm leading-6 text-fg-muted">
-          Everything Talorys stores lives in a Durable Object in your own Cloudflare account. Nothing is sent to the Talorys developers. Messages are processed by Cloudflare Workers AI when you chat.
+          {t("privacy.storage")}
         </div>
-        <Row label="Export data" hint="Conversations, memories, tasks, notes, projects, settings and automations as talorys-backup.json. Sessions and credentials are never exported.">
+        <Row label={t("privacy.export")} hint={t("privacy.exportHint")}>
           <a href="/api/export" download="talorys-backup.json" className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-medium hover:bg-subtle">
-            <Download className="h-4 w-4" /> Download backup
+            <Download className="h-4 w-4" /> {t("privacy.download")}
           </a>
         </Row>
-        <Row label="Import data" hint="Merges a backup into your data. Existing items with the same id are updated, except automations, which are kept as they are; new automations arrive paused. Model, limits, demo mode, auto-memory and memory history settings are not imported. Nothing is deleted.">
+        <Row label={t("privacy.import")} hint={t("privacy.importHint")}>
           <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(e) => e.target.files?.[0] && void onImport(e.target.files[0])} />
           <Button variant="outline" className="w-full justify-center" loading={importing} onClick={() => fileRef.current?.click()}>
-            <Upload className="h-4 w-4" /> Choose backup file
+            <Upload className="h-4 w-4" /> {t("privacy.choose")}
           </Button>
         </Row>
       </Section>
-      <Section title="Danger zone">
-        <Row label="Delete conversation history" hint="Permanently deletes all conversations and messages.">
+      <Section title={t("privacy.danger")}>
+        <Row label={t("privacy.deleteHistory")} hint={t("privacy.deleteHistoryHint")}>
           <Button variant="outline" className="w-full justify-center text-danger" onClick={() => setConfirm("history")}>
-            Delete history
+            {t("privacy.deleteHistoryBtn")}
           </Button>
         </Row>
-        <Row label="Clear memories" hint="Talorys forgets everything it learned about you.">
+        <Row label={t("privacy.clearMemories")} hint={t("privacy.clearMemoriesHint")}>
           <Button variant="outline" className="w-full justify-center text-danger" onClick={() => setConfirm("memories")}>
-            Clear memories
+            {t("privacy.clearMemoriesBtn")}
           </Button>
         </Row>
       </Section>
       <ConfirmDialog
         open={!!confirm}
-        title={confirm === "history" ? "Delete all conversations?" : "Clear all memories?"}
-        message="This cannot be undone. Consider exporting a backup first."
-        confirmLabel={confirm === "history" ? "Delete all" : "Clear all"}
+        title={confirm === "history" ? t("privacy.confirmHistory") : t("privacy.confirmMemories")}
+        message={t("privacy.cannotUndo")}
+        confirmLabel={confirm === "history" ? t("privacy.deleteAll") : t("privacy.clearAll")}
         onCancel={() => setConfirm(null)}
         onConfirm={() => confirm && clear.mutate(confirm)}
         loading={clear.isPending}
@@ -475,38 +489,51 @@ function PrivacyTab() {
   );
 }
 
+/** The shared password policy speaks English; this shows its hint in the UI language. */
+function passwordHint(message: string, t: (key: StringKey, vars?: Record<string, string | number>) => string): string {
+  const min = /^Use at least (\d+) characters\.$/.exec(message);
+  if (min) return t("security.pw.min", { n: min[1] ?? "" });
+  if (message.startsWith("Use at most")) return t("security.pw.max");
+  if (message.startsWith("Avoid repeating")) return t("security.pw.repeat");
+  if (message.startsWith("Mix letters")) return t("security.pw.mix");
+  if (message.startsWith("Avoid common words")) return t("security.pw.common");
+  return message;
+}
+
 function SecurityTab() {
+  const { t } = useLocale();
   const { logout } = useSession();
   const sessions = useSessions();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirmNext, setConfirmNext] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
-  const strength = next ? checkPasswordStrength(next) : null;
+  const rawStrength = next ? checkPasswordStrength(next) : null;
+  const strength = rawStrength ? passwordHint(rawStrength, t) : null;
   const change = useApiMutation(() => api("/auth/password", { method: "POST", body: { current_password: current, new_password: next } }), {
     invalidate: [keys.sessions],
-    success: "Password changed. Other devices were signed out.",
+    success: t("security.changed"),
     onSuccess: () => {
       setCurrent("");
       setNext("");
       setConfirmNext("");
     },
   });
-  const revoke = useApiMutation((id: string) => api(`/auth/sessions/${id}`, { method: "DELETE" }), { invalidate: [keys.sessions], success: "Session signed out" });
+  const revoke = useApiMutation((id: string) => api(`/auth/sessions/${id}`, { method: "DELETE" }), { invalidate: [keys.sessions], success: t("security.sessionOut") });
   const revokeOthers = useApiMutation(() => api("/auth/sessions/revoke-others", { method: "POST", body: {} }), {
     invalidate: [keys.sessions],
-    success: "Signed out other sessions",
+    success: t("security.othersOut"),
   });
   useEffect(() => setFormError(change.error instanceof ApiError ? change.error.message : null), [change.error]);
 
   return (
     <>
-      <Section title="Change password">
+      <Section title={t("security.changePassword")}>
         <form
           className="space-y-4 px-5 py-4"
           onSubmit={(e) => {
             e.preventDefault();
-            if (next !== confirmNext) return setFormError("New passwords do not match.");
+            if (next !== confirmNext) return setFormError(t("security.mismatch"));
             if (strength) return setFormError(strength);
             setFormError(null);
             change.mutate(undefined);
@@ -514,29 +541,29 @@ function SecurityTab() {
         >
           <input type="text" autoComplete="username" value="owner" readOnly hidden />
           <div>
-            <Label htmlFor="pw-current">Current password</Label>
+            <Label htmlFor="pw-current">{t("security.current")}</Label>
             <Input id="pw-current" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <Label htmlFor="pw-new">New password</Label>
+              <Label htmlFor="pw-new">{t("security.new")}</Label>
               <Input id="pw-new" type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />
-              {next && <p className={cn("mt-1 text-xs", strength ? "text-warning" : "text-success")}>{strength ?? "Strong enough"}</p>}
+              {next && <p className={cn("mt-1 text-xs", strength ? "text-warning" : "text-success")}>{strength ?? t("security.strong")}</p>}
             </div>
             <div>
-              <Label htmlFor="pw-confirm">Confirm new password</Label>
+              <Label htmlFor="pw-confirm">{t("security.confirm")}</Label>
               <Input id="pw-confirm" type="password" autoComplete="new-password" value={confirmNext} onChange={(e) => setConfirmNext(e.target.value)} />
             </div>
           </div>
           {formError && <p className="text-sm text-danger">{formError}</p>}
           <div className="flex justify-end">
             <Button type="submit" loading={change.isPending} disabled={!current || !next || !confirmNext}>
-              Change password
+              {t("security.changeBtn")}
             </Button>
           </div>
         </form>
       </Section>
-      <Section title="Active sessions">
+      <Section title={t("security.sessions")}>
         {sessions.isLoading ? (
           <div className="flex justify-center p-6">
             <Spinner />
@@ -546,15 +573,15 @@ function SecurityTab() {
             <div key={s.id} className="flex items-center justify-between gap-3 px-5 py-3">
               <div className="min-w-0">
                 <p className="truncate text-sm">
-                  {describeAgent(s.user_agent)} {s.current && <Badge tone="accent">This device</Badge>}
+                  {describeAgent(s.user_agent, t)} {s.current && <Badge tone="accent">{t("security.thisDevice")}</Badge>}
                 </p>
                 <p className="text-xs text-fg-subtle">
-                  Signed in {relativeTime(s.created_at)} · active {relativeTime(s.last_seen_at)}
+                  {t("security.signedIn", { when: relativeTime(s.created_at), active: relativeTime(s.last_seen_at) })}
                 </p>
               </div>
               {!s.current && (
                 <Button variant="ghost" size="sm" onClick={() => revoke.mutate(s.id)}>
-                  Sign out
+                  {t("security.signOut")}
                 </Button>
               )}
             </div>
@@ -562,25 +589,28 @@ function SecurityTab() {
         )}
         <div className="flex flex-wrap justify-end gap-2 px-5 py-3">
           <Button variant="outline" size="sm" onClick={() => revokeOthers.mutate(undefined)} loading={revokeOthers.isPending}>
-            Sign out other sessions
+            {t("security.signOutOthers")}
           </Button>
           <Button variant="secondary" size="sm" onClick={() => void logout()}>
-            <LogOut className="h-3.5 w-3.5" /> Lock this device
+            <LogOut className="h-3.5 w-3.5" /> {t("security.lockDevice")}
           </Button>
         </div>
       </Section>
       <p className="px-1 text-xs leading-5 text-fg-subtle">
-        Forgot your password? On your computer, run <code className="rounded bg-muted px-1">npx create-talorys@latest reset-password</code> in your Talorys
-        directory. This signs out every device.
+        {t("security.forgotBefore")}{" "}
+        <code className="rounded bg-muted px-1" dir="ltr">
+          npx create-talorys@latest reset-password
+        </code>{" "}
+        {t("security.forgotAfter")}
       </p>
     </>
   );
 }
 
-function describeAgent(ua: string): string {
-  const browser = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "Browser";
+function describeAgent(ua: string, t: (key: StringKey, vars?: Record<string, string | number>) => string): string {
+  const browser = /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : t("security.browser");
   const os = /iPhone|iPad/.test(ua) ? "iOS" : /Android/.test(ua) ? "Android" : /Mac OS X/.test(ua) ? "macOS" : /Windows/.test(ua) ? "Windows" : /Linux/.test(ua) ? "Linux" : "";
-  return os ? `${browser} on ${os}` : browser;
+  return os ? t("security.agentOn", { browser, os }) : browser;
 }
 
 function AboutTab() {
@@ -599,20 +629,23 @@ function AboutTab() {
       <Row label={t("settings.model")}>
         <p className="text-end text-sm text-fg-muted" dir="ltr">{settings ? `${shortModel(settings.model)} · ${providerLabel(t, settings.modelProvider)}` : ""}</p>
       </Row>
-      <Row label="Deployment" hint="Your own Cloudflare account. Pages frontend → service binding → private Worker → Durable Object.">
+      <Row label={t("about.deployment")} hint={t("about.deploymentHint")}>
         <div className="space-y-1 text-end text-xs text-fg-muted">
           {info.data ? (
             <>
-              <p>Installation: <span className="font-mono">{info.data.installation_id ?? "local"}</span></p>
-              <p>Schema v{info.data.schema_version} · {info.data.environment}</p>
-              <p>AI: {info.data.ai_provider === "mock" ? "Demo responder" : info.data.ai_provider === "none" ? "Not available" : providerLabel(t, info.data.ai_provider)}</p>
+              <p>{t("about.installation")}<span className="font-mono">{info.data.installation_id ?? "local"}</span></p>
+              <p>{t("about.schema", { v: info.data.schema_version, env: info.data.environment })}</p>
+              <p>
+                {t("about.ai")}
+                {info.data.ai_provider === "mock" ? t("about.demo") : info.data.ai_provider === "none" ? t("about.notAvailable") : providerLabel(t, info.data.ai_provider)}
+              </p>
             </>
           ) : (
             <Spinner className="ms-auto h-4 w-4" />
           )}
         </div>
       </Row>
-      <Row label="Source code" hint={<>This installation runs from its own fork. Based on <a href={UPSTREAM_URL} target="_blank" rel="noopener noreferrer" className="hover:underline">rociiu/talorys</a> (MIT).</>}>
+      <Row label={t("about.source")} hint={<>{t("about.sourceBefore")} <a href={UPSTREAM_URL} target="_blank" rel="noopener noreferrer" className="hover:underline">rociiu/talorys</a> (MIT).</>}>
         <div className="flex flex-col items-end gap-1 text-sm">
           <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-accent hover:underline">
             <GitHubIcon className="h-3.5 w-3.5" /> theyishaik-lab/talorys <ExternalLink className="h-3.5 w-3.5" />
@@ -622,7 +655,7 @@ function AboutTab() {
           </a>
         </div>
       </Row>
-      <Row label="Update" hint="Deploy from the fork, never with the npm installer (it would remove the OpenConnector integration).">
+      <Row label={t("about.update")} hint={t("about.updateHint")}>
         <a href={DEPLOY_DOC_URL} target="_blank" rel="noopener noreferrer" className="flex items-center justify-end gap-1 text-sm text-accent hover:underline">
           docs/system/DEPLOY.md <ExternalLink className="h-3.5 w-3.5" />
         </a>

@@ -29,6 +29,8 @@ export interface CooldownEntry {
   scope: "model" | "provider";
   /** The provider's message, shortened. */
   error: string;
+  /** For a quota pause: whether the provider's DAILY or per-minute allowance ran out. */
+  window?: "day" | "minute";
 }
 
 export interface CooldownStore {
@@ -60,7 +62,7 @@ export function nextUtcMidnight(now: number): number {
  * How long to pause a model after `error`, or null when the failure says nothing about the model
  * (a cancelled turn). `strikes` is the number of consecutive failures including this one.
  */
-export function cooldownFor(error: unknown, now: number, strikes = 1): { ms: number; scope: "model" | "provider" } | null {
+export function cooldownFor(error: unknown, now: number, strikes = 1): { ms: number; scope: "model" | "provider"; window?: "day" | "minute" } | null {
   const d = detailsOf(error);
   const reason = reasonOf(error);
   const hint = typeof d.retry_after_s === "number" && d.retry_after_s > 0 ? d.retry_after_s * 1000 : null;
@@ -68,8 +70,8 @@ export function cooldownFor(error: unknown, now: number, strikes = 1): { ms: num
   const doubling = (base: number) => Math.min(MAX_BACKOFF, base * 2 ** Math.max(0, Math.min(10, strikes - 1)));
   switch (reason) {
     case "quota":
-      if (d.quota_window === "day") return { ms: clamp(hint ?? nextUtcMidnight(now) - now, 10 * MINUTE, MAX_DAILY), scope };
-      return { ms: clamp(hint ?? MINUTE, 10_000, HOUR), scope };
+      if (d.quota_window === "day") return { ms: clamp(hint ?? nextUtcMidnight(now) - now, 10 * MINUTE, MAX_DAILY), scope, window: "day" };
+      return { ms: clamp(hint ?? MINUTE, 10_000, HOUR), scope, window: "minute" };
     case "overloaded":
       return { ms: doubling(MINUTE), scope: "model" };
     case "timeout":
@@ -127,7 +129,14 @@ export class ModelCooldowns {
     const c = cooldownFor(error, this.now(), strikes);
     if (!c) return null;
     const message = error instanceof Error ? error.message : String(error);
-    const entry: CooldownEntry = { until: new Date(this.now() + c.ms).toISOString(), reason: reasonOf(error), strikes, scope: c.scope, error: message.slice(0, 200) };
+    const entry: CooldownEntry = {
+      until: new Date(this.now() + c.ms).toISOString(),
+      reason: reasonOf(error),
+      strikes,
+      scope: c.scope,
+      error: message.slice(0, 200),
+      ...(c.window ? { window: c.window } : {}),
+    };
     t[cooldownKey(provider, model)] = { ...entry, scope: "model" };
     if (c.scope === "provider") t[cooldownKey(provider, null)] = { ...entry, strikes: 0 };
     this.write(t);
@@ -144,13 +153,13 @@ export class ModelCooldowns {
   }
 
   /** Every pause still running, for Settings and diagnostics. */
-  list(): { provider: string; model: string | null; until: string; reason: AiFailureReason; scope: "model" | "provider"; error: string }[] {
+  list(): { provider: string; model: string | null; until: string; reason: AiFailureReason; scope: "model" | "provider"; error: string; window?: "day" | "minute" }[] {
     const now = this.now();
     return Object.entries(this.read())
       .filter(([, e]) => Date.parse(e.until) > now)
       .map(([k, e]) => {
         const [provider = "", model = "*"] = k.split("\u0000");
-        return { provider, model: model === "*" ? null : model, until: e.until, reason: e.reason, scope: e.scope, error: e.error };
+        return { provider, model: model === "*" ? null : model, until: e.until, reason: e.reason, scope: e.scope, error: e.error, ...(e.window ? { window: e.window } : {}) };
       })
       .sort((a, b) => a.until.localeCompare(b.until));
   }

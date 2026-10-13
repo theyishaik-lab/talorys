@@ -19,11 +19,11 @@ export function SourceLinks({ className }: { className?: string }) {
   return (
     <p className={cn("flex items-center gap-1.5 text-xs text-fg-subtle", className)}>
       <GitHubIcon className="h-3.5 w-3.5 shrink-0" />
-      <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className={linkClass} title="Talorys source on GitHub">
+      <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className={linkClass} title={t("source.sourceTitle")}>
         {t("source.source")}
       </a>
       <span aria-hidden>·</span>
-      <a href={ANDROID_SOURCE_URL} target="_blank" rel="noopener noreferrer" className={linkClass} title="Android app source on GitHub">
+      <a href={ANDROID_SOURCE_URL} target="_blank" rel="noopener noreferrer" className={linkClass} title={t("source.androidTitle")}>
         {t("source.android")}
       </a>
     </p>

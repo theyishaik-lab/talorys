@@ -54,7 +54,7 @@ export interface AiAttribution {
 export const PROVIDER_SHORT_NAMES: Record<string, string> = { gemini: "Google", openrouter: "OpenRouter", "workers-ai": "Workers AI", "openai-compatible": "API" };
 
 /** How well-known OpenAI-compatible endpoints are named ("ovh/gpt-oss-120b" → "OVH"). */
-const ENDPOINT_NAMES: Record<string, string> = { ovh: "OVH", groq: "Groq", cerebras: "Cerebras", mistral: "Mistral", github: "GitHub Models", nvidia: "NVIDIA", together: "Together", sambanova: "SambaNova" };
+const ENDPOINT_NAMES: Record<string, string> = { ovh: "OVH", groq: "Groq", cerebras: "Cerebras", mistral: "Mistral", github: "GitHub Models", nvidia: "NVIDIA", together: "Together", sambanova: "SambaNova", zai: "Z.ai", cohere: "Cohere" };
 
 /** The endpoint's display name from an "<endpoint>/<model>" id. */
 export function endpointShortName(model: string | null | undefined): string {

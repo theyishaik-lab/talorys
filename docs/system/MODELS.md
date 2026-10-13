@@ -172,6 +172,41 @@ leak guard's stuck-loop stop, the scheduled-run caps, and the daily request coun
 money: no card on Cloudflare (Workers AI refuses past 10k neurons), $0 OpenRouter credits, Gemini free
 tier (no billing account).
 
+## Chain editor and quota view (agent 0.1.16-chain, Oct 13, 2026)
+
+Yishai, Oct 13 23:21: a Settings screen to order the model chain and see how much quota each model has
+left. Web: Settings → AI → "שרשרת מודלים" (top of the Model section, `apps/web/src/components/ChainEditor.tsx`).
+Mobile: Settings → Model → "שרשרת מודלים" (`apps/mobile/src/app/settings/chain.tsx`, from v0.1.3).
+
+- **One list.** The chosen model, the selected backup and `fallback.chain` are shown as one ordered list
+  (`chainFromSettings` in `packages/shared/src/chain.ts`, duplicates once). Saving writes it back with
+  `settingsPatchForChain`: entry 1 → `modelProvider/model`, entry 2 → `fallback.provider/model`, the rest
+  → `fallback.chain` (one `PATCH /api/settings`). Up to 18 entries (chosen + backup + `MAX_FALLBACK_CHAIN`).
+  Edits are a local draft until "שמור סדר"; nothing is written while reordering.
+- **Edit:** drag the grip (web; pointer events, works with touch) or the ↑/↓ arrows (web and mobile), the
+  trash icon removes, "הוסף מודל" lists the models per provider (the catalog for Gemini / OpenRouter /
+  Workers AI, `GET /api/ai/endpoints/:id/models` for an OpenAI-compatible endpoint — speech, TTS, guard and
+  embedding models filtered out) or takes a typed model id, "הוסף נקודת קצה" registers a new endpoint
+  (name → id via `endpointIdFromName`, base URL, optional key → `PUT /api/ai/endpoints/:id`) and appends
+  its model. The switch on top is `fallback.enabled`.
+- **Status, `GET /api/ai/chain`** (read-only, `apps/agent/src/ai/chain-status.ts`) → `{enabled, checked_at,
+  entries:[{position, provider, model, label, provider_label, state, until, reason, error, quota}]}`:
+  - `state`: `available` · `paused` (a cooldown after overload / per-minute limit / silence; `until` =
+    when it is tried again) · `exhausted` (a DAILY quota pause — cooldowns now record `window: "day" |
+    "minute"` — or the provider's own counter at 0; `until` = the reset) · `not_configured` (no key, endpoint
+    gone, no Workers AI binding, or a rejected key).
+  - `quota`: OpenRouter's account-wide free allowance from `GET https://openrouter.ai/api/v1/key` →
+    `free_model_daily_requests {used, limit, remaining}` (asked on every status read; costs nothing; shared by
+    all `:free` models, resets 00:00 UTC). For OpenAI-compatible endpoints, the **rate-limit headers of the last
+    real response** (`apps/agent/src/ai/quota.ts`: `observingFetch` wraps the endpoint's fetch;
+    Groq `x-ratelimit-{limit,remaining,reset}-{requests,tokens}` = requests per **day**, tokens per minute;
+    OVH `RateLimit-*` per minute), kept in `tal_settings` under `ai_quota_seen` for 48 h — no extra
+    requests. A counter whose reset time has passed reads as full. Gemini and Workers AI report nothing
+    usable → `quota: null` → the screen says "מכסה: לא ידוע".
+- The screen polls every 60 s; "נסה שוב מודלים בהשהיה" is `DELETE /api/ai/cooldowns`.
+- Tests: `apps/agent/test/chain-status.test.ts` (header parsing, snapshot store, states, route + endpoint
+  models), `apps/web/test/chain-view.test.ts`, `apps/mobile/tests/chain.test.ts`.
+
 # Workers AI model benchmark (free plan)
 
 Benchmarked Oct 13, 2026 with `apps/agent/bench/models.bench.test.ts` (the real runner, system

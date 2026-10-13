@@ -134,7 +134,7 @@ export class TalorysAgent extends Agent<Env, AgentState> {
       case "openrouter":
         return new OpenRouterProvider(model, () => keys.get("openrouter"));
       case "openai-compatible":
-        return new OpenAICompatibleProvider(model, this.services.endpoints, keys);
+        return new OpenAICompatibleProvider(model, this.services.endpoints, keys, (snapshot) => this.services.quotas.record("openai-compatible", model, snapshot));
       default:
         return this.env.AI ? new CloudflareWorkersAIProvider(this.env.AI, model) : null;
     }

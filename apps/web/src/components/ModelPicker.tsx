@@ -7,13 +7,14 @@ import { keys as queryKeys, useApiMutation } from "../hooks/queries";
 import { api } from "../lib/api";
 import { type StringKey, useLocale, useT } from "../lib/i18n";
 import { cn, relativeTime } from "../lib/utils";
-import { Badge, Button, Input, Select, Spinner, Switch } from "./ui";
+import { Badge, Button, Input, Spinner, } from "./ui";
 import { providerLabel } from "../lib/provider-label";
+import { ChainEditor } from "./ChainEditor";
 
 type SectionProps = { title?: string; children: ReactNode; inset?: boolean };
 type RowProps = { label: string; hint?: ReactNode; children: ReactNode };
 
-interface CatalogResponse extends ModelCatalog {
+export interface CatalogResponse extends ModelCatalog {
   keys_available: boolean;
   fallback: FallbackSettings;
 }
@@ -101,11 +102,11 @@ export function ModelPicker({ settings, Section, Row }: { settings: Settings; Se
         </div>
       </Section>
 
+      <ChainEditor settings={settings} catalog={data} Section={Section} Row={Row} />
+
       {data.providers.map((p) => (
         <ProviderSection key={p.id} provider={p} current={current} keysAvailable={data.keys_available} busy={choose.isPending} onChoose={(model) => choose.mutate({ provider: p.id, model })} Section={Section} />
       ))}
-
-      <FallbackSection settings={settings} catalog={data} Section={Section} Row={Row} />
     </div>
   );
 }
@@ -310,57 +311,5 @@ function KeyCard({ provider: p, keysAvailable }: { provider: CatalogProvider; ke
         </form>
       )}
     </div>
-  );
-}
-
-function FallbackSection({ settings, catalog, Section, Row }: { settings: Settings; catalog: CatalogResponse; Section: ComponentType<SectionProps>; Row: ComponentType<RowProps> }) {
-  const t = useT();
-  const qc = useQueryClient();
-  const save = useApiMutation((fallback: Partial<FallbackSettings>) => api<{ settings: Settings }>("/settings", { method: "PATCH", body: { fallback } }), {
-    success: t("settings.saved"),
-    onSuccess: (r) => qc.setQueryData(queryKeys.settings, r.settings),
-  });
-  // Every usable model that is not the chosen one.
-  const options = catalog.providers
-    .filter((p) => p.connected)
-    .flatMap((p) => p.models.filter((m) => !(p.id === settings.modelProvider && m.id === settings.model)).map((m) => ({ provider: p.id, model: m.id, label: `${m.name} · ${providerLabel(t, p.id)}` })));
-  const fb = settings.fallback;
-  const value = `${fb.provider}|${fb.model}`;
-  const listed = options.some((o) => `${o.provider}|${o.model}` === value);
-  return (
-    <Section title={t("model.fallback.title")}>
-      <Row label={t("model.fallback.enable")} hint={t("model.fallback.hint")}>
-        <div className="flex justify-end">
-          <Switch
-            checked={fb.enabled}
-            disabled={options.length === 0 && !fb.enabled}
-            label={t("model.fallback.enable")}
-            onChange={(enabled) => {
-              const first = options[0];
-              save.mutate(enabled && !listed && first ? { enabled, provider: first.provider, model: first.model } : { enabled });
-            }}
-          />
-        </div>
-      </Row>
-      {fb.enabled && (
-        <Row label={t("model.fallback.model")} hint={options.length === 0 ? t("model.fallback.none") : undefined}>
-          <Select
-            value={listed ? value : ""}
-            aria-label={t("model.fallback.model")}
-            onChange={(e) => {
-              const [provider, model] = e.target.value.split("|") as [AiProviderId, string];
-              if (provider && model) save.mutate({ provider, model });
-            }}
-          >
-            {!listed && <option value="">{fb.model}</option>}
-            {options.map((o) => (
-              <option key={`${o.provider}|${o.model}`} value={`${o.provider}|${o.model}`}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-        </Row>
-      )}
-    </Section>
   );
 }

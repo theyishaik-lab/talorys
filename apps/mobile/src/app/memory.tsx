@@ -24,8 +24,8 @@ const MemoryRow = memo(function MemoryRow({ memory, reload }: { memory: Memory; 
     <Card style={{ gap: 8 }}>
       <T>{memory.content}</T>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <Chip label={memory.category} />
-        {memory.status !== "active" ? <Chip label={memory.status} color={c.warning} /> : null}
+        <Chip label={t(`m.memory.cat.${memory.category}` as "m.memory.cat.other")} />
+        {memory.status !== "active" ? <Chip label={t(`m.memory.status.${memory.status}` as "m.memory.status.historical")} color={c.warning} /> : null}
         <View style={{ flex: 1 }} />
         <Press onPress={remove} hitSlop={8} accessibilityLabel={t("common.delete")}>
           <Icon icon={Trash2} size={16} color={c.fgFaint} />

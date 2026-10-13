@@ -1,5 +1,6 @@
 import * as Haptics from "expo-haptics";
-import { ExternalLink, KeyRound, RefreshCw } from "lucide-react-native";
+import { router } from "expo-router";
+import { ExternalLink, KeyRound, ListOrdered, RefreshCw } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Linking, TextInput, View } from "react-native";
 import { Screen } from "../../components/Screen";
@@ -138,6 +139,11 @@ export default function ModelScreen() {
         <T size={13} color={c.danger}>
           {error}
         </T>
+      ) : null}
+      {catalog !== "unsupported" ? (
+        <Group>
+          <Row icon={ListOrdered} title={t("m.chain.title")} subtitle={t("m.chain.rowHint")} chevron last onPress={() => router.push("/settings/chain")} />
+        </Group>
       ) : null}
       {catalog === null ? (
         <ActivityIndicator color={c.accent} />

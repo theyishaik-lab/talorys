@@ -45,7 +45,7 @@ const TaskRow = memo(function TaskRow({ task, reload, renderedAt }: { task: Task
         ) : null}
         {task.priority === "high" || task.priority === "urgent" ? (
           <T size={12} color={c.warning}>
-            {task.priority}
+            {t(`m.tasks.priority.${task.priority}` as "m.tasks.priority.high")}
           </T>
         ) : null}
       </View>

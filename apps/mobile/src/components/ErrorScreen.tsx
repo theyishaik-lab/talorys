@@ -34,7 +34,7 @@ export function describeError(e: Error): string {
 export function ErrorScreen({ error, onRetry }: { error: Error; onRetry?: () => void }) {
   return (
     <View style={{ flex: 1, backgroundColor: "#FFFFFF", paddingTop: 56, paddingHorizontal: 20 }}>
-      <Text style={{ fontSize: 20, fontWeight: "600", color: "#111111", marginBottom: 8 }}>Talorys hit an error</Text>
+      <Text style={{ fontSize: 20, fontWeight: "600", color: "#111111", marginBottom: 8 }}>Talorys נתקל בשגיאה</Text>
       <Text style={{ fontSize: 14, color: "#444444", marginBottom: 12 }}>משהו נשבר בפתיחה. זה הטקסט של השגיאה — שלח אותו ל-Tab.</Text>
       <ScrollView style={{ flex: 1, backgroundColor: "#F3F3F5", borderRadius: 12, padding: 12 }}>
         <Text selectable style={{ fontFamily: "monospace", fontSize: 12, color: "#B00020" }}>
@@ -43,7 +43,7 @@ export function ErrorScreen({ error, onRetry }: { error: Error; onRetry?: () => 
       </ScrollView>
       {onRetry ? (
         <Pressable onPress={onRetry} style={{ marginVertical: 20, backgroundColor: "#4C47E0", borderRadius: 12, paddingVertical: 14, alignItems: "center" }}>
-          <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>Try again · נסה שוב</Text>
+          <Text style={{ color: "#FFFFFF", fontSize: 16, fontWeight: "600" }}>נסה שוב</Text>
         </Pressable>
       ) : null}
     </View>

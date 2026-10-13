@@ -20,7 +20,7 @@ export default function NotificationsScreen() {
   const load = useCallback(async () => {
     setPerm(await permissionState());
     const cfg = await pushConfig().catch(() => null);
-    if (!cfg || !cfg.enabled) {
+    if (!cfg?.enabled) {
       setConfig("unsupported");
       return;
     }

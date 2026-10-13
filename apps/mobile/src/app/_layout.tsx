@@ -91,6 +91,7 @@ function Shell() {
           <Stack.Screen name="(main)" options={{ animation: "fade" }} />
           <Stack.Screen name="settings/index" />
           <Stack.Screen name="settings/model" />
+          <Stack.Screen name="settings/chain" />
           <Stack.Screen name="settings/notifications" />
           <Stack.Screen name="settings/connections" />
           <Stack.Screen name="settings/account" />

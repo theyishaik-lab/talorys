@@ -18,6 +18,7 @@ import { ProviderKeyStore } from "../ai/keys";
 import { ModelCatalogService } from "../ai/catalog";
 import { ModelCooldowns } from "../ai/cooldown";
 import { EndpointStore } from "../ai/openai-compatible";
+import { QuotaObservations } from "../ai/quota";
 
 /** All data services for the single owner, bound to one Durable Object's storage. */
 export interface Services {
@@ -45,6 +46,8 @@ export interface Services {
   cooldowns: ModelCooldowns;
   /** OpenAI-compatible endpoints the owner registered (OVH, Groq, …). */
   endpoints: EndpointStore;
+  /** The last rate-limit headers each model's provider sent (Settings → Model shows what is left). */
+  quotas: QuotaObservations;
 }
 
 /** Runs a background promise; the Durable Object passes `ctx.waitUntil`. Errors never surface to the request. */
@@ -75,6 +78,7 @@ export function createServices(storage: DurableObjectStorage, env: Env, schedule
     catalog,
     cooldowns: new ModelCooldowns(settings),
     endpoints: new EndpointStore(settings),
+    quotas: new QuotaObservations(settings),
     db,
     tasks: new TaskRepository(db),
     memories,

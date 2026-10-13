@@ -47,7 +47,8 @@ const STRINGS = {
 };
 
 export function ConnectCard({ action: initial }: { action: PendingAction & { card: ConnectCardData } }) {
-  const t = STRINGS[useLocale().locale];
+  const { locale, t: tr } = useLocale();
+  const t = STRINGS[locale];
   const qc = useQueryClient();
   const [action, setAction] = useState<PendingAction>(initial);
   useEffect(() => setAction(initial), [initial]);
@@ -136,7 +137,7 @@ export function ConnectCard({ action: initial }: { action: PendingAction & { car
   }
   if (awaitingSignIn && link) {
     return (
-      <div role="group" aria-label="Sign in" className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
+      <div role="group" aria-label={tr("connect.signInGroup")} className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
         <div className="flex items-start gap-3 px-4 pb-3 pt-3.5">
           <AppIcon>
             <Plug className="h-5 w-5" />
@@ -171,7 +172,7 @@ export function ConnectCard({ action: initial }: { action: PendingAction & { car
     );
   }
   return (
-    <div role="group" aria-label="Connection approval" className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
+    <div role="group" aria-label={tr("connect.approvalGroup")} className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
       <div className="flex items-start gap-3 px-4 pb-3 pt-3.5">
         <AppIcon>{card.method === "api_key" ? <KeyRound className="h-5 w-5" /> : <Plug className="h-5 w-5" />}</AppIcon>
         <div className="min-w-0 flex-1">

@@ -20,8 +20,8 @@ export function LoginPage({ configured }: { configured: boolean }) {
 
   useEffect(() => {
     if (!retryAt) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
   }, [retryAt]);
   const waitSeconds = retryAt ? Math.max(0, Math.ceil((retryAt - now) / 1000)) : 0;
 
@@ -60,8 +60,11 @@ export function LoginPage({ configured }: { configured: boolean }) {
 
         {!configured ? (
           <div role="alert" className="rounded-lg border border-border bg-surface p-4 text-sm leading-6 text-fg-muted">
-            This deployment has no owner password configured yet. Run <code className="rounded bg-muted px-1">npx create-talorys@latest</code>{" "}
-            again to finish setup.
+            {t("login.notConfiguredBefore")}{" "}
+            <code className="rounded bg-muted px-1" dir="ltr">
+              npx create-talorys@latest
+            </code>{" "}
+            {t("login.notConfiguredAfter")}
           </div>
         ) : (
           <form onSubmit={submit} className="space-y-3" noValidate>

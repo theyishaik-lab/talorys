@@ -1,3 +1,5 @@
+import { chainEn, chainHe } from "./strings-chain";
+import { pagesEn, pagesHe } from "./strings-pages";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 /**
@@ -76,7 +78,7 @@ export function firstStrongDirection(text: string, fallback: Direction = "ltr"):
 
 // --- Strings -------------------------------------------------------------------------------------
 
-const en = {
+const baseEn = {
   // Shell
   "nav.chat": "Chat",
   "nav.memory": "Memory",
@@ -380,9 +382,12 @@ const en = {
   "push.diagnose": "Show details",
 } as const;
 
+/** Strings kept in their own files (chain editor, pages) are merged in here. */
+const en = { ...baseEn, ...chainEn, ...pagesEn } as const;
+
 export type StringKey = keyof typeof en;
 
-const he: Record<StringKey, string> = {
+const baseHe: Record<keyof typeof baseEn, string> = {
   "nav.chat": "צ'אט",
   "nav.memory": "זיכרון",
   "nav.tasks": "משימות",
@@ -678,6 +683,8 @@ const he: Record<StringKey, string> = {
   "push.testQuiet": "נשלחה. האפליקציה הייתה פתוחה בחזית, אז בלי באנר — תסתכל בפעמון.",
   "push.diagnose": "הצג פרטים",
 };
+
+const he: Record<StringKey, string> = { ...baseHe, ...chainHe, ...pagesHe };
 
 const STRINGS: Record<Locale, Record<StringKey, string>> = { en, he };
 

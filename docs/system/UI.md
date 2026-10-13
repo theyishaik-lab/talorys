@@ -31,6 +31,7 @@ apps/web/
     styles/index.css         Tailwind import + fonts + ALL design tokens (colors, radii, shadows,
                              animations, dark mode, native-feel base rules)
     lib/api.ts               fetch wrapper (CSRF header, 401 handling) + streamChat (SSE)
+    lib/strings-chain.ts     chain editor strings; lib/strings-pages.ts page strings — both merged into i18n.tsx
     lib/theme.ts             light / dark / auto per device (localStorage "talorys.theme")
     lib/utils.ts             cn() class joining, date/time formatting, copyText
     lib/links.ts             REPO_URL / ANDROID_SOURCE_URL (apps/mobile) / DEPLOY_DOC_URL (this fork), UPSTREAM_URL
@@ -45,6 +46,8 @@ apps/web/
       DeviceNotifications.tsx Settings → "Device notifications": install, enable push, per-kind toggles, test (NOTIFICATIONS.md)
       NotificationCenter.tsx the bell list (approval results land here)
       ChatUsage.tsx          "AI usage today" popover
+      ModelPicker.tsx        Settings → AI → Model: providers, models, API keys
+      ChainEditor.tsx        Settings → AI → "Model chain": order, status, quota left, add/remove (MODELS.md)
       Markdown.tsx           how assistant messages render
       WriterEditor.tsx       notes editor
       SemanticRecallCard.tsx settings card for semantic memory

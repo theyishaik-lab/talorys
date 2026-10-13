@@ -3,6 +3,7 @@ import { type AiEndpoint, aiEndpointSchema, ENDPOINT_ID, splitEndpointModel } fr
 import type { LanguageModel } from "ai";
 import { AppError } from "../api/errors";
 import type { ProviderKeyStore } from "./keys";
+import { observingFetch, type QuotaSnapshot, requestsWindowFor } from "./quota";
 import { AiSdkProvider } from "./workers-ai";
 
 /**
@@ -76,7 +77,8 @@ export class EndpointStore {
 
 /** A model on a registered endpoint; NOT_CONFIGURED (so the chain moves on) when the endpoint is gone. */
 export class OpenAICompatibleProvider extends AiSdkProvider {
-  constructor(modelId: string, endpoints: EndpointStore, keys: Pick<ProviderKeyStore, "get">) {
+  /** `onQuota` receives the rate-limit headers of each response (quota.ts), for Settings → Model. */
+  constructor(modelId: string, endpoints: EndpointStore, keys: Pick<ProviderKeyStore, "get">, onQuota?: (snapshot: QuotaSnapshot) => void) {
     super("openai-compatible", modelId, async () => {
       const ref = splitEndpointModel(modelId);
       const endpoint = ref ? endpoints.get(ref.endpoint) : null;
@@ -88,7 +90,12 @@ export class OpenAICompatibleProvider extends AiSdkProvider {
         });
       }
       const key = await keys.get(endpointKeyName(endpoint.id));
-      const provider = createOpenAICompatible({ name: endpoint.id, baseURL: endpoint.baseURL, ...(key ? { apiKey: key } : {}) });
+      const provider = createOpenAICompatible({
+        name: endpoint.id,
+        baseURL: endpoint.baseURL,
+        ...(key ? { apiKey: key } : {}),
+        ...(onQuota ? { fetch: observingFetch(onQuota, { requestsWindow: requestsWindowFor(endpoint.baseURL) }) } : {}),
+      });
       return provider.chatModel(ref.model) as LanguageModel;
     });
   }

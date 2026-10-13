@@ -1,4 +1,5 @@
-import { AI_PROVIDERS, type AiProviderId, aiEndpointUpdateSchema, ENDPOINT_ID, type ModelCatalog, providerKeySchema } from "@talorys/shared";
+import { AI_PROVIDERS, type AiProviderId, aiEndpointUpdateSchema, type ChainRef, chainFromSettings, ENDPOINT_ID, isModelIdFor, type ModelCatalog, providerKeySchema, splitEndpointModel } from "@talorys/shared";
+import { chainStatus, needsKey, type OpenRouterAllowance } from "../../ai/chain-status";
 import { Hono } from "hono";
 import { listGeminiModels } from "../../ai/gemini";
 import type { KeyProvider } from "../../ai/keys";
@@ -63,6 +64,68 @@ aiRoutes.delete("/ai/endpoints/:id", (c) => {
   s.providerKeys.delete(endpointKeyName(id));
   s.activity.record("ai.endpoint_removed", id);
   return c.json({ ok: true });
+});
+
+/**
+ * Settings → Model: every model in the chain, in order, with its state (available / paused /
+ * daily quota used up / not set up) and what is left where the provider tells — OpenRouter's key
+ * API (asked now, costs nothing) and the rate-limit headers of the last response (Groq, OVH, …).
+ * Read-only; editing the chain is `PATCH /api/settings`.
+ */
+aiRoutes.get("/ai/chain", async (c) => {
+  const s = c.env.agent.services;
+  const settings = s.settings.get();
+  const list = chainFromSettings(settings);
+  let openRouter: OpenRouterAllowance | null = null;
+  if (list.some((r) => r.provider === "openrouter")) {
+    const key = await s.providerKeys.get("openrouter");
+    if (key) {
+      try {
+        openRouter = (await checkOpenRouterKey(key, AbortSignal.timeout(5_000))).free_daily;
+      } catch {
+        openRouter = null; // unknown; the screen says so
+      }
+    }
+  }
+  const configured = (ref: ChainRef) => {
+    if (needsKey(ref.provider)) return s.providerKeys.has(ref.provider);
+    if (ref.provider === "openai-compatible") {
+      const id = splitEndpointModel(ref.model)?.endpoint;
+      return !!id && !!s.endpoints.get(id);
+    }
+    return !!c.env.env.AI;
+  };
+  const status = chainStatus(settings, {
+    cooldowns: s.cooldowns,
+    quotas: s.quotas,
+    configured,
+    endpointName: (id) => s.endpoints.get(id)?.name ?? null,
+    openRouter,
+    now: Date.now(),
+  });
+  return c.json(status);
+});
+
+/** The models an OpenAI-compatible endpoint offers (its own `GET /models`), for "add to chain". */
+aiRoutes.get("/ai/endpoints/:id/models", async (c) => {
+  const s = c.env.agent.services;
+  const endpoint = s.endpoints.get(c.req.param("id"));
+  if (!endpoint) throw new NotFoundError("Unknown endpoint.");
+  const key = await s.providerKeys.get(endpointKeyName(endpoint.id));
+  try {
+    const r = await fetch(`${endpoint.baseURL}/models`, { headers: key ? { Authorization: `Bearer ${key}` } : {}, signal: AbortSignal.timeout(8_000) });
+    if (!r.ok) return c.json({ models: [], error: `${endpoint.name} answered ${r.status}` });
+    const body = (await r.json()) as { data?: { id?: unknown }[] };
+    const models = (body.data ?? [])
+      .map((m) => (typeof m.id === "string" ? m.id : null))
+      .filter((id): id is string => !!id && isModelIdFor("openai-compatible", `${endpoint.id}/${id}`))
+      // Speech, TTS, guard and embedding models cannot chat.
+      .filter((id) => !/whisper|tts|orpheus|guard|embed|rerank|moderation/i.test(id))
+      .sort();
+    return c.json({ models, error: null });
+  } catch (error) {
+    return c.json({ models: [], error: error instanceof Error ? error.message.slice(0, 160) : String(error) });
+  }
 });
 
 /** Models paused after a quota / overload failure, and when each comes back. */
