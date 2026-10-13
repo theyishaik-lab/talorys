@@ -152,8 +152,7 @@ export function DeviceNotificationsSection({ Section, Row }: SettingsParts) {
               <BellRing className="h-4 w-4" aria-hidden /> {t("push.test")}
             </Button>
           </Row>
-        </div>
-      </Card>
-    </section>
+      </Section>
+    </div>
   );
 }
