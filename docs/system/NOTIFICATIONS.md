@@ -112,6 +112,21 @@ messages from the worker) and `src/lib/push.ts` (subscribe / unsubscribe / prefs
 "Device notifications" is `src/components/DeviceNotifications.tsx`. A push received while the app is
 open invalidates the notifications and conversation queries (`main.tsx`).
 
+### What the section shows (Oct 13, 2026, `34ded0e`, `0c75a3f`)
+
+- **State panel**: where it runs (browser tab / installed app / old Android app), permission
+  (not asked yet / allowed / blocked), registered with the agent yes/no, last test result with the push
+  service's HTTP status (Google answers 201 when it accepted the message).
+- A failed enable names the step that failed (permission, service worker, subscribe, server) in Hebrew
+  with what to do; while blocked there is a **Retry** button and the Android path
+  (Settings → Apps → Chrome/Talorys → Notifications → Allow; Chrome → Site settings → Notifications).
+- The state is read again when the app comes back to the foreground (after changing Android settings).
+- `Notification.requestPermission()` is the first await in the tap handler, so the prompt keeps the
+  user gesture in the installed PWA on Android Chrome.
+
+Diagnosis on Yishai's phone (Oct 13, 13:15 IL): his agent had **zero** subscriptions — his device never
+finished subscribing (the old WebView APK has no Push API, or Chrome quieted the permission prompt).
+
 ## Limits and things to know
 
 - **iOS**: notifications only from the home-screen app (iOS 16.4+); no action buttons; no silent
@@ -129,3 +144,8 @@ the live Pages preview: manifest valid and installable (Chrome fired `beforeinst
 worker active and controlling, a real subscription on Google's push service, a test push from the
 agent Worker received by the worker and displayed within a second, offline navigation served from
 the cached shell. Script: Tab's task folder (`e2e/push-e2e.mjs`).
+
+Oct 13, 2026 ~14:30 IL, production, headless Chromium (Pixel UA, Hebrew): the three permission states
+render correctly (not asked / blocked with guidance + Retry / allowed); enable → subscribed, registered
+"yes"; "send test" → "delivered (201)"; the test device was then removed (0 subscriptions left).
+Screenshots: Tab's files `talorys-notif-fix-prod-*.png`.
