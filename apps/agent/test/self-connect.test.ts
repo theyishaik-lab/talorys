@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { inAgent, loggedIn } from "./helpers";
 import type { Env } from "../src/env";
 import { OpenConnectorClient, toolsWithOpenConnector } from "../src/openconnector";
-import { connectionStatus, connectTools, credentialFields, KNOWN_SERVICES, OpenConnectorAdmin, resolveServiceIds, searchKnownServices } from "../src/openconnector/connect";
+import { connectionStatus, connectTools, credentialFields, KNOWN_SERVICES, OpenConnectorAdmin, refreshConnectLink, resolveServiceIds, searchKnownServices } from "../src/openconnector/connect";
 import { ALL_TOOLS, runApprovedAction, ToolExecutor, type ToolContext } from "../src/tools";
 import type { DestructiveTool, ImmediateTool } from "../src/tools/registry";
 
@@ -219,6 +219,29 @@ describe("connect tools", () => {
     const c = await loggedIn();
     expect((await c.call("/api/connections/googletasks")).status).toBe(404);
     expect((await c.call("/api/connections/..%2Fadmin")).status).toBe(404);
+    expect((await c.call("/api/actions/nope/link", { method: "POST", body: {} })).status).toBe(404);
+  });
+
+  it("a fresh sign-in link is minted only for an approved OAuth connect action", async () => {
+    const { tools, admin, calls } = fakeAdmin({ configured: ["googletasks"] });
+    await inAgent(async (a) => {
+      const s = a.services;
+      const conversation = s.conversations.create("test");
+      const prepared = await destructive(tools, "connect_service").prepare({ service: "googletasks" }, ctx(s, conversation.id));
+      const pending = s.pendingActions.create({ conversation_id: conversation.id, tool: "connect_service", target_id: prepared.targetId, summary: prepared.summary, card: prepared.card });
+      await expect(refreshConnectLink(admin, ctx(s), pending.id)).rejects.toThrow(/not approved/);
+      await runApprovedAction([...ALL_TOOLS, ...tools], ctx(s), pending.id);
+      const first = s.pendingActions.view(pending.id)?.card?.authorization_url;
+      const url = await refreshConnectLink(admin, ctx(s), pending.id);
+      expect(url).toMatch(/service=googletasks/);
+      expect(s.pendingActions.view(pending.id)?.card?.authorization_url).toBe(url);
+      expect(first).toBeDefined();
+      expect(calls.filter((c) => c.path === "/api/oauth/authorizations")).toHaveLength(2);
+      // A plain action or a key-based card has no link to refresh.
+      const other = s.pendingActions.create({ conversation_id: conversation.id, tool: "delete_task", target_id: "t1", summary: "Delete task" });
+      s.pendingActions.resolve(other.id, "approved");
+      await expect(refreshConnectLink(admin, ctx(s), other.id)).rejects.toThrow(/no sign-in link/);
+    });
   });
 
   it("connectionStatus reads the runtime's connection list", async () => {

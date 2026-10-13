@@ -4,6 +4,7 @@ import type { ConnectCard as ConnectCardData, PendingAction } from "@talorys/sha
 import { CheckCircle2, ExternalLink, KeyRound, Loader2, Plug, XCircle } from "lucide-react";
 import { keys, useApiMutation } from "../hooks/queries";
 import { api } from "../lib/api";
+import { useLocale } from "../lib/i18n";
 import { Button, Input } from "./ui";
 import { cn } from "../lib/utils";
 
@@ -45,21 +46,16 @@ const STRINGS = {
   },
 };
 
-/** Hebrew when the page or the browser says so; the shell's locale setting (when present) wins through <html lang>. */
-function strings() {
-  if (typeof document === "undefined") return STRINGS.en;
-  const lang = document.documentElement.lang || navigator.language || "";
-  return /^he/i.test(lang) ? STRINGS.he : STRINGS.en;
-}
-
 export function ConnectCard({ action: initial }: { action: PendingAction & { card: ConnectCardData } }) {
-  const t = strings();
+  const t = STRINGS[useLocale().locale];
   const qc = useQueryClient();
   const [action, setAction] = useState<PendingAction>(initial);
   useEffect(() => setAction(initial), [initial]);
   const card = (action.card ?? initial.card) as ConnectCardData;
   const [values, setValues] = useState<Record<string, string>>({});
   const [account, setAccount] = useState<string | null>(card.account ?? null);
+  const [link, setLink] = useState<string | undefined>(card.authorization_url);
+  useEffect(() => setLink(card.authorization_url), [card.authorization_url]);
 
   const decide = useApiMutation(
     (decision: "approve" | "cancel") =>
@@ -82,6 +78,22 @@ export function ConnectCard({ action: initial }: { action: PendingAction & { car
 
   const status = action.status === "pending" && Date.parse(action.expires_at) <= Date.now() ? "expired" : action.status;
   const awaitingSignIn = status === "approved" && card.method === "oauth" && !account;
+
+  // The connector's sign-in link lives 15 minutes: fetch a fresh one each time the card is shown.
+  useEffect(() => {
+    if (!awaitingSignIn) return;
+    let cancelled = false;
+    api<{ url: string }>(`/actions/${action.id}/link`, { method: "POST", body: {} })
+      .then((r) => {
+        if (!cancelled && r.url) setLink(r.url);
+      })
+      .catch(() => {
+        /* the stored link stays */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [awaitingSignIn, action.id]);
 
   // After an OAuth approval the sign-in happens in another tab; poll until the connector lists the app.
   useEffect(() => {
@@ -122,7 +134,7 @@ export function ConnectCard({ action: initial }: { action: PendingAction & { car
       </Done>
     );
   }
-  if (awaitingSignIn && card.authorization_url) {
+  if (awaitingSignIn && link) {
     return (
       <div role="group" aria-label="Sign in" className="rounded-lg border border-border bg-surface px-3 py-2.5 shadow-sm">
         <div className="flex items-start gap-2 text-sm">
@@ -136,7 +148,7 @@ export function ConnectCard({ action: initial }: { action: PendingAction & { car
         </div>
         <div className="mt-2.5 flex justify-end">
           <a
-            href={card.authorization_url}
+            href={link}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-accent px-3 text-sm font-medium text-accent-fg shadow-sm hover:opacity-90"

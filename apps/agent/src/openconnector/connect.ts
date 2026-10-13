@@ -395,6 +395,23 @@ export function connectTools(admin: OpenConnectorAdmin, runtime: OpenConnectorCl
   ] as ToolDefinition[];
 }
 
+/**
+ * A fresh consent link for an already-approved OAuth connect action. OpenConnector's OAuth state
+ * lives 15 minutes, so a card the owner opens later would carry a dead link; the card asks for a
+ * new one when it is shown. Only an approved `connect_service` action with an OAuth card qualifies:
+ * the approval was for exactly this app, and minting a link changes nothing until the owner consents.
+ */
+export async function refreshConnectLink(admin: OpenConnectorAdmin, ctx: ToolContext, actionId: string): Promise<string> {
+  const pending = ctx.services.pendingActions;
+  const stored = pending.get(actionId);
+  const card = stored ? pending.view(actionId)?.card : undefined;
+  if (!stored || stored.tool !== "connect_service" || !card || card.method !== "oauth") throw new ToolError("This action has no sign-in link.");
+  if (stored.status !== "approved") throw new ToolError("This connection was not approved.");
+  const url = await admin.startOAuth(card.service);
+  pending.setCard(actionId, { ...card, authorization_url: url });
+  return url;
+}
+
 /** Whether a service is connected now (polled by the card after an OAuth sign-in). Uses the runtime token, like the agent. */
 export async function connectionStatus(runtime: OpenConnectorClient, service: string): Promise<{ connected: boolean; account: string | null }> {
   const rows = (await runtime.data("list_connections", { service })) as ConnectionProfile[] | unknown;

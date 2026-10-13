@@ -4,8 +4,8 @@ import { z } from "zod";
 import type { AppEnv } from "../app";
 import { body, query } from "../middleware";
 import { AppError, NotFoundError } from "../errors";
-import { runApprovedAction } from "../../tools";
-import { connectionStatus, openConnectorClient } from "../../openconnector";
+import { runApprovedAction, ToolError } from "../../tools";
+import { connectionStatus, openConnectorAdmin, openConnectorClient, refreshConnectLink } from "../../openconnector";
 
 export const chatRoutes = new Hono<AppEnv>();
 
@@ -139,6 +139,21 @@ chatRoutes.post("/actions/:id/approve", async (c) => {
   const { values } = await body(c, approveSchema);
   const action = await runApprovedAction(c.env.agent.approvalTools(), { services: s, timezone: s.settings.get().timezone, mode: "chat" }, c.req.param("id"), values);
   return c.json({ action });
+});
+
+/** A fresh sign-in link for an approved connect action (the connector's OAuth state lives 15 minutes). */
+chatRoutes.post("/actions/:id/link", async (c) => {
+  const admin = openConnectorAdmin(c.env.env);
+  if (!admin) throw new NotFoundError("No connector is configured.");
+  const s = c.env.agent.services;
+  const id = c.req.param("id");
+  if (!s.pendingActions.get(id)) throw new NotFoundError("This action no longer exists.");
+  try {
+    return c.json({ url: await refreshConnectLink(admin, { services: s, timezone: s.settings.get().timezone, mode: "chat" }, id) });
+  } catch (error) {
+    if (error instanceof ToolError) throw new AppError("CONFLICT", error.message);
+    throw error;
+  }
 });
 
 /** Whether an external app is connected right now; a connect card polls it after an OAuth sign-in. */

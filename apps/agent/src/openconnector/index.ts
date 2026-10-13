@@ -8,7 +8,7 @@ import { connectTools, OpenConnectorAdmin } from "./connect";
 import { openConnectorTools } from "./tools";
 
 export { OpenConnectorClient } from "./client";
-export { connectionStatus, OpenConnectorAdmin } from "./connect";
+export { connectionStatus, OpenConnectorAdmin, refreshConnectLink } from "./connect";
 export { isReadOnlyAction, openConnectorTools } from "./tools";
 
 /**
