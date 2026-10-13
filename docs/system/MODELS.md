@@ -113,3 +113,30 @@ BENCH_OC_URL=https://open-connector.yishai-kaminsky.workers.dev BENCH_OC_TOKEN=<
 BENCH_MODELS=@cf/google/gemma-4-26b-a4b-it BENCH_PROMPTS=0,1,2 \
 npx vitest run --config vitest.bench.config.ts    # prints one BENCHROW json line per prompt
 ```
+
+
+## Error attribution (agent 0.1.13-attrib, Oct 13, 2026)
+
+Yishai asked that every model error say which model and provider it came from. All fields are
+additive and optional, so older clients keep working (they ignore unknown fields and events).
+
+Types live in `packages/shared/src/attribution.ts` (`AiAttempt`, `AiAttribution`, `modelLabel`,
+`formatAttempts`).
+
+- **`error` stream event** now also carries `provider`, `model` (the last model tried), `status`
+  (provider HTTP status or null), `reason`, and `attempts` (every model tried, in order). `details`
+  keeps `provider`/`model` too, which older web builds read.
+- **New `model` stream event**: `{type:"model", provider, model, fallback:true, attempts}`. It's sent
+  before the first text when a backup answers instead of the chosen model.
+- **Assistant messages** have `ai: {provider, model, fallback, attempts}`. It is saved in
+  `tal_messages.ai` (migration 9) and returned by `/api/conversations/:id` and the `done` event.
+  Older messages have no `ai`.
+- `AiAttempt` = `{provider, model, code, reason, status?, timeout_s?, error}`, where `reason` is one of
+  `overloaded | quota | timeout | not_configured | bad_key | no_model | error`.
+- **Reason words** (`attemptReason`): עומס 503 · מכסה · לא הגיב 15 ש׳ · לא מוגדר · מפתח שגוי ·
+  מודל לא זמין · שגיאה (English: overloaded 503 · quota · no answer in 15 s …).
+- **What the user sees**:
+  - Web: the error bubble shows a localized headline, then a small line such as
+    "Gemini 3.8 Flash (Google): עומס 503 · Llama 3.3 70B (OpenRouter): מכסה".
+  - Web: under a reply written by a backup, a quiet note: "ענה: Nemotron 3 Super 120B A12B (OpenRouter)".
+  - Mobile renders the same (`apps/mobile/src/lib/errors.ts`, `MessageRow.tsx`) from the next APK on.
