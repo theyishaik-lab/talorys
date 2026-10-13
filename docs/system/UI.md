@@ -72,10 +72,29 @@ Rules of thumb:
 
 ## Things to know before designing
 
-- **Hebrew / right-to-left:** the UI has no RTL handling today (`<html lang="en">`, no `dir`
-  attributes). Hebrew messages display, but alignment and punctuation follow left-to-right. A good
-  first change: `dir="auto"` on message bubbles, the composer and note editor, and logical Tailwind
-  classes (`ms-`/`me-`/`ps-`/`pe-`, `text-start`) instead of `ml-`/`mr-`/`text-left`.
+- **Hebrew / right-to-left (since Oct 13, 2026, commit `9b41c85`):** the UI has two locales,
+  English and Hebrew, in `apps/web/src/lib/i18n.tsx`. The language is a per-device preference in
+  `localStorage["talorys.lang"]` (`auto` = follow the browser language; `en`; `he`) — it is not part
+  of the agent's settings, so it works before login and never touches the backend. Settings → General
+  → Language switches it. `initLocale()` sets `<html lang dir>` before the first paint, and
+  `LocaleProvider` / `useT()` give components `t("key")` strings. Rules that keep RTL correct:
+  - Use **logical** Tailwind classes: `ps-`/`pe-`/`ms-`/`me-`, `start-`/`end-`, `border-s`/`border-e`,
+    `rounded-ss/se/es/ee`, `text-start`/`text-end` — never `pl-`/`right-`/`text-left`. The `rtl:`
+    variant handles the rest (e.g. `rtl:-scale-x-100` on arrow icons, the Switch knob).
+  - **Per-message direction:** user bubbles, Markdown paragraphs/lists/headings/table cells, tool
+    chips and titles carry `dir="auto"`, so a Hebrew answer right-aligns in an English UI and vice
+    versa; `pre`/`code` are forced `dir="ltr"`. The composer, search boxes and text fields are
+    `dir="auto"`; the note editor's textarea and its highlight mirror share one direction from the
+    first strong character of the text (`firstStrongDirection`).
+  - Dates and relative times (`lib/utils.ts`) follow `<html lang>`, so they read "לפני 5 דקות" in Hebrew.
+  - **Adding a string:** add the key to both dictionaries in `i18n.tsx` (TypeScript fails if Hebrew
+    is missing a key) and use `t("…")`. Translated so far: the shell (sidebar, bottom nav, bell,
+    source links), login, chat (header, history, composer, approval card, dialogs), settings General
+    tab and tab names, notifications and shared dialogs. Still English: Memory, Tasks, Notes,
+    Automations page contents and the Settings AI/Privacy/Security/About tabs — all already lay out
+    RTL, only their words are untranslated.
+  - Tests: `apps/web/test/i18n.test.ts`. Visual check: `localStorage.setItem("talorys.lang","he")`
+    + reload, at 390 px and desktop width.
 - **Content-Security-Policy** (`public/_headers`): only same-origin scripts, styles, fonts, images and
   connections are allowed (`default-src 'self'`). A Google Font, CDN script or external image will be
   blocked unless you bundle it or extend the policy deliberately. `frame-ancestors 'none'` — the app
