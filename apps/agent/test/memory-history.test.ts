@@ -292,7 +292,8 @@ describe("migration from the previous schema", () => {
     const run = freshAgent();
     await run((agent, state) => {
       const db = new Database(state.storage);
-      // Rebuild the exact v3 shape: remove everything migrations 4 to 7 added.
+      // Rebuild the exact v3 shape: remove everything migrations 4 to 9 added.
+      db.run(`ALTER TABLE tal_messages DROP COLUMN ai`);
       db.run(`ALTER TABLE tal_messages DROP COLUMN error_code`);
       db.run(`DROP TABLE IF EXISTS tal_push_subscriptions`);
       db.run(`ALTER TABLE tal_pending_actions DROP COLUMN card`);

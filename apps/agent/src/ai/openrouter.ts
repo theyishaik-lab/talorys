@@ -10,7 +10,7 @@ export class OpenRouterProvider extends AiSdkProvider {
   constructor(modelId: string, apiKey: () => Promise<string | null>, appUrl?: string) {
     super("openrouter", modelId, async () => {
       const key = await apiKey();
-      if (!key) throw new AppError("NOT_CONFIGURED", "OpenRouter needs an API key. Add one in Settings → Model.", { provider: "openrouter" });
+      if (!key) throw new AppError("NOT_CONFIGURED", "OpenRouter needs an API key. Add one in Settings → Model.", { provider: "openrouter", model: modelId, reason: "not_configured" });
       const provider = createOpenAICompatible({
         name: "openrouter",
         baseURL: OPENROUTER_BASE_URL,

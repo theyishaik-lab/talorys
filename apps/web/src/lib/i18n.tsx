@@ -336,6 +336,11 @@ const en = {
   "chat.error.NOT_CONFIGURED": "{provider} is not set up ({message}). Open Settings → Model.",
   "chat.error.AI_LIMIT_REACHED": "Talorys reached its own daily AI limit. Raise it in Settings → AI.",
   "chat.error.openModel": "Settings → Model",
+  "chat.error.AI_UNAVAILABLE": "The model isn't answering right now.",
+  "chat.error.allFailed": "None of the models answered.",
+  "chat.error.tried": "Models tried",
+  "chat.answeredBy": "Answered by {model}",
+  "chat.answeredByTitle": "The chosen model didn't answer: {attempts}",
   // Settings home
   "settings.connectionsNone": "No app connected yet. Ask in the chat: “connect Gmail”.",
   "settings.connectionsUnavailable": "Connector not configured.",
@@ -630,6 +635,11 @@ const he: Record<StringKey, string> = {
   "chat.error.NOT_CONFIGURED": "{provider} לא מוגדר ({message}). פתח הגדרות ← מודל.",
   "chat.error.AI_LIMIT_REACHED": "Talorys הגיע למגבלת ה-AI היומית שלו. אפשר להעלות אותה בהגדרות ← AI.",
   "chat.error.openModel": "הגדרות ← מודל",
+  "chat.error.AI_UNAVAILABLE": "המודל לא עונה כרגע.",
+  "chat.error.allFailed": "אף מודל לא ענה.",
+  "chat.error.tried": "מודלים שנוסו",
+  "chat.answeredBy": "ענה: {model}",
+  "chat.answeredByTitle": "המודל שנבחר לא ענה: {attempts}",
   // Settings home
   "settings.connectionsNone": "עדיין לא חובר אף שירות. בקש בצ'אט: \"חבר את Gmail\".",
   "settings.connectionsUnavailable": "הקונקטור לא מוגדר.",

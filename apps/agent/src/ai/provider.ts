@@ -1,4 +1,4 @@
-import type { AiProviderId } from "@talorys/shared";
+import type { AiAttempt, AiFailureReason, AiProviderId } from "@talorys/shared";
 import type { z } from "zod";
 import { AppError } from "../api/errors";
 
@@ -50,7 +50,7 @@ export type AgentEvent =
   | { type: "tool-end"; id: string; name: string; output: unknown; error?: string }
   | { type: "usage"; usage: Usage }
   /** The turn switched to the backup model (quota or configuration failure on the chosen one). */
-  | { type: "provider"; provider: AIProvider["id"]; model: string };
+  | { type: "provider"; provider: AIProvider["id"]; model: string; attempts?: AiAttempt[] };
 
 /**
  * Provider abstraction: Workers AI (built in), Google Gemini and OpenRouter (with a stored key)
@@ -77,13 +77,15 @@ export function estimateTokens(text: string): number {
  * Gemini: 429 RESOURCE_EXHAUSTED = free-tier quota; 400/403 API_KEY_INVALID = bad key.
  * OpenRouter: 402 = out of credits; 429 = free-model rate limit; 401 = bad key.
  */
-export function classifyAiError(error: unknown, provider: AiProviderId = "workers-ai"): AppError {
+export function classifyAiError(error: unknown, provider: AiProviderId = "workers-ai", model?: string): AppError {
   if (error instanceof AppError) return error;
   const message = errorMessage(error);
   const lower = message.toLowerCase();
   const name = PROVIDER_NAMES[provider];
-  const details = { provider, model: undefined as string | undefined };
   const status = statusOf(error);
+  // Which model failed and why, for the UI's "Gemini 3.5 Flash (Google): overloaded 503" line.
+  const why = (reason: AiFailureReason) => ({ provider, model, status, reason });
+  const details = why("error");
   if (lower.includes("abort")) {
     return new AppError("AI_UNAVAILABLE", "The response was cancelled.", details);
   }
@@ -92,27 +94,27 @@ export function classifyAiError(error: unknown, provider: AiProviderId = "worker
       return new AppError(
         "AI_QUOTA_EXHAUSTED",
         "Your Cloudflare account has used its Workers AI allocation for today. Tasks, notes, memories and reminders keep working; chat will resume when the quota resets, or switch to another model in Settings.",
-        details,
+        why("quota"),
       );
     }
     if (lower.includes("3040") || lower.includes("capacity") || lower.includes("429") || lower.includes("rate limit") || lower.includes("too many")) {
-      return new AppError("AI_UNAVAILABLE", "Workers AI is busy right now. Please try again in a moment.", details);
+      return new AppError("AI_UNAVAILABLE", "Workers AI is busy right now. Please try again in a moment.", why("overloaded"));
     }
     if (lower.includes("5007") || lower.includes("no such model") || lower.includes("model not found")) {
-      return new AppError("AI_UNAVAILABLE", "The configured AI model is not available. Choose another model in Settings.", details);
+      return new AppError("AI_UNAVAILABLE", "The configured AI model is not available. Choose another model in Settings.", why("no_model"));
     }
   } else {
     if (status === 401 || status === 403 || lower.includes("api_key_invalid") || lower.includes("api key not valid") || lower.includes("invalid api key") || lower.includes("no auth credentials")) {
-      return new AppError("NOT_CONFIGURED", `${name} rejected the API key. Check it in Settings → Model.`, details);
+      return new AppError("NOT_CONFIGURED", `${name} rejected the API key. Check it in Settings → Model.`, why("bad_key"));
     }
     if (status === 429 || status === 402 || lower.includes("resource_exhausted") || lower.includes("quota") || lower.includes("rate limit") || lower.includes("insufficient credits")) {
-      return new AppError("AI_QUOTA_EXHAUSTED", `${name} has no quota left for this model right now (free-tier limit). Switch to another model in Settings, or wait a bit.`, details);
+      return new AppError("AI_QUOTA_EXHAUSTED", `${name} has no quota left for this model right now (free-tier limit). Switch to another model in Settings, or wait a bit.`, why("quota"));
     }
     if (status === 404 || lower.includes("not found") || lower.includes("no such model") || lower.includes("is not found for api version")) {
-      return new AppError("AI_UNAVAILABLE", `${name} does not offer the configured model. Choose another model in Settings.`, details);
+      return new AppError("AI_UNAVAILABLE", `${name} does not offer the configured model. Choose another model in Settings.`, why("no_model"));
     }
     if (status !== null && status >= 500) {
-      return new AppError("AI_UNAVAILABLE", `${name} is having trouble right now. Please try again in a moment.`, details);
+      return new AppError("AI_UNAVAILABLE", `${name} is having trouble right now. Please try again in a moment.`, why("overloaded"));
     }
   }
   console.error(`${name} error`, message);

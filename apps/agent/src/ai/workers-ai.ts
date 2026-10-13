@@ -42,7 +42,7 @@ export class AiSdkProvider implements AIProvider {
         usage: { inputTokens: result.usage.inputTokens ?? 0, outputTokens: result.usage.outputTokens ?? 0 },
       };
     } catch (error) {
-      throw classifyAiError(error, this.id);
+      throw classifyAiError(error, this.id, this.modelId);
     }
   }
 
@@ -88,7 +88,7 @@ export class AiSdkProvider implements AIProvider {
         model = await this.model();
       } catch (error) {
         req.signal?.removeEventListener("abort", onAbort);
-        throw classifyAiError(error, this.id);
+        throw classifyAiError(error, this.id, this.modelId);
       }
       const result = streamText({
         model,
@@ -161,11 +161,11 @@ export class AiSdkProvider implements AIProvider {
           }
         }
       } catch (error) {
-        if (!stoppedByGuard || req.signal?.aborted) throw classifyAiError(error, this.id);
+        if (!stoppedByGuard || req.signal?.aborted) throw classifyAiError(error, this.id, this.modelId);
       } finally {
         req.signal?.removeEventListener("abort", onAbort);
       }
-      if (streamError && !stoppedByGuard) throw classifyAiError(streamError, this.id);
+      if (streamError && !stoppedByGuard) throw classifyAiError(streamError, this.id, this.modelId);
 
       if (stoppedByGuard) {
         yield { type: "text", delta: closing(guard, lastUser) };

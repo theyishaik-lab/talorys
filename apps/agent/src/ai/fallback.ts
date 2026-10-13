@@ -1,4 +1,6 @@
+import type { AiAttempt } from "@talorys/shared";
 import { AppError } from "../api/errors";
+import { attemptOf, chainError } from "./attribution";
 import type { AgentEvent, AIProvider, GenerateRequest, ToolRequest } from "./provider";
 
 /**
@@ -46,13 +48,16 @@ export class FallbackProvider implements AIProvider {
   }
 
   async generate(req: GenerateRequest) {
+    const attempts: AiAttempt[] = [];
     for (let i = 0; ; i++) {
       const candidate = this.chain[i] as AIProvider;
       const next = this.chain[i + 1];
       try {
         return await candidate.generate(req);
       } catch (error) {
-        if (!next || !shouldFallBack(error) || req.signal?.aborted) throw error;
+        if (req.signal?.aborted) throw error;
+        attempts.push(attemptOf(error, candidate.id, candidate.modelId ?? ""));
+        if (!next || !shouldFallBack(error)) throw chainError(error, attempts);
         this.onFallback?.(error as AppError, candidate, next);
       }
     }
@@ -62,12 +67,26 @@ export class FallbackProvider implements AIProvider {
     yield* this.generateWithTools({ ...req, tools: [], maxIterations: 1, toolBudgetExhausted: () => true });
   }
 
+  /**
+   * Every failure that ends the turn is thrown as one error naming each model tried and why
+   * (`details.attempts`, see attribution.ts); a backup that answers is announced with the
+   * failures before it.
+   */
   async *generateWithTools(req: ToolRequest): AsyncIterable<AgentEvent> {
+    const attempts: AiAttempt[] = [];
     for (let i = 0; i < this.chain.length; i++) {
       const candidate = this.chain[i] as AIProvider;
       const next = this.chain[i + 1];
-      const outcome = yield* this.attempt(candidate, req, next !== undefined, i > 0);
-      if (outcome.kind === "done" || !next) return;
+      let outcome: { kind: "done" } | { kind: "failed"; error: AppError };
+      try {
+        outcome = yield* this.attempt(candidate, req, next !== undefined, i > 0 ? attempts : null);
+      } catch (error) {
+        if (req.signal?.aborted) throw error;
+        throw chainError(error, [...attempts, attemptOf(error, candidate.id, candidate.modelId ?? "")]);
+      }
+      if (outcome.kind === "done") return;
+      attempts.push(attemptOf(outcome.error, candidate.id, candidate.modelId ?? ""));
+      if (!next) throw chainError(outcome.error, attempts);
       // Nothing useful was emitted and a next candidate exists.
       this.onFallback?.(outcome.error, candidate, next);
     }
@@ -78,12 +97,18 @@ export class FallbackProvider implements AIProvider {
    * may be replaced by the next candidate; anything else (a failure after content, a failure that
    * is not a fallback reason, any failure of the last candidate) is thrown as the turn's error.
    */
-  private async *attempt(candidate: AIProvider, req: ToolRequest, hasNext: boolean, announce: boolean): AsyncGenerator<AgentEvent, { kind: "done" } | { kind: "failed"; error: AppError }> {
+  private async *attempt(
+    candidate: AIProvider,
+    req: ToolRequest,
+    hasNext: boolean,
+    /** The failures before this candidate when it is a backup (it is then announced), else null. */
+    before: AiAttempt[] | null,
+  ): AsyncGenerator<AgentEvent, { kind: "done" } | { kind: "failed"; error: AppError }> {
     const watchdogMs = hasNext ? this.firstEventTimeoutMs : null;
     let committed = false;
     // Bookkeeping events seen before the first real one: forwarded once the candidate commits,
     // and usage forwarded even if it fails (the tokens were spent).
-    const pending: AgentEvent[] = announce ? [{ type: "provider", provider: candidate.id, model: candidate.modelId ?? "" }] : [];
+    const pending: AgentEvent[] = before ? [{ type: "provider", provider: candidate.id, model: candidate.modelId ?? "", attempts: [...before] }] : [];
     // Each candidate runs on its own signal so a silent one can be cut off without ending the turn.
     const controller = new AbortController();
     const onAbort = () => controller.abort();
@@ -116,6 +141,9 @@ export class FallbackProvider implements AIProvider {
               kind: "failed",
               error: new AppError("AI_UNAVAILABLE", `No answer from ${candidate.modelId ?? candidate.id} within ${Math.round(watchdogMs / 1000)} s; switched to the next model.`, {
                 provider: candidate.id,
+                model: candidate.modelId ?? "",
+                reason: "timeout",
+                timeout_s: Math.round(watchdogMs / 1000),
               }),
             };
           }

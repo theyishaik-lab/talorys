@@ -63,7 +63,7 @@ describe("fallback provider", () => {
     const p = new FallbackProvider([primary, backup], (e) => seen.push(e));
     const events: AgentEvent[] = [];
     for await (const e of p.generateWithTools(req)) events.push(e);
-    expect(events[0]).toEqual({ type: "provider", provider: "gemini", model: "gemini-x" });
+    expect(events[0]).toMatchObject({ type: "provider", provider: "gemini", model: "gemini-x" });
     expect(events).toContainEqual({ type: "text", delta: "from backup" });
     expect(seen.map((e) => e.code)).toEqual(["AI_QUOTA_EXHAUSTED"]);
     expect((await p.generate(req)).text).toBe("from backup");
@@ -268,7 +268,7 @@ describe("latency guards", () => {
     const started = Date.now();
     for await (const e of p.generateWithTools(req)) events.push(e);
     expect(Date.now() - started).toBeLessThan(1000);
-    expect(events[0]).toEqual({ type: "provider", provider: "gemini", model: "gemini-3.5-flash-lite" });
+    expect(events[0]).toMatchObject({ type: "provider", provider: "gemini", model: "gemini-3.5-flash-lite" });
     expect(events.filter((e) => e.type === "text").map((e) => (e as { delta: string }).delta).join("")).toBe("fast answer");
     expect(primarySignal?.aborted).toBe(true);
     expect(seen[0]?.message).toContain("gemini-3.8-flash");

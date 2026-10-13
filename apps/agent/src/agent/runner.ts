@@ -1,6 +1,7 @@
 import type { ChatMessage, ChatStreamEvent, PendingAction, ToolActivity } from "@talorys/shared";
 import type { Services } from "../services/container";
-import type { AiProviderId } from "@talorys/shared";
+import type { AiAttribution, AiProviderId } from "@talorys/shared";
+import { attributionFromError, detailsOf } from "../ai/attribution";
 import { type AIProvider, classifyAiError, estimateTokens, type ProviderTool } from "../ai/provider";
 import { AppError, NotFoundError } from "../api/errors";
 import { ALL_TOOLS, ToolExecutor, type ToolDefinition } from "../tools";
@@ -86,6 +87,8 @@ export class AgentRunner {
 
     let text = "";
     const tools: ToolActivity[] = [];
+    // Who is answering: the chosen model until a backup takes over (a `provider` event).
+    let ai: AiAttribution | null = this.provider ? { provider: String(this.provider.id), model: this.provider.modelId ?? "", fallback: false, attempts: [] } : null;
     const finish = (status: ChatMessage["status"], error: string | null, errorCode: ChatMessage["error_code"] = null): ChatMessage =>
       s.conversations.addMessage({
         id: assistantId,
@@ -96,6 +99,7 @@ export class AgentRunner {
         status,
         error,
         error_code: errorCode,
+        ai,
       });
 
     try {
@@ -211,6 +215,8 @@ export class AgentRunner {
           s.usage.increment({ input_tokens: event.usage.inputTokens, output_tokens: event.usage.outputTokens });
         } else if (event.type === "provider") {
           s.activity.record("ai.fallback", `Answered with the backup model ${event.model} (${event.provider})`);
+          ai = { provider: String(event.provider), model: event.model, fallback: true, attempts: event.attempts ?? [] };
+          yield { type: "model", provider: ai.provider, model: ai.model, fallback: true, attempts: ai.attempts };
         }
       }
       if (!usageRecorded) {
@@ -232,9 +238,19 @@ export class AgentRunner {
         yield { type: "done", message: finish("cancelled", null) };
         return;
       }
-      const appError = error instanceof AppError ? error : classifyAiError(error, providerIdOf(this.provider));
+      const appError = error instanceof AppError ? error : classifyAiError(error, providerIdOf(this.provider), this.provider?.modelId);
       if (appError.code.startsWith("AI_")) s.usage.increment({ ai_errors: 1 });
-      yield { type: "error", code: appError.code, message: appError.message, details: appError.details };
+      // Model failures name the model (and every model tried); other errors (the daily limit, a
+      // conflict, no model configured) are not a model's and carry no attribution.
+      const fromModel = ai !== null && isModelFailure(appError);
+      ai = fromModel && ai ? attributionFromError(appError, ai, ai.fallback ? ai.attempts : []) : null;
+      yield {
+        type: "error",
+        code: appError.code,
+        message: appError.message,
+        details: appError.details,
+        ...(ai ? { provider: ai.provider, model: ai.model, status: ai.attempts.at(-1)?.status ?? null, reason: ai.attempts.at(-1)?.reason, attempts: ai.attempts } : {}),
+      };
       yield { type: "done", message: finish("error", appError.message, appError.code) };
     }
   }
@@ -298,6 +314,13 @@ function providerIdOf(provider: AIProvider | null): AiProviderId {
   if (id === "gemini") return "gemini";
   if (id === "openrouter") return "openrouter";
   return "workers-ai";
+}
+
+/** Whether the turn's error came from a model (so it is attributed to one), not from Talorys itself. */
+function isModelFailure(error: AppError): boolean {
+  if (error.code === "AI_LIMIT_REACHED" || error.code === "CONFLICT" || error.code === "VALIDATION_ERROR" || error.code === "NOT_FOUND") return false;
+  const d = detailsOf(error);
+  return error.code === "AI_UNAVAILABLE" || error.code === "AI_QUOTA_EXHAUSTED" || d.provider !== undefined || Array.isArray(d.attempts);
 }
 
 function aiLimitReached(max: number): AppError {

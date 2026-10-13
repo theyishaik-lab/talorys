@@ -267,6 +267,13 @@ export const MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    version: 9,
+    name: "message model attribution",
+    // Which model wrote an assistant reply (or whose failure ended it) and every model that failed
+    // on the way, as JSON (AiAttribution in packages/shared). NULL on older messages.
+    statements: [`ALTER TABLE tal_messages ADD COLUMN ai TEXT`],
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

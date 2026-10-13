@@ -248,6 +248,8 @@
     "chat.err.dailyLimit": "Talorys reached today's limit of AI requests. You can raise it in Settings → AI.",
     "chat.err.quota": "The model's free allowance ran out. Pick another model in Settings → Model.",
     "chat.err.unavailable": "The AI model isn't responding right now. Try again in a moment, or pick another model in Settings → Model.",
+    "chat.err.allFailed": "None of the models answered. Try again in a moment, or pick another model in Settings → Model.",
+    "chat.answeredBy": "Answered by {model}",
     "chat.err.unauthorized": "Signed out. Sign in again.",
     "chat.err.generic": "Something went wrong. Try again."
   },
@@ -500,6 +502,8 @@
     "chat.err.dailyLimit": "הגעת למכסה היומית של בקשות AI. אפשר להגדיל אותה בהגדרות ← AI.",
     "chat.err.quota": "המכסה החינמית של המודל נגמרה. אפשר לבחור מודל אחר בהגדרות ← מודל.",
     "chat.err.unavailable": "המודל לא עונה כרגע. נסה שוב בעוד רגע, או בחר מודל אחר בהגדרות ← מודל.",
+    "chat.err.allFailed": "אף מודל לא ענה. נסה שוב בעוד רגע, או בחר מודל אחר בהגדרות ← מודל.",
+    "chat.answeredBy": "ענה: {model}",
     "chat.err.unauthorized": "החיבור לחשבון פג. התחבר שוב.",
     "chat.err.generic": "משהו השתבש. נסה שוב."
   }

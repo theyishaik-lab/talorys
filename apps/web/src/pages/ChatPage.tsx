@@ -1,7 +1,7 @@
 import { type KeyboardEvent, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import type { ApiErrorCode, ChatMessage, Conversation, PendingAction, ToolActivity } from "@talorys/shared";
+import type { AiAttribution, ApiErrorCode, ChatMessage, Conversation, PendingAction, ToolActivity } from "@talorys/shared";
 import {
   AlertTriangle,
   ArrowUp,
@@ -31,8 +31,9 @@ import { Button, Spinner } from "../components/ui";
 import { keys, useApiMutation, useAutomations, useConversation, useSettings, useTasks } from "../hooks/queries";
 import { api, ApiError, streamChat } from "../lib/api";
 import { cn, copyText } from "../lib/utils";
-import { type StringKey, useT } from "../lib/i18n";
+import { type StringKey, useLocale, useT } from "../lib/i18n";
 import { haptic } from "../lib/native";
+import { answeredByView, chatErrorView } from "../lib/model-attribution";
 import { providerLabel } from "../lib/provider-label";
 
 interface StreamState {
@@ -44,6 +45,8 @@ interface StreamState {
   error: string | null;
   errorCode: ApiErrorCode | null;
   errorProvider: string | null;
+  /** Which model is answering (a backup announced by a `model` event) or whose failure ended the turn. */
+  ai: AiAttribution | null;
   done: boolean;
 }
 
@@ -97,7 +100,7 @@ export function ChatPage() {
         old ? { ...old, messages: old.messages.filter((m) => !(m.role === "assistant" && m.status !== "complete" && m === old.messages.at(-1))) } : old,
       );
     }
-    setStream({ conversationId: convId, userText: opts.retry ? "" : text, assistantId: null, text: "", tools: [], error: null, errorCode: null, errorProvider: null, done: false });
+    setStream({ conversationId: convId, userText: opts.retry ? "" : text, assistantId: null, text: "", tools: [], error: null, errorCode: null, errorProvider: null, ai: null, done: false });
     // Tokens arrive many times a second; the screen is updated at most ~12 times a second so a long
     // reply never re-renders and re-parses the chat for every word (the stutter on phones).
     let pendingText = "";
@@ -145,9 +148,14 @@ export function ChatPage() {
                 return { ...s, tools };
               });
               break;
+            case "model":
+              setStream((s) => s && { ...s, ai: { provider: event.provider, model: event.model, fallback: true, attempts: event.attempts ?? [] } });
+              break;
             case "error": {
-              const provider = event.details && typeof event.details === "object" ? (event.details as { provider?: string }).provider ?? null : null;
-              setStream((s) => s && { ...s, error: event.message, errorCode: event.code, errorProvider: provider });
+              const provider = event.provider ?? (event.details && typeof event.details === "object" ? (event.details as { provider?: string }).provider ?? null : null);
+              const ai: AiAttribution | null =
+                event.provider && event.model ? { provider: event.provider, model: event.model, fallback: (event.attempts?.length ?? 0) > 1, attempts: event.attempts ?? [] } : null;
+              setStream((s) => s && { ...s, error: event.message, errorCode: event.code, errorProvider: provider, ai: ai ?? s.ai });
               break;
             }
             case "done": {
@@ -236,6 +244,7 @@ export function ChatPage() {
                   error={streamHere.error}
                   errorCode={streamHere.errorCode}
                   errorProvider={streamHere.errorProvider}
+                  ai={streamHere.ai}
                   streaming={!streamHere.done}
                   onRetry={streamHere.error && streamHere.done && conversationId ? () => void send("", { retry: true }) : undefined}
                 />
@@ -343,6 +352,7 @@ const MessageView = memo(function MessageView({ message, onRetry }: { message: C
       tools={message.tools}
       error={message.status === "error" ? message.error : null}
       errorCode={message.status === "error" ? (message.error_code ?? null) : null}
+      ai={message.ai ?? null}
       cancelled={message.status === "cancelled"}
       streaming={false}
       onRetry={onRetry}
@@ -481,6 +491,7 @@ function AssistantBubble({
   error,
   errorCode,
   errorProvider,
+  ai,
   streaming,
   cancelled,
   onRetry,
@@ -490,25 +501,22 @@ function AssistantBubble({
   error: string | null;
   errorCode?: ApiErrorCode | null;
   errorProvider?: string | null;
+  /** Which model answered (or failed) and which ones failed before it; absent from older agents. */
+  ai?: AiAttribution | null;
   streaming: boolean;
   cancelled?: boolean;
   onRetry?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
   const t = useT();
+  const { locale } = useLocale();
   const settings = useSettings();
   const navigate = useNavigate();
   // Errors the owner can act on get their own line in their language and a way to Settings → Model.
   const provider = providerLabel(t, errorProvider ?? settings.data?.modelProvider);
-  const friendly =
-    errorCode === "AI_QUOTA_EXHAUSTED"
-      ? t("chat.error.AI_QUOTA_EXHAUSTED", { provider })
-      : errorCode === "NOT_CONFIGURED"
-        ? t("chat.error.NOT_CONFIGURED", { provider, message: error ?? "" })
-        : errorCode === "AI_LIMIT_REACHED"
-          ? t("chat.error.AI_LIMIT_REACHED")
-          : null;
-  const offerSettings = errorCode === "AI_QUOTA_EXHAUSTED" || errorCode === "NOT_CONFIGURED" || errorCode === "AI_LIMIT_REACHED";
+  // Which model(s) failed ("Gemini 3.8 Flash (Google): עומס 503 · …") and, when a backup answered, which one did.
+  const view = error ? chatErrorView({ error, errorCode, ai, providerName: provider, locale, t }) : null;
+  const answeredBy = answeredByView(ai, !!error, locale, t);
   return (
     <div className="group flex min-w-0 flex-col gap-2.5 animate-fade-in">
       {tools.length > 0 && (
@@ -533,9 +541,14 @@ function AssistantBubble({
         <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-danger/25 bg-danger-soft px-3 py-2 text-sm text-danger">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           <span className="flex-1" dir="auto">
-            {friendly ?? error}
+            {view?.headline ?? error}
+            {view?.tried && (
+              <span className="mt-0.5 block text-xs opacity-80" data-testid="error-attempts" title={t("chat.error.tried")}>
+                {view.tried}
+              </span>
+            )}
           </span>
-          {offerSettings && (
+          {view?.offerSettings && (
             <button type="button" onClick={() => navigate("/settings?tab=AI")} className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline" data-testid="open-model-settings">
               <Settings2 className="h-3.5 w-3.5" /> {t("chat.error.openModel")}
             </button>
@@ -546,6 +559,11 @@ function AssistantBubble({
             </button>
           )}
         </div>
+      )}
+      {answeredBy && (
+        <p className="-mt-1 text-[11px] text-fg-subtle" dir="auto" data-testid="answered-by" title={answeredBy.title}>
+          {answeredBy.text}
+        </p>
       )}
       {!streaming && text && (
         <div className="-mt-1.5 flex gap-1 transition-opacity md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">

@@ -11,7 +11,7 @@ export class GeminiProvider extends AiSdkProvider {
   constructor(modelId: string, apiKey: () => Promise<string | null>) {
     super("gemini", modelId, async () => {
       const key = await apiKey();
-      if (!key) throw new AppError("NOT_CONFIGURED", "Google Gemini needs an API key. Add one in Settings → Model.", { provider: "gemini" });
+      if (!key) throw new AppError("NOT_CONFIGURED", "Google Gemini needs an API key. Add one in Settings → Model.", { provider: "gemini", model: modelId, reason: "not_configured" });
       return createGoogleGenerativeAI({ apiKey: key })(modelId) as LanguageModel;
     }, { google: { thinkingConfig: geminiThinking(modelId) } });
   }

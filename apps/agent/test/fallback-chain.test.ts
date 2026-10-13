@@ -69,7 +69,7 @@ describe("fallback chain", () => {
     expect(error).toBeNull();
     expect(text(events)).toBe("שלום");
     expect(providers(events)).toEqual(["x/y:free"]);
-    expect(events[0]).toEqual({ type: "provider", provider: "openrouter", model: "x/y:free" });
+    expect(events[0]).toMatchObject({ type: "provider", provider: "openrouter", model: "x/y:free" });
     expect(hops).toEqual(["gemini-3.8-flash>gemini-3.5-flash", "gemini-3.5-flash>x/y:free"]);
     expect([a.calls, b.calls, c.calls]).toEqual([1, 1, 1]);
   });

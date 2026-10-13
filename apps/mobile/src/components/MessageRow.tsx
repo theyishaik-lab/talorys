@@ -1,8 +1,8 @@
-import type { ChatMessage, ToolActivity } from "@talorys/shared";
+import type { AiAttribution, ChatMessage, ToolActivity } from "@talorys/shared";
 import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react-native";
 import { memo } from "react";
 import { View } from "react-native";
-import { friendlyChatError } from "../lib/errors";
+import { answeredByLine, chatErrorLines } from "../lib/errors";
 import { firstStrongDirection, useI18n } from "../lib/i18n";
 import type { StreamState } from "../lib/chat";
 import type { Store } from "../lib/store";
@@ -66,14 +66,42 @@ export const MessageRow = memo(function MessageRow({ message, onToolChange }: Ro
           {t("m.streaming.stopped")}
         </T>
       ) : null}
-      {message.status === "error" && message.error ? (
-        <T size={13} color={c.danger}>
-          {friendlyChatError(message.error, t)}
+      {message.status === "error" && message.error ? <ErrorLines error={message.error} code={message.error_code} ai={message.ai} /> : null}
+      <AnsweredBy ai={message.ai} hasError={message.status === "error"} />
+    </View>
+  );
+});
+
+/** The error, in the owner's language, and the models that failed: "Gemini 3.8 Flash (Google): עומס 503 · …". */
+function ErrorLines({ error, code, ai }: { error: string; code?: string | null; ai?: AiAttribution | null }) {
+  const { c } = useTheme();
+  const { t, locale } = useI18n();
+  const { headline, tried } = chatErrorLines({ error, code, ai }, t, locale);
+  return (
+    <View style={{ gap: 2 }}>
+      <T size={13} color={c.danger}>
+        {headline}
+      </T>
+      {tried ? (
+        <T size={12} color={c.danger} style={{ opacity: 0.8 }} selectable>
+          {tried}
         </T>
       ) : null}
     </View>
   );
-});
+}
+
+/** A small, quiet note when a backup wrote the reply instead of the chosen model. */
+function AnsweredBy({ ai, hasError }: { ai?: AiAttribution | null; hasError: boolean }) {
+  const { t } = useI18n();
+  const line = answeredByLine(ai, hasError, t);
+  if (!line) return null;
+  return (
+    <T size={11} muted style={{ marginTop: 4 }}>
+      {line}
+    </T>
+  );
+}
 
 /** The reply being streamed: subscribes to the stream store itself, so tokens never touch the list. */
 export const StreamingRow = memo(function StreamingRow({ stream }: { stream: Store<StreamState | null> }) {
@@ -95,11 +123,8 @@ export const StreamingRow = memo(function StreamingRow({ stream }: { stream: Sto
           </T>
         </View>
       )}
-      {st.error && !st.recovering ? (
-        <T size={13} color={c.danger}>
-          {friendlyChatError(st.error, t)}
-        </T>
-      ) : null}
+      {st.error && !st.recovering ? <ErrorLines error={st.error} code={st.errorCode} ai={st.ai} /> : null}
+      <AnsweredBy ai={st.ai} hasError={!!st.error} />
     </View>
   );
 });

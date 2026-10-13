@@ -1,4 +1,4 @@
-import { type ChatMessage, type Conversation, type ToolActivity, toolActivitySchema } from "@talorys/shared";
+import { type ChatMessage, type Conversation, parseAttribution, type ToolActivity, toolActivitySchema } from "@talorys/shared";
 import { type Database, likePattern, newId, now } from "../database";
 import { NotFoundError } from "../../api/errors";
 
@@ -13,6 +13,7 @@ interface MessageRow {
   error_code: string | null;
   created_at: string;
   source: "chat" | "import";
+  ai?: string | null;
 }
 
 export interface ConversationRecord extends Conversation {
@@ -38,7 +39,11 @@ export function decodeTools(raw: unknown): ToolActivity[] {
 }
 
 function toMessage(row: MessageRow): ChatMessage {
-  return { ...row, tools: decodeTools(row.tools), error_code: (row.error_code as ChatMessage["error_code"]) ?? null };
+  const { ai, ...rest } = row;
+  const message: ChatMessage = { ...rest, tools: decodeTools(row.tools), error_code: (row.error_code as ChatMessage["error_code"]) ?? null };
+  const attribution = row.role === "assistant" ? parseAttribution(ai) : null;
+  if (attribution) message.ai = attribution;
+  return message;
 }
 
 export class ConversationRepository {
@@ -136,6 +141,7 @@ export class ConversationRepository {
     status?: ChatMessage["status"];
     error?: string | null;
     error_code?: ChatMessage["error_code"];
+    ai?: ChatMessage["ai"];
     id?: string;
   }): ChatMessage {
     const message: ChatMessage = {
@@ -149,11 +155,12 @@ export class ConversationRepository {
       error_code: input.error_code ?? null,
       created_at: now(),
       source: "chat",
+      ...(input.ai ? { ai: input.ai } : {}),
     };
     this.db.run(
-      `INSERT INTO tal_messages (id, conversation_id, role, content, tools, status, error, error_code, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO tal_messages (id, conversation_id, role, content, tools, status, error, error_code, created_at, ai) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       message.id, message.conversation_id, message.role, message.content, JSON.stringify(message.tools),
-      message.status, message.error, message.error_code, message.created_at,
+      message.status, message.error, message.error_code, message.created_at, input.ai ? JSON.stringify(input.ai) : null,
     );
     this.touch(input.conversation_id);
     return message;

@@ -1,3 +1,4 @@
+import type { AiAttempt, AiAttribution, AiFailureReason } from "./attribution";
 import { z } from "zod";
 import { AUTOMATION_KINDS, BACKUP_FORMAT, DEFAULT_MODEL, LIMIT_CEILINGS, MEMORY_CATEGORIES, PROJECT_STATUSES, TASK_PRIORITIES, TASK_STATUSES } from "./constants";
 import { isValidTimeZone, scheduleSpecSchema } from "./recurrence";
@@ -223,6 +224,11 @@ export interface ChatMessage {
   created_at: string;
   /** "import" for messages restored from a backup; they never count as live owner input. */
   source?: "chat" | "import";
+  /**
+   * Assistant messages: the model that wrote the reply (or whose failure ended it), whether a
+   * backup answered, and every model that failed on the way. Absent on older messages.
+   */
+  ai?: AiAttribution | null;
 }
 
 export type AutomationStatus = "scheduled" | "running" | "paused" | "completed" | "failed";
@@ -579,7 +585,22 @@ export type ChatStreamEvent =
   | { type: "text"; delta: string }
   | { type: "tool"; tool: ToolActivity }
   | { type: "title"; conversation_id: string; title: string }
-  | { type: "error"; code: ApiErrorCode; message: string; details?: unknown }
+  | {
+      type: "error";
+      code: ApiErrorCode;
+      message: string;
+      details?: unknown;
+      /** The model whose failure ended the turn (the last one tried). Optional: older agents omit it. */
+      provider?: string;
+      model?: string;
+      /** The provider's HTTP status for that failure, when it sent one. */
+      status?: number | null;
+      reason?: AiFailureReason;
+      /** Every model tried in this turn, in order, each with why it failed. */
+      attempts?: AiAttempt[];
+    }
+  /** A backup started answering instead of the chosen model (sent before its first text). */
+  | { type: "model"; provider: string; model: string; fallback: true; attempts: AiAttempt[] }
   | { type: "done"; message: ChatMessage };
 
 export interface HealthReport {

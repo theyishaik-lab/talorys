@@ -1,4 +1,4 @@
-import type { ChatMessage, ChatStreamEvent, Conversation, ToolActivity } from "@talorys/shared";
+import type { AiAttribution, ApiErrorCode, ChatMessage, ChatStreamEvent, Conversation, ToolActivity } from "@talorys/shared";
 import { ApiError, api, streamChat } from "./api";
 import { createStore, type Store } from "./store";
 
@@ -13,6 +13,10 @@ export interface StreamState {
   text: string;
   tools: ToolActivity[];
   error: string | null;
+  /** The error's code, when the agent sent one. */
+  errorCode?: ApiErrorCode | null;
+  /** Which model is answering (a backup, from a `model` event) or whose failure ended the turn (agent 0.1.13+). */
+  ai?: AiAttribution | null;
   /** The connection dropped; the reply is being fetched from history (the server finishes it anyway). */
   recovering?: boolean;
 }
@@ -157,9 +161,14 @@ export function applyStreamEvent(stores: ChatStores, event: ChatStreamEvent, onC
     case "title":
       conversationsStore.set((list) => list.map((c) => (c.id === event.conversation_id ? { ...c, title: event.title } : c)));
       break;
+    case "model":
+      stores.stream.set((st) => (st ? { ...st, ai: { provider: event.provider, model: event.model, fallback: true, attempts: event.attempts ?? [] } } : st));
+      break;
     case "error": {
       const quota = looksLikeQuota(event.code, event.message);
-      stores.stream.set((st) => (st ? { ...st, error: event.message } : st));
+      const ai: AiAttribution | null =
+        event.provider && event.model ? { provider: event.provider, model: event.model, fallback: (event.attempts?.length ?? 0) > 1, attempts: event.attempts ?? [] } : null;
+      stores.stream.set((st) => (st ? { ...st, error: event.message, errorCode: event.code, ai: ai ?? st.ai ?? null } : st));
       if (quota) stores.chat.set((s) => ({ ...s, quotaExceeded: { message: event.message } }));
       break;
     }
@@ -184,6 +193,8 @@ function finishStream(stores: ChatStores, aborted: boolean): void {
     status: aborted ? "cancelled" : "error",
     error: st.error,
     created_at: new Date().toISOString(),
+    ...(st.errorCode ? { error_code: st.errorCode } : {}),
+    ...(st.ai ? { ai: st.ai } : {}),
   };
   stores.chat.set((s) => ({ ...s, messages: st.text || st.tools.length || st.error ? [...s.messages, partial] : s.messages, streamingId: null }));
   stores.stream.set(null);
