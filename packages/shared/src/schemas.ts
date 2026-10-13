@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BACKUP_FORMAT, LIMIT_CEILINGS } from "./constants";
+import { AUTOMATION_KINDS, BACKUP_FORMAT, LIMIT_CEILINGS, MEMORY_CATEGORIES, PROJECT_STATUSES, TASK_PRIORITIES, TASK_STATUSES } from "./constants";
 import { isValidTimeZone, scheduleSpecSchema } from "./recurrence";
 
 // ---------- Primitives ----------
@@ -10,11 +10,8 @@ const shortText = (max: number) => z.string().trim().min(1).max(max);
 
 // ---------- Entities ----------
 
-export const TASK_STATUSES = ["todo", "in_progress", "done"] as const;
-export const TASK_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
-export const MEMORY_CATEGORIES = ["preference", "fact", "goal", "project", "habit", "person", "other"] as const;
-export const PROJECT_STATUSES = ["active", "paused", "completed", "archived"] as const;
-export const AUTOMATION_KINDS = ["reminder", "task_digest", "agent_prompt"] as const;
+// The entity vocabularies live in ./constants (zod-free, so the web app can import them without
+// pulling the validation schemas into its bundle); the types stay here.
 
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];

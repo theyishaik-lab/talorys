@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { NavLink } from "react-router";
 import type { NavDirection } from "../lib/native";
 import type { Conversation } from "@talorys/shared";
@@ -23,7 +23,7 @@ export const PAGES: readonly { to: string; label: StringKey; icon: typeof Brain 
   { to: "/automations", label: "nav.automations", icon: CalendarClock },
 ];
 
-export function Drawer({ activeId, go, onClose }: { activeId?: string; go: (to: string, direction?: NavDirection) => void; onClose?: () => void }) {
+export const Drawer = memo(function Drawer({ activeId, go, onClose }: { activeId?: string; go: (to: string, direction?: NavDirection) => void; onClose?: () => void }) {
   const t = useT();
   const settings = useSettings();
   const { logout } = useSession();
@@ -118,7 +118,7 @@ export function Drawer({ activeId, go, onClose }: { activeId?: string; go: (to: 
       </div>
     </div>
   );
-}
+});
 
 type Bucket = "drawer.today" | "drawer.yesterday" | "drawer.thisWeek" | "drawer.earlier";
 

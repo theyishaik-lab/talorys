@@ -44,3 +44,10 @@ export const LIMIT_CEILINGS = {
   maxScheduledAiRunsPerDay: 48,
   maxAiRequestsPerDay: 2000,
 } as const;
+
+// ---------- Entity vocabularies (plain arrays; the zod schemas in ./schemas build on them) ----------
+export const TASK_STATUSES = ["todo", "in_progress", "done"] as const;
+export const TASK_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
+export const MEMORY_CATEGORIES = ["preference", "fact", "goal", "project", "habit", "person", "other"] as const;
+export const PROJECT_STATUSES = ["active", "paused", "completed", "archived"] as const;
+export const AUTOMATION_KINDS = ["reminder", "task_digest", "agent_prompt"] as const;

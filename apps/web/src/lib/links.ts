@@ -1,4 +1,4 @@
-import { GITHUB_URL } from "@talorys/shared";
+import { GITHUB_URL } from "@talorys/shared/constants";
 
 /** This installation is deployed from Yishai's fork, not from the published npm package. */
 export const REPO_URL = "https://github.com/theyishaik-lab/talorys";

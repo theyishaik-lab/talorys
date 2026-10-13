@@ -42,12 +42,9 @@ export function useDrawerGesture(opts: {
       const sign = rtl ? 1 : -1;
       el.style.transition = "none";
       el.style.transform = `translate3d(${((1 - p) * sign * width).toFixed(1)}px, 0, 0)`;
-      el.style.visibility = "visible";
       if (sc) {
         sc.style.transition = "none";
         sc.style.opacity = p.toFixed(3);
-        sc.style.visibility = "visible";
-        sc.style.pointerEvents = p > 0 ? "auto" : "none";
       }
     };
     const settle = (target: boolean) => {
@@ -58,13 +55,10 @@ export function useDrawerGesture(opts: {
       if (el) {
         el.style.transition = "";
         el.style.transform = "";
-        el.style.visibility = "";
       }
       if (sc) {
         sc.style.transition = "";
         sc.style.opacity = "";
-        sc.style.visibility = "";
-        sc.style.pointerEvents = "";
       }
     };
 

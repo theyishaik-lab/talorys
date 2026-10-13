@@ -238,35 +238,35 @@ a {
  * Phone drawer: mounted once, moved with a transform only (compositor-driven: no layout, no paint
  * of the screen behind). Closed it sits just past the start edge, hidden from focus and readers.
  */
+/*
+ * No visibility/display toggling, and nothing inherited (pointer-events) toggled on the root: either
+ * would re-style the whole panel subtree on every open. The closed panel sits fully off-screen, so
+ * only the scrim needs its hit-testing switched.
+ */
 .drawer-root {
   pointer-events: none;
 }
-.drawer-root[data-open] {
-  pointer-events: auto;
-}
 .drawer-scrim {
   opacity: 0;
-  visibility: hidden;
-  transition: opacity 240ms var(--ease-out-quart), visibility 0s linear 240ms;
+  pointer-events: none;
+  will-change: opacity;
+  transition: opacity 240ms var(--ease-out-quart);
 }
-.drawer-root[data-open] .drawer-scrim {
+.drawer-scrim[data-open] {
   opacity: 1;
-  visibility: visible;
-  transition: opacity 240ms var(--ease-out-quart), visibility 0s;
+  pointer-events: auto;
 }
 .drawer-panel {
+  pointer-events: auto;
   transform: translate3d(-100%, 0, 0);
-  visibility: hidden;
   will-change: transform;
-  transition: transform 240ms var(--ease-out-quart), visibility 0s linear 240ms;
+  transition: transform 240ms var(--ease-out-quart);
 }
 [dir="rtl"] .drawer-panel {
   transform: translate3d(100%, 0, 0);
 }
-.drawer-root[data-open] .drawer-panel {
+.drawer-panel[data-open] {
   transform: translate3d(0, 0, 0);
-  visibility: visible;
-  transition: transform 240ms var(--ease-out-quart), visibility 0s;
 }
 
 /*

@@ -1,4 +1,5 @@
-import { CSRF_HEADER, type ApiErrorBody, type ApiErrorCode, type ChatStreamEvent } from "@talorys/shared";
+import type { ApiErrorBody, ApiErrorCode, ChatStreamEvent } from "@talorys/shared";
+import { CSRF_HEADER } from "@talorys/shared/constants";
 
 export class ApiError extends Error {
   constructor(

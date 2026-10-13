@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { type Automation, type AutomationKind, type ScheduleSpec, describeSchedule } from "@talorys/shared";
+import type { Automation, AutomationKind, ScheduleSpec } from "@talorys/shared";
+import { describeSchedule } from "@talorys/shared/recurrence";
 import { AlarmClock, Bell, Bot, CalendarClock, ListChecks, Plus, Trash2 } from "lucide-react";
 import { Badge, Button, Card, ConfirmDialog, Dialog, EmptyState, ErrorNotice, Input, Label, PageHeader, Select, Spinner, Switch, Textarea } from "../components/ui";
 import { keys, useApiMutation, useAutomations } from "../hooks/queries";

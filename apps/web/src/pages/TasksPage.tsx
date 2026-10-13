@@ -1,5 +1,7 @@
 import { type FormEvent, useMemo, useState } from "react";
-import { TASK_PRIORITIES, type Task, type TaskPriority, zonedTimeToUtc } from "@talorys/shared";
+import type { Task, TaskPriority } from "@talorys/shared";
+import { TASK_PRIORITIES } from "@talorys/shared/constants";
+import { zonedTimeToUtc } from "@talorys/shared/recurrence";
 import { CalendarDays, CheckCircle2, Circle, CircleDot, Flag, Plus, Trash2 } from "lucide-react";
 import { Badge, Button, ConfirmDialog, Dialog, EmptyState, ErrorNotice, Input, Label, PageHeader, Select, Spinner, Textarea } from "../components/ui";
 import { keys, useApiMutation, useProjects, useTasks, useTimezone } from "../hooks/queries";

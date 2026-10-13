@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { MEMORY_CATEGORIES, type Memory, type MemoryCategory, type MemoryReview, type MemoryReviewAction } from "@talorys/shared";
+import type { Memory, MemoryCategory, MemoryReview, MemoryReviewAction } from "@talorys/shared";
+import { MEMORY_CATEGORIES } from "@talorys/shared/constants";
 import { Archive, ArchiveRestore, Brain, Clock, GitCompare, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { Badge, Button, ConfirmDialog, Dialog, EmptyState, ErrorNotice, Input, Label, PageHeader, Select, Spinner, Textarea } from "../components/ui";
 import { type MemoryStatusFilter, useApiMutation, useMemories, useMemoryHistory, useMemoryReviews } from "../hooks/queries";

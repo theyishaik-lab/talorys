@@ -97,14 +97,17 @@ export function AppShell() {
   useDrawerGesture({ panel: panelRef, scrim: scrimRef, open: drawerOpen, setOpen: setDrawerOpen, rtl: dir === "rtl", enabled: !wide });
 
   // A tap in the drawer: close it and move on. The drawer's own history entry is replaced by the
-  // destination, so Back from there returns to the screen the drawer was opened over.
+  // destination, so Back from there returns to the screen the drawer was opened over. Stable
+  // identity (refs) so the memoised drawer does not re-render on every open/close.
+  const stateRef = useRef({ drawerOpen, wide });
+  stateRef.current = { drawerOpen, wide };
   const goFromDrawer = useCallback(
     (to: string, direction: NavDirection = "fade") => {
-      const replace = drawerOpen && !wide;
+      const replace = stateRef.current.drawerOpen && !stateRef.current.wide;
       setDrawerOpen(false);
       nav(to, direction, { replace });
     },
-    [drawerOpen, wide, nav],
+    [nav],
   );
 
   const ctx = useMemo<ShellContextValue>(() => ({ openDrawer: () => setDrawerOpen(true), openNotifications: () => setNotifOpen(true), unread }), [unread]);
@@ -119,14 +122,14 @@ export function AppShell() {
           </aside>
         ) : (
           /* Phones: one drawer, mounted once, slid in and out with a transform (no mount, no layout per open). */
-          <div className="drawer-root fixed inset-0 z-40" data-open={drawerOpen ? "" : undefined} aria-hidden={!drawerOpen}>
-            <button ref={scrimRef} type="button" className="drawer-scrim absolute inset-0 bg-[var(--scrim)]" aria-label={t("common.close")} onClick={closeDrawer} tabIndex={drawerOpen ? 0 : -1} />
+          <div className="drawer-root fixed inset-0 z-40" aria-hidden={!drawerOpen}>
+            <button ref={scrimRef} type="button" className="drawer-scrim absolute inset-0 bg-[var(--scrim)]" data-open={drawerOpen ? "" : undefined} aria-label={t("common.close")} onClick={closeDrawer} tabIndex={-1} />
             <aside
               ref={panelRef}
               role="dialog"
               aria-modal="true"
               aria-label={t("drawer.menu")}
-              inert={!drawerOpen}
+              data-open={drawerOpen ? "" : undefined}
               className="drawer-panel absolute inset-y-0 start-0 flex w-[min(318px,86vw)] flex-col rounded-e-3xl bg-bg shadow-card"
             >
               <Drawer activeId={conversationId} go={goFromDrawer} onClose={closeDrawer} />
