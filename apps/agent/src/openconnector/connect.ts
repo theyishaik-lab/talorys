@@ -319,7 +319,7 @@ export async function refreshConnectLink(admin: OpenConnectorAdmin, ctx: ToolCon
   const pending = ctx.services.pendingActions;
   const stored = pending.get(actionId);
   const card = stored ? pending.view(actionId)?.card : undefined;
-  if (!stored || stored.tool !== "connect_service" || !card || card.method !== "oauth") throw new ToolError("This action has no sign-in link.");
+  if (stored?.tool !== "connect_service" || card?.method !== "oauth") throw new ToolError("This action has no sign-in link.");
   if (stored.status !== "approved") throw new ToolError("This connection was not approved.");
   const url = await admin.startOAuth(card.service);
   pending.setCard(actionId, { ...card, authorization_url: url });

@@ -1,5 +1,6 @@
 import type { ChatMessage, ChatStreamEvent, PendingAction, ToolActivity } from "@talorys/shared";
 import type { Services } from "../services/container";
+import type { AiProviderId } from "@talorys/shared";
 import { type AIProvider, classifyAiError, estimateTokens, type ProviderTool } from "../ai/provider";
 import { AppError, NotFoundError } from "../api/errors";
 import { ALL_TOOLS, ToolExecutor, type ToolDefinition } from "../tools";
@@ -85,7 +86,7 @@ export class AgentRunner {
 
     let text = "";
     const tools: ToolActivity[] = [];
-    const finish = (status: ChatMessage["status"], error: string | null): ChatMessage =>
+    const finish = (status: ChatMessage["status"], error: string | null, errorCode: ChatMessage["error_code"] = null): ChatMessage =>
       s.conversations.addMessage({
         id: assistantId,
         conversation_id: conversation!.id,
@@ -94,11 +95,12 @@ export class AgentRunner {
         tools,
         status,
         error,
+        error_code: errorCode,
       });
 
     try {
       if (!this.provider) {
-        throw new AppError("AI_UNAVAILABLE", "Workers AI is not configured for this deployment. Everything else keeps working.");
+        throw new AppError("NOT_CONFIGURED", "No AI model is configured for this deployment. Everything else keeps working.");
       }
       if (!s.usage.canUseAi(limits)) throw aiLimitReached(limits.maxAiRequestsPerDay);
 
@@ -207,6 +209,8 @@ export class AgentRunner {
         } else if (event.type === "usage") {
           usageRecorded = true;
           s.usage.increment({ input_tokens: event.usage.inputTokens, output_tokens: event.usage.outputTokens });
+        } else if (event.type === "provider") {
+          s.activity.record("ai.fallback", `Answered with the backup model ${event.model} (${event.provider})`);
         }
       }
       if (!usageRecorded) {
@@ -228,10 +232,10 @@ export class AgentRunner {
         yield { type: "done", message: finish("cancelled", null) };
         return;
       }
-      const appError = error instanceof AppError ? error : classifyAiError(error);
+      const appError = error instanceof AppError ? error : classifyAiError(error, providerIdOf(this.provider));
       if (appError.code.startsWith("AI_")) s.usage.increment({ ai_errors: 1 });
-      yield { type: "error", code: appError.code, message: appError.message };
-      yield { type: "done", message: finish("error", appError.message) };
+      yield { type: "error", code: appError.code, message: appError.message, details: appError.details };
+      yield { type: "done", message: finish("error", appError.message, appError.code) };
     }
   }
 
@@ -239,7 +243,7 @@ export class AgentRunner {
   async runScheduledPrompt(prompt: string, signal?: AbortSignal): Promise<string> {
     const s = this.services;
     const settings = s.settings.get();
-    if (!this.provider) throw new AppError("AI_UNAVAILABLE", "Workers AI is not configured.");
+    if (!this.provider) throw new AppError("NOT_CONFIGURED", "No AI model is configured.");
     const executor = new ToolExecutor(
       this.ext?.tools ?? ALL_TOOLS,
       { services: s, timezone: settings.timezone, mode: "scheduled" },
@@ -281,11 +285,19 @@ export class AgentRunner {
       }
     } catch (error) {
       s.usage.increment({ ai_errors: 1 });
-      throw classifyAiError(error);
+      throw classifyAiError(error, providerIdOf(this.provider));
     }
     s.usage.increment({ tool_calls: executor.callCount });
     return text.trim() || "(No output)";
   }
+}
+
+/** The provider id for error classification; test doubles and the mock count as Workers AI. */
+function providerIdOf(provider: AIProvider | null): AiProviderId {
+  const id = provider?.id;
+  if (id === "gemini") return "gemini";
+  if (id === "openrouter") return "openrouter";
+  return "workers-ai";
 }
 
 function aiLimitReached(max: number): AppError {

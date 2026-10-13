@@ -1,34 +1,31 @@
-import { generateText, streamText, type ToolSet } from "ai";
+import { generateText, type LanguageModel, streamText, type ToolSet } from "ai";
 import { createWorkersAI } from "workers-ai-provider";
+import type { AiProviderId } from "@talorys/shared";
 import type { AgentEvent, AIProvider, GenerateRequest, ToolRequest } from "./provider";
 import { classifyAiError } from "./provider";
 import { gracefulStopText, LEAK_MARKERS, LeakGuard, parseLeakedToolCalls } from "./leak-guard";
 
 /**
- * Cloudflare Workers AI through the AI SDK's official Workers AI provider.
- * Reasoning ("thinking") is disabled by default to keep Neuron usage low.
+ * Any chat model behind the AI SDK (Workers AI, Gemini, OpenRouter) with Talorys's turn loop:
+ * streaming, the SDK's tool loop, and the `LeakGuard` that keeps leaked tool markup out of the
+ * answer. The model is resolved lazily so a provider whose API key lives encrypted in the
+ * database can be constructed synchronously.
  */
-export class CloudflareWorkersAIProvider implements AIProvider {
-  readonly id = "workers-ai";
-  private readonly workersai: ReturnType<typeof createWorkersAI>;
-
+export class AiSdkProvider implements AIProvider {
   constructor(
-    binding: Ai,
-    private readonly modelId: string,
-  ) {
-    this.workersai = createWorkersAI({ binding });
-  }
+    readonly id: AiProviderId,
+    readonly modelId: string,
+    private readonly resolveModel: () => Promise<LanguageModel>,
+  ) {}
 
-  private model() {
-    return this.workersai(this.modelId as Parameters<typeof this.workersai>[0], {
-      chat_template_kwargs: { enable_thinking: false },
-    });
+  private model(): Promise<LanguageModel> {
+    return this.resolveModel();
   }
 
   async generate(req: GenerateRequest) {
     try {
       const result = await generateText({
-        model: this.model(),
+        model: await this.model(),
         instructions: req.system,
         messages: req.messages,
         maxOutputTokens: req.maxOutputTokens,
@@ -42,7 +39,7 @@ export class CloudflareWorkersAIProvider implements AIProvider {
         usage: { inputTokens: result.usage.inputTokens ?? 0, outputTokens: result.usage.outputTokens ?? 0 },
       };
     } catch (error) {
-      throw classifyAiError(error);
+      throw classifyAiError(error, this.id);
     }
   }
 
@@ -83,8 +80,15 @@ export class CloudflareWorkersAIProvider implements AIProvider {
       let stoppedByGuard = false;
       let streamError: unknown = null;
       const budget = stepsLeft;
+      let model: LanguageModel;
+      try {
+        model = await this.model();
+      } catch (error) {
+        req.signal?.removeEventListener("abort", onAbort);
+        throw classifyAiError(error, this.id);
+      }
       const result = streamText({
-        model: this.model(),
+        model,
         instructions: req.system,
         messages: messages as never,
         maxOutputTokens: req.maxOutputTokens,
@@ -153,11 +157,11 @@ export class CloudflareWorkersAIProvider implements AIProvider {
           }
         }
       } catch (error) {
-        if (!stoppedByGuard || req.signal?.aborted) throw classifyAiError(error);
+        if (!stoppedByGuard || req.signal?.aborted) throw classifyAiError(error, this.id);
       } finally {
         req.signal?.removeEventListener("abort", onAbort);
       }
-      if (streamError && !stoppedByGuard) throw classifyAiError(streamError);
+      if (streamError && !stoppedByGuard) throw classifyAiError(streamError, this.id);
 
       if (stoppedByGuard) {
         yield { type: "text", delta: closing(guard, lastUser) };
@@ -208,6 +212,17 @@ export class CloudflareWorkersAIProvider implements AIProvider {
       ];
     }
     yield { type: "usage", usage };
+  }
+}
+
+/**
+ * Cloudflare Workers AI through the AI SDK's official Workers AI provider.
+ * Reasoning ("thinking") is disabled by default to keep Neuron usage low.
+ */
+export class CloudflareWorkersAIProvider extends AiSdkProvider {
+  constructor(binding: Ai, modelId: string) {
+    const workersai = createWorkersAI({ binding });
+    super("workers-ai", modelId, async () => workersai(modelId as Parameters<typeof workersai>[0], { chat_template_kwargs: { enable_thinking: false } }) as LanguageModel);
   }
 }
 

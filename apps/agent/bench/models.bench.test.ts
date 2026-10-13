@@ -11,7 +11,7 @@ import type { Env } from "../src/env";
 
 const E = env as unknown as Record<string, string>;
 
-export const PROMPTS = [
+const PROMPTS = [
   "מה שלושת המיילים האחרונים שלי",
   "מה יש לי ביומן השבוע",
   "אילו קבצים יש לי בדרייב",

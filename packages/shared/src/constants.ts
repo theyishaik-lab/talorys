@@ -9,6 +9,19 @@ export const AGENT_INSTANCE_NAME = "personal-agent";
  */
 export const DEFAULT_MODEL = "@cf/zai-org/glm-4.7-flash";
 
+/** Where to get an API key for each non-Cloudflare provider (shown in Settings → Model). */
+export const PROVIDER_KEY_URLS = {
+  gemini: "https://aistudio.google.com/app/apikey",
+  openrouter: "https://openrouter.ai/settings/keys",
+} as const;
+
+/**
+ * Gemini models shown before a key is stored (the live list replaces it once a key exists).
+ * From ai.google.dev/gemini-api/docs/models on Oct 13, 2026: the 2.5 generation is limited to
+ * accounts that already used it; new projects get 3.x.
+ */
+export const GEMINI_STATIC_MODELS = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"] as const;
+
 export const BACKUP_FORMAT = "talorys-backup";
 export const BACKUP_VERSION = 1;
 

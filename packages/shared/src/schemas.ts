@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AUTOMATION_KINDS, BACKUP_FORMAT, LIMIT_CEILINGS, MEMORY_CATEGORIES, PROJECT_STATUSES, TASK_PRIORITIES, TASK_STATUSES } from "./constants";
+import { AUTOMATION_KINDS, BACKUP_FORMAT, DEFAULT_MODEL, LIMIT_CEILINGS, MEMORY_CATEGORIES, PROJECT_STATUSES, TASK_PRIORITIES, TASK_STATUSES } from "./constants";
 import { isValidTimeZone, scheduleSpecSchema } from "./recurrence";
 
 // ---------- Primitives ----------
@@ -218,6 +218,8 @@ export interface ChatMessage {
   tools: ToolActivity[];
   status: "complete" | "error" | "cancelled";
   error: string | null;
+  /** The API error code behind `error`, so the UI can localize it and offer the right action. */
+  error_code?: ApiErrorCode | null;
   created_at: string;
   /** "import" for messages restored from a backup; they never count as live owner input. */
   source?: "chat" | "import";
@@ -380,23 +382,105 @@ export const memoryHistorySettingsSchema = z.object({
 });
 export type MemoryHistorySettings = z.infer<typeof memoryHistorySettingsSchema>;
 
-export const settingsSchema = z.object({
-  agentName: shortText(60),
-  timezone: z.string().refine(isValidTimeZone, "Unknown IANA timezone"),
-  theme: z.enum(["system", "light", "dark"]),
-  model: z.string().regex(/^@(cf|hf)\/[\w.\-/]+$/, "Must be a Workers AI model id"),
-  temperature: z.number().min(0).max(1.5),
-  limits: limitsSchema,
-  autoMemory: z.boolean(),
-  /** Documented demo mode: uses the deterministic mock provider instead of Workers AI. */
-  demoMode: z.boolean(),
-  memoryHistory: memoryHistorySettingsSchema,
-});
+// ---------- AI providers & models ----------
+
+/** Where the chat model runs. Workers AI is built in; the others need an API key stored on the agent. */
+export const AI_PROVIDERS = ["workers-ai", "gemini", "openrouter"] as const;
+export type AiProviderId = (typeof AI_PROVIDERS)[number];
+export const aiProviderSchema = z.enum(AI_PROVIDERS);
+
+const WORKERS_AI_MODEL = /^@(cf|hf)\/[\w.\-/]+$/;
+const OPEN_MODEL_ID = /^[\w.\-/:]+$/;
+/** A model id for a given provider: Workers AI ids start with @cf/ or @hf/; the others are plain ids. */
+export function isModelIdFor(provider: AiProviderId, model: string): boolean {
+  if (model.length === 0 || model.length > 200) return false;
+  return provider === "workers-ai" ? WORKERS_AI_MODEL.test(model) : OPEN_MODEL_ID.test(model);
+}
+
+const modelRef = z.object({ provider: aiProviderSchema, model: z.string().min(1).max(200) }).refine((v) => isModelIdFor(v.provider, v.model), "Not a model id of that provider");
+/** Where to turn when the chosen model's quota is spent. */
+export const fallbackSchema = z.object({ enabled: z.boolean(), provider: aiProviderSchema, model: z.string().min(1).max(200) });
+export type FallbackSettings = z.infer<typeof fallbackSchema>;
+export const DEFAULT_FALLBACK: FallbackSettings = { enabled: false, provider: "workers-ai", model: DEFAULT_MODEL };
+
+export const settingsSchema = z
+  .object({
+    agentName: shortText(60),
+    timezone: z.string().refine(isValidTimeZone, "Unknown IANA timezone"),
+    theme: z.enum(["system", "light", "dark"]),
+    /** The chat model's provider. Settings stored before this field existed are Workers AI. */
+    modelProvider: aiProviderSchema.default("workers-ai"),
+    model: z.string().min(1).max(200),
+    fallback: fallbackSchema.default(DEFAULT_FALLBACK),
+    temperature: z.number().min(0).max(1.5),
+    limits: limitsSchema,
+    autoMemory: z.boolean(),
+    /** Documented demo mode: uses the deterministic mock provider instead of Workers AI. */
+    demoMode: z.boolean(),
+    memoryHistory: memoryHistorySettingsSchema,
+  })
+  .refine((v) => isModelIdFor(v.modelProvider, v.model), { path: ["model"], message: "Not a model id of the chosen provider" })
+  .refine((v) => !v.fallback.enabled || modelRef.safeParse({ provider: v.fallback.provider, model: v.fallback.model }).success, {
+    path: ["fallback"],
+    message: "Not a model id of the fallback provider",
+  });
 export type Settings = z.infer<typeof settingsSchema>;
-export const settingsUpdateSchema = settingsSchema
-  .omit({ limits: true, memoryHistory: true })
-  .partial()
-  .extend({ limits: limitsSchema.partial().optional(), memoryHistory: memoryHistorySettingsSchema.partial().optional() });
+export const settingsUpdateSchema = z.object({
+  agentName: shortText(60).optional(),
+  timezone: z.string().refine(isValidTimeZone, "Unknown IANA timezone").optional(),
+  theme: z.enum(["system", "light", "dark"]).optional(),
+  modelProvider: aiProviderSchema.optional(),
+  model: z.string().min(1).max(200).optional(),
+  fallback: fallbackSchema.partial().optional(),
+  temperature: z.number().min(0).max(1.5).optional(),
+  autoMemory: z.boolean().optional(),
+  demoMode: z.boolean().optional(),
+  limits: limitsSchema.partial().optional(),
+  memoryHistory: memoryHistorySettingsSchema.partial().optional(),
+});
+
+/** A model as the Settings picker shows it. `tools` = function calling; `free` = no charge beyond the provider's free allowance. */
+export interface CatalogModel {
+  id: string;
+  name: string;
+  /** Short English description (the UI localizes the tags, not this line). */
+  description: string;
+  context: number | null;
+  tools: boolean;
+  free: boolean;
+  /** Rough tiers for the row's tags; null when unknown. */
+  speed: "fast" | "balanced" | "slow" | null;
+  quality: "basic" | "good" | "best" | null;
+  /** USD per million tokens, when the provider publishes it. */
+  price: { input: number; output: number } | null;
+  /** Talorys has used this model with tool calling. */
+  recommended?: boolean;
+}
+
+export interface CatalogProvider {
+  id: AiProviderId;
+  name: string;
+  /** Whether the provider can be used now (Workers AI: binding present; others: key stored). */
+  connected: boolean;
+  /** Masked tail of the stored key, e.g. "…k2Q9". */
+  keyHint: string | null;
+  keyAddedAt: string | null;
+  needsKey: boolean;
+  /** Where to get a key. */
+  keyUrl: string | null;
+  models: CatalogModel[];
+  /** Why the live list could not be fetched (a static list is shown instead). */
+  error: string | null;
+  source: "live" | "static";
+}
+
+export interface ModelCatalog {
+  providers: CatalogProvider[];
+  current: { provider: AiProviderId; model: string };
+  fetched_at: string;
+}
+
+export const providerKeySchema = z.object({ key: z.string().min(8).max(512) });
 
 export const loginSchema = z.object({ password: z.string().min(1).max(256) });
 export const changePasswordSchema = z.object({
@@ -461,7 +545,7 @@ export type ChatStreamEvent =
   | { type: "text"; delta: string }
   | { type: "tool"; tool: ToolActivity }
   | { type: "title"; conversation_id: string; title: string }
-  | { type: "error"; code: ApiErrorCode; message: string }
+  | { type: "error"; code: ApiErrorCode; message: string; details?: unknown }
   | { type: "done"; message: ChatMessage };
 
 export interface HealthReport {
@@ -480,6 +564,7 @@ export interface UsageReport {
   last_7_days: UsageCounters;
   limits: Limits;
   model: string;
+  provider?: AiProviderId;
   note: string;
   dashboard_url: string;
 }

@@ -1,4 +1,4 @@
-import { DEFAULT_LIMITS, DEFAULT_MODEL, DEFAULT_MEMORY_HISTORY, type Settings, settingsSchema, settingsUpdateSchema } from "@talorys/shared";
+import { DEFAULT_FALLBACK, DEFAULT_LIMITS, DEFAULT_MODEL, DEFAULT_MEMORY_HISTORY, type Settings, settingsSchema, settingsUpdateSchema } from "@talorys/shared";
 import type { z } from "zod";
 import { type Database, now } from "../db/database";
 import { ValidationError } from "../api/errors";
@@ -7,7 +7,9 @@ export const DEFAULT_SETTINGS: Settings = {
   agentName: "Talorys",
   timezone: "UTC",
   theme: "system",
+  modelProvider: "workers-ai",
   model: DEFAULT_MODEL,
+  fallback: { ...DEFAULT_FALLBACK },
   temperature: 0.4,
   limits: { ...DEFAULT_LIMITS },
   autoMemory: true,
@@ -33,6 +35,7 @@ export class SettingsService {
       ...stored,
       limits: { ...DEFAULT_SETTINGS.limits, ...(stored.limits ?? {}) },
       memoryHistory: { ...DEFAULT_SETTINGS.memoryHistory, ...(stored.memoryHistory ?? {}) },
+      fallback: { ...DEFAULT_SETTINGS.fallback, ...(stored.fallback ?? {}) },
     };
     const parsed = settingsSchema.safeParse(merged);
     if (parsed.success) return parsed.data;
@@ -50,6 +53,7 @@ export class SettingsService {
       ...stripUndefined(parsedPatch.data),
       limits: { ...current.limits, ...stripUndefined(parsedPatch.data.limits ?? {}) },
       memoryHistory: { ...current.memoryHistory, ...stripUndefined(parsedPatch.data.memoryHistory ?? {}) },
+      fallback: { ...current.fallback, ...stripUndefined(parsedPatch.data.fallback ?? {}) },
     };
     const parsed = settingsSchema.safeParse(next);
     if (!parsed.success) throw ValidationError.fromZod(parsed.error);

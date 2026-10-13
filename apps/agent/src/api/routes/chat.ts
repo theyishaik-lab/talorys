@@ -99,7 +99,7 @@ chatRoutes.post("/chat", async (c) => {
     } catch (error) {
       const appError = error instanceof AppError ? error : new AppError("INTERNAL_ERROR", "Something went wrong.");
       if (!(error instanceof AppError)) console.error("Chat turn failed", error);
-      await send({ type: "error", code: appError.code, message: appError.message });
+      await send({ type: "error", code: appError.code, message: appError.message, details: appError.details });
     } finally {
       if (conversationId && agent.activeRuns.get(conversationId) === controller) agent.activeRuns.delete(conversationId);
       try {

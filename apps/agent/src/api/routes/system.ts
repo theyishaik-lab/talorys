@@ -49,6 +49,9 @@ systemRoutes.patch("/settings", async (c) => {
   if (settings.demoMode !== before.demoMode) {
     s.activity.record("settings.demo_mode", settings.demoMode ? "Demo mode enabled (mock AI)" : "Demo mode disabled");
   }
+  if (settings.model !== before.model || settings.modelProvider !== before.modelProvider) {
+    s.activity.record("settings.model", `Model: ${settings.model} (${settings.modelProvider})`);
+  }
   return c.json({ settings });
 });
 
@@ -61,6 +64,7 @@ systemRoutes.get("/usage", (c) => {
     last_7_days: s.usage.lastDays(7),
     limits: settings.limits,
     model: settings.model,
+    provider: settings.modelProvider,
     note:
       "These numbers are estimates measured by Talorys itself (token counts reported by the model, or ~4 characters per token). Exact Workers AI Neuron usage and remaining free allocation are only available in the Cloudflare dashboard.",
     dashboard_url: "https://dash.cloudflare.com/?to=/:account/ai/workers-ai",

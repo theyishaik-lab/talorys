@@ -6,7 +6,11 @@ import { createServices, type Services } from "../services/container";
 import type { Scheduler } from "./scheduling";
 import { AgentRunner } from "./runner";
 import { createApi } from "../api/app";
+import type { AiProviderId } from "@talorys/shared";
 import { CloudflareWorkersAIProvider } from "../ai/workers-ai";
+import { GeminiProvider } from "../ai/gemini";
+import { OpenRouterProvider } from "../ai/openrouter";
+import { FallbackProvider } from "../ai/fallback";
 import { MockAIProvider } from "../ai/mock";
 import type { AIProvider } from "../ai/provider";
 import { localDayBounds, formatLocal } from "../services/time";
@@ -76,13 +80,34 @@ export class TalorysAgent extends Agent<Env, AgentState> {
     return Response.json({ error: { code: "NOT_FOUND", message: "Not found" } }, { status: 404 });
   }
 
-  /** Chooses the AI provider. The mock is only used in local development or explicit demo mode. */
+  /**
+   * Chooses the AI provider from Settings → Model: the chosen model, wrapped with the backup
+   * model when the fallback is on. The mock is only used in local development or explicit demo mode.
+   */
   aiProvider(): AIProvider | null {
     const settings = this.services.settings.get();
     if (settings.demoMode) return new MockAIProvider();
     if (this.env.TALORYS_ENV === "development" && this.env.TALORYS_MOCK_AI === "1") return new MockAIProvider();
-    if (!this.env.AI) return null;
-    return new CloudflareWorkersAIProvider(this.env.AI, settings.model);
+    const primary = this.providerFor(settings.modelProvider, settings.model);
+    if (!primary) return null;
+    const fb = settings.fallback;
+    if (!fb.enabled || (fb.provider === settings.modelProvider && fb.model === settings.model)) return primary;
+    const backup = this.providerFor(fb.provider, fb.model);
+    if (!backup) return primary;
+    return new FallbackProvider(primary, backup, (error) => this.services.activity.record("ai.fallback", `${settings.model}: ${error.message.slice(0, 200)}`));
+  }
+
+  /** One provider for a (provider, model) pair; null when Workers AI has no binding. Keys are read lazily from the encrypted store. */
+  providerFor(provider: AiProviderId, model: string): AIProvider | null {
+    const keys = this.services.providerKeys;
+    switch (provider) {
+      case "gemini":
+        return new GeminiProvider(model, () => keys.get("gemini"));
+      case "openrouter":
+        return new OpenRouterProvider(model, () => keys.get("openrouter"));
+      default:
+        return this.env.AI ? new CloudflareWorkersAIProvider(this.env.AI, model) : null;
+    }
   }
 
   runner(): AgentRunner {

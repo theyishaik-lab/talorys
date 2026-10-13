@@ -12,6 +12,8 @@ import { AuthService } from "../auth/auth-service";
 import { AutomationService, type Scheduler } from "../agent/scheduling";
 import { MemoryHistoryService, type MemoryHistoryHooks } from "../memory";
 import { excerpt, PushService, pushKeysFromEnv } from "../push/service";
+import { ProviderKeyStore } from "../ai/keys";
+import { ModelCatalogService } from "../ai/catalog";
 
 /** All data services for the single owner, bound to one Durable Object's storage. */
 export interface Services {
@@ -31,6 +33,10 @@ export interface Services {
   automations: AutomationService;
   memoryHistory: MemoryHistoryService;
   push: PushService;
+  /** Encrypted API keys for Gemini / OpenRouter. */
+  providerKeys: ProviderKeyStore;
+  /** The model lists Settings shows (cached per Durable Object). */
+  catalog: ModelCatalogService;
 }
 
 /** Runs a background promise; the Durable Object passes `ctx.waitUntil`. Errors never surface to the request. */
@@ -48,12 +54,16 @@ export function createServices(storage: DurableObjectStorage, env: Env, schedule
   const memories = new MemoryRepository(db);
   const usage = new UsageService(db);
   const push = new PushService(db, pushKeysFromEnv(env), (work) => deliver(work.catch((e) => console.error("push delivery failed", e))));
+  const providerKeys = new ProviderKeyStore(settings, env.SESSION_SECRET);
+  const catalog = new ModelCatalogService(env.AI, providerKeys);
   // Everything that lands in the bell also reaches the devices that asked for it.
   notifications.onCreate = (n, kind) => {
     push.notify({ kind, title: n.title, body: excerpt(n.body), tag: `notification-${n.id}`, url: "/chat?notifications=1" });
   };
   return {
     push,
+    providerKeys,
+    catalog,
     db,
     tasks: new TaskRepository(db),
     memories,

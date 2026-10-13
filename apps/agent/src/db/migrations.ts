@@ -243,6 +243,13 @@ export const MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    version: 7,
+    name: "message error codes",
+    // The API error code behind a failed reply, so the app can show it in the owner's language
+    // and offer the right fix (for a spent quota: Settings → Model).
+    statements: [`ALTER TABLE tal_messages ADD COLUMN error_code TEXT`],
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;
