@@ -206,3 +206,67 @@ describe("the executor on a not-connected app", () => {
     expect(prompt).toMatch(/not connected, say so plainly .* never say the task was done/);
   });
 });
+
+describe("a read tool that learns the app is not connected", () => {
+  it("connected_apps asked about one unconnected app attaches its connect card to that step", async () => {
+    const { tools, calls } = fake({ configured: ["googletasks"] });
+    await inAgent(async (a) => {
+      const s = a.services;
+      const conversation = s.conversations.create("test");
+      const executor = new ToolExecutor(tools, ctx(s, conversation.id), { maxToolCalls: 5 });
+      const result = (await executor.execute("connected_apps", { service: "googletasks" }, "call-1")) as { connected: unknown[]; connect_card?: unknown };
+      expect(result.connected).toEqual([]);
+      expect(result.connect_card).toMatch(/card to connect Google Tasks now appears right under this step.*Do not call connect_service/s);
+      expect(executor.approvalFor("call-1")?.card).toEqual({ kind: "connect", service: "googletasks", name: "Google Tasks", method: "oauth" });
+      expect(calls.map((c) => c.name)).toEqual(["list_connections", "list_connections"]);
+      // Asking for all apps, or for a connected one, attaches nothing.
+      const other = new ToolExecutor(tools, ctx(s, conversation.id), { maxToolCalls: 5 });
+      const all = (await other.execute("connected_apps", {}, "call-2")) as { connect_card?: unknown };
+      expect(all.connect_card).toBeUndefined();
+      expect(other.approvalFor("call-2")).toBeUndefined();
+      const gmail = (await other.execute("connected_apps", { service: "gmail" }, "call-3")) as { connect_card?: unknown };
+      expect(gmail.connect_card).toBeUndefined();
+      expect(other.approvalFor("call-3")).toBeUndefined();
+    });
+  });
+
+  it("list_connectable_services naming one unconnected app attaches the card; connect_service then reuses it", async () => {
+    const { tools } = fake({ configured: ["googletasks"] });
+    await inAgent(async (a) => {
+      const s = a.services;
+      const conversation = s.conversations.create("test");
+      const executor = new ToolExecutor(tools, ctx(s, conversation.id), { maxToolCalls: 6 });
+      const found = (await executor.execute("list_connectable_services", { query: "Google Tasks" }, "call-1")) as { services: { service: string }[]; connect_card?: string };
+      expect(found.services.map((x) => x.service)).toEqual(["googletasks"]);
+      expect(found.connect_card).toContain("card to connect Google Tasks now appears");
+      const card = executor.approvalFor("call-1")!;
+      expect(card.card?.service).toBe("googletasks");
+
+      // The model follows the old flow anyway: no second card, the answer points at the first.
+      const again = (await executor.execute("connect_service", { service: "googletasks" }, "call-2")) as { status: string; note: string };
+      expect(again.status).toBe("awaiting_owner_approval");
+      expect(again.note).toContain("already shown under an earlier step");
+      expect(executor.approvalFor("call-2")).toBeUndefined();
+      // And an unrelated lookup, or one that matches several apps, attaches nothing.
+      const many = (await executor.execute("list_connectable_services", { query: "google" }, "call-3")) as { services: unknown[]; connect_card?: string };
+      expect(many.services.length).toBeGreaterThan(1);
+      expect(many.connect_card).toBeUndefined();
+      expect(executor.approvalFor("call-3")).toBeUndefined();
+    });
+  });
+
+  it("connect_service called twice for one app in a turn proposes one card", async () => {
+    const { tools } = fake({ configured: ["googletasks"] });
+    await inAgent(async (a) => {
+      const s = a.services;
+      const conversation = s.conversations.create("test");
+      const executor = new ToolExecutor(tools, ctx(s, conversation.id), { maxToolCalls: 6 });
+      await executor.execute("connect_service", { service: "googletasks" }, "call-1");
+      const first = executor.approvalFor("call-1")!;
+      const second = (await executor.execute("connect_service", { service: "Google Tasks" }, "call-2")) as { note: string };
+      expect(second.note).toContain("already shown");
+      expect(executor.approvalFor("call-2")).toBeUndefined();
+      expect(s.pendingActions.view(first.id)?.status).toBe("pending");
+    });
+  });
+});

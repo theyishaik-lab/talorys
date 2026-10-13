@@ -210,9 +210,13 @@ export function openConnectorTools(client: OpenConnectorClient): ToolDefinition[
           .filter((r) => r.authType && r.authType !== "no_auth")
           .map((r) => ({ service: r.service, connection: r.connectionName, account: r.profile?.displayName ?? r.profile?.accountId ?? "" }));
         const publicServices = rows.filter((r) => r.authType === "no_auth").map((r) => r.service).filter(Boolean);
+        // Asked about one app that has no connection at all: hand the executor a connect card for it.
+        const asked = i.service && !serviceNote ? i.service.trim().toLowerCase() : "";
+        const missing = asked && rows.length === 0 && /^[a-z0-9_]{2,60}$/.test(asked) ? { service: asked, name: serviceDisplayName(asked) } : undefined;
         return {
           connected,
           public_services_without_login: publicServices.slice(0, 40),
+          ...(missing ? { connect_card: missing } : {}),
           note:
             serviceNote +
             (connected.length === 0

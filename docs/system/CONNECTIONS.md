@@ -142,4 +142,9 @@ him the task was created. Now, deterministically (`apps/agent/src/tools/registry
   reply; a second attempt on the same app in the turn is told the card is already shown. Apps that
   need a one-time setup are reported as such, without a card.
 - On an approved run the card's failure reason is the short form: "Google Tasks is not connected yet."
+- The same card also rides a **read** step that learns the app is missing: `connected_apps` asked
+  about one app with no connection, or `list_connectable_services` whose query matches exactly one
+  unconnected app (the model's own path on gemma-4, Oct 13: it checked, said "approve on the card
+  that will appear" and never called `connect_service` — now the card is already there). A later
+  `connect_service` for the same app in that reply reuses the card instead of adding a second one.
 - The prompt (`CONNECTOR_RULE`) repeats the rule. Tests: `apps/agent/test/not-connected.test.ts`.

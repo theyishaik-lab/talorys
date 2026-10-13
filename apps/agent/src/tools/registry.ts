@@ -170,11 +170,28 @@ export class ToolExecutor {
     this.perTool.set(name, used + 1);
     this.signatures.set(signature, repeats + 1);
     try {
-      return await this.run(tool, parsed.data, callId);
+      return this.withConnectCard(await this.run(tool, parsed.data, callId), callId);
     } catch (error) {
       if (error instanceof NotConnectedError) throw await this.notConnected(error, callId);
       throw error;
     }
+  }
+
+  /**
+   * A read tool that learned the owner's app is not connected (`connected_apps` asked about it,
+   * `list_connectable_services` found exactly it) answers with `connect_card: { service, name }`;
+   * the executor turns that into a real card on the same step and tells the model it is there, so
+   * the owner never reads "a card will appear" with no card (seen live Oct 13, 2026 on gemma-4).
+   */
+  private async withConnectCard(result: unknown, callId?: string): Promise<unknown> {
+    if (!result || typeof result !== "object" || Array.isArray(result)) return result;
+    const { connect_card: hint, ...rest } = result as { connect_card?: unknown } & Record<string, unknown>;
+    if (!hint || typeof hint !== "object") return result;
+    const { service, name } = hint as { service?: unknown; name?: unknown };
+    if (typeof service !== "string" || !service) return rest;
+    const appName = typeof name === "string" && name ? name : service;
+    const card = await this.connectCard(service, appName, callId);
+    return { ...rest, ...(card.note ? { connect_card: card.note } : {}) };
   }
 
   private async run(tool: ToolDefinition, input: unknown, callId?: string): Promise<unknown> {
@@ -182,6 +199,12 @@ export class ToolExecutor {
 
     if (!this.ctx.conversationId) throw new ToolError(`"${tool.name}" needs the owner's approval and can only be used in chat.`);
     const prepared = await tool.prepare(input, this.ctx);
+    if (tool.name === CONNECT_TOOL) {
+      // One card per app per reply: a card already attached to an earlier step is the one the owner sees.
+      const service = cardService(prepared);
+      const shown = service ? this.connectCards.get(service) : undefined;
+      if (shown) return { status: "awaiting_owner_approval", action: shown.summary, note: `${prepared.note ?? ""} The card is already shown under an earlier step of this reply; do not call this tool again for it.`.trim() };
+    }
     const action = this.ctx.services.pendingActions.create({
       conversation_id: this.ctx.conversationId,
       tool: tool.name,
@@ -190,6 +213,10 @@ export class ToolExecutor {
       ...(prepared.card ? { card: prepared.card } : {}),
     });
     if (callId) this.approvals.set(callId, action);
+    if (tool.name === CONNECT_TOOL) {
+      const service = cardService(prepared);
+      if (service) this.connectCards.set(service, action);
+    }
     return {
       status: "awaiting_owner_approval",
       action: prepared.summary,
@@ -207,19 +234,30 @@ export class ToolExecutor {
   private async notConnected(error: NotConnectedError, callId?: string): Promise<ToolError> {
     const { service, appName } = error;
     const nothingRan = `${appName} (${service}) is not connected to this assistant yet, so the action did not run and nothing was done.`;
+    const card = await this.connectCard(service, appName, callId);
+    return new ToolError(`${nothingRan} ${card.note}`);
+  }
+
+  /**
+   * Proposes a connect card for the app on this very step (through the connect tool's own
+   * `prepare`, so OAuth apps get the sign-in button after Approve and key apps the secure field),
+   * once per app per turn. Returns the words the model hears about it. Nothing is minted or stored
+   * until the owner taps Approve.
+   */
+  private async connectCard(service: string, appName: string, callId?: string): Promise<{ action?: PendingAction; note: string }> {
     const sayIt = `Tell the owner plainly, in their language, that ${appName} is not connected yet. Never say the task was done. Do not ask for a key or password in the chat, and do not retry the action in this turn.`;
     const connect = this.find(CONNECT_TOOL);
-    if (!connect || connect.permission !== "destructive" || !this.ctx.conversationId) {
-      return new ToolError(`${nothingRan} ${sayIt}${connect ? "" : " Connecting apps is not available here; the owner connects it in the connector console."}`);
+    if (connect?.permission !== "destructive" || !this.ctx.conversationId) {
+      return { note: `${sayIt}${connect ? "" : " Connecting apps is not available here; the owner connects it in the connector console."}` };
     }
     const shown = this.connectCards.get(service);
-    if (shown) return new ToolError(`${nothingRan} The card to connect ${appName} is already shown in this reply. ${sayIt}`);
+    if (shown) return { action: shown, note: `The card to connect ${appName} is already shown in this reply; do not call connect_service for it. ${sayIt}` };
     let prepared: PreparedAction;
     try {
       prepared = await connect.prepare({ service }, this.ctx);
     } catch (cause) {
       const reason = cause instanceof ToolError ? cause.message : `The connect card could not be prepared.`;
-      return new ToolError(`${nothingRan} ${reason} ${sayIt}`);
+      return { note: `${reason} ${sayIt}` };
     }
     const action = this.ctx.services.pendingActions.create({
       conversation_id: this.ctx.conversationId,
@@ -230,10 +268,16 @@ export class ToolExecutor {
     });
     this.connectCards.set(service, action);
     if (callId) this.approvals.set(callId, action);
-    return new ToolError(
-      `${nothingRan} A card to connect ${appName} now appears right under this step: the owner approves it there and signs in or pastes the key on the card. Tell the owner, in one or two sentences in their language, that ${appName} is not connected yet, that they can connect it on the card below, and that you will do what they asked once it is connected. Never say the task was done. Do not ask for a key or password in the chat, and do not retry the action in this turn.`,
-    );
+    return {
+      action,
+      note: `A card to connect ${appName} now appears right under this step: the owner approves it there and signs in or pastes the key on the card. Tell the owner, in one or two sentences in their language, that ${appName} is not connected yet, that they can connect it on the card below, and that you will do what they asked once it is connected. Never say the task was done. Do not call connect_service for ${appName} (the card is already there), do not ask for a key or password in the chat, and do not retry the action in this turn.`,
+    };
   }
+}
+
+/** The service a prepared connect proposal is for, from its card. */
+function cardService(prepared: PreparedAction): string | undefined {
+  return prepared.card?.kind === "connect" ? prepared.card.service : undefined;
 }
 
 function stableStringify(value: unknown): string {

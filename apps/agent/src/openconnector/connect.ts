@@ -241,12 +241,16 @@ export function connectTools(admin: OpenConnectorAdmin, runtime: OpenConnectorCl
           const info = await admin.provider(firstId);
           if (info) services.push({ service: info.service, name: info.displayName ?? info.service, name_he: info.displayName ?? info.service, ...(connected.has(info.service) ? { connected_as: connected.get(info.service) } : {}) });
         }
+        // The owner named one app and it is not connected: the executor attaches its connect card to this step.
+        const only = i.query && services.length === 1 ? services[0] : undefined;
+        const missing = only && !only.connected_as ? { service: only.service, name: only.name } : undefined;
         return {
           services,
           note:
             services.length === 0
               ? "No known app matches. Try connect_service with the app's name anyway; the catalog has ~1,400 providers."
               : "To connect one, call connect_service with its service id. The owner approves on a card; keys are typed on that card, never in chat.",
+          ...(missing ? { connect_card: missing } : {}),
         };
       },
     }),
