@@ -111,7 +111,11 @@ Nemotrons; once spent, both are paused until 00:00 UTC and the Gemini rungs take
 8. (Groq slot: `openai-compatible/groq/…` once a key exists)
 9. `gemini-3.5-flash-lite` → 10. `gemini-3.1-flash-lite` → 11. `gemini/gemma-4-26b-a4b-it`
 12. `workers-ai/@cf/google/gemma-4-26b-a4b-it` → 13. `workers-ai/@cf/openai/gpt-oss-120b`
-14. `openai-compatible/ovh/Qwen3.5-397B-A17B` → 15. `openai-compatible/ovh/gpt-oss-120b`
+14. `openai-compatible/ovh/gpt-oss-120b` (through the live agent: tool round-trip 2.7 s; after a Gemini 503 the
+    chain reached it and a second turn skipped the paused Gemini — answer in 6.4 s)
+
+`ovh/Qwen3.5-397B-A17B` answered from the box (Hebrew 4.6 s) but through the agent (full system prompt +
+tools) it ended in a 520 after 54 s — left out.
 
 ### Cooldowns — a spent model is skipped, not asked on every message (`apps/agent/src/ai/cooldown.ts`)
 
@@ -148,7 +152,7 @@ new code. Model ids are `<endpoint id>/<model>` (`ovh/gpt-oss-120b`, `groq/opena
   `{"provider":"openai-compatible","model":"groq/openai/gpt-oss-120b"}` (and/or `groq/qwen/qwen3.8-27b`)
   to `fallback.chain` after the Gemini Flash models.
 - OVH AI Endpoints, anonymous (checked Oct 13, 2026 from the box): `gpt-oss-120b` tool call 2.1 s;
-  `Qwen3.5-397B-A17B` Hebrew 4.6 s, tool call 1.3 s. Limit **2 requests/minute per IP and per model**
+  `Qwen3.5-397B-A17B` Hebrew 4.6 s, tool call 1.3 s (but 520 after 54 s through the agent). Limit **2 requests/minute per IP and per model**
   (`RateLimit-Limit: 2`, `RateLimit-Reset` seconds — read by `quotaHints`), so they are the last rungs.
   From a Worker the IP is Cloudflare's, possibly shared; a 429 just pauses that model for the reset.
 
