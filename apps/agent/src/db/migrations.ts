@@ -224,6 +224,25 @@ export const MIGRATIONS: Migration[] = [
     // link, the key fields). Secrets never go in it.
     statements: [`ALTER TABLE tal_pending_actions ADD COLUMN card TEXT`],
   },
+  {
+    version: 6,
+    name: "push subscriptions",
+    // Devices that asked for Web Push (one row per browser subscription). The keys here let the
+    // Worker encrypt a message for that device only; the VAPID private key is a Worker secret.
+    statements: [
+      `CREATE TABLE IF NOT EXISTS tal_push_subscriptions (
+        id TEXT PRIMARY KEY,
+        endpoint TEXT NOT NULL UNIQUE,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        label TEXT NOT NULL DEFAULT '',
+        prefs TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        last_used_at TEXT,
+        failures INTEGER NOT NULL DEFAULT 0
+      )`,
+    ],
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

@@ -25,9 +25,14 @@ describe("installer: fresh installation", () => {
     const worker = state.workers.acc1![manifest.worker_name]!;
     expect(worker.workers_dev).toBe(false);
     expect(worker.migrations).toEqual([{ tag: "v1", new_sqlite_classes: ["TalorysAgent"] }]);
-    expect(Object.keys(worker.secrets).sort()).toEqual(["OWNER_PASSWORD_HASH", "SESSION_SECRET"]);
+    expect(Object.keys(worker.secrets).sort()).toEqual(["OWNER_PASSWORD_HASH", "SESSION_SECRET", "VAPID_PRIVATE_KEY", "VAPID_PUBLIC_KEY", "VAPID_SUBJECT"]);
     expect(worker.secrets.OWNER_PASSWORD_HASH!.prefix).toBe("pbkdf2-sha256$");
     expect(worker.secrets.SESSION_SECRET!.length).toBeGreaterThanOrEqual(43);
+    // Web Push keys: a 65-byte P-256 point and a 32-byte scalar, base64url (87 and 43 chars).
+    expect(worker.secrets.VAPID_PUBLIC_KEY!.length).toBe(87);
+    expect(worker.secrets.VAPID_PUBLIC_KEY!.prefix.startsWith("B")).toBe(true);
+    expect(worker.secrets.VAPID_PRIVATE_KEY!.length).toBe(43);
+    expect(worker.secrets.VAPID_SUBJECT!.prefix.startsWith("mailto:")).toBe(true);
     // URL comes from Cloudflare (note the suffix the fake account assigned), not from the project name.
     expect(manifest.public_url).toBe(`https://${manifest.pages_project_name}-x7.pages.dev`);
     expect(manifest.status).toBe("deployed");
@@ -151,7 +156,7 @@ describe("installer: idempotency and recovery", () => {
     const ui = new ScriptedUi([STRONG_PASSWORD, STRONG_PASSWORD, true]);
     const m = await install({ dir: sb.dir, ...FAST }, { ui, wrangler: sb.wrangler(), fetch: fakeSite(), templates: sb.templates });
     expect(m.status).toBe("deployed");
-    expect(Object.keys(sb.state().workers.acc1![m.worker_name]!.secrets)).toHaveLength(2);
+    expect(Object.keys(sb.state().workers.acc1![m.worker_name]!.secrets)).toHaveLength(5);
   });
 
   it("waits for propagation and succeeds once the site responds", async () => {

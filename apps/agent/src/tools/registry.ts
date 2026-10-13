@@ -2,6 +2,7 @@ import type { ConnectCard, PendingAction } from "@talorys/shared";
 import { AppError, NotFoundError } from "../api/errors";
 import type { z } from "zod";
 import type { Services } from "../services/container";
+import { excerpt, isLowRiskAction } from "../push/service";
 
 export type ToolPermission = "read" | "write" | "destructive";
 
@@ -146,6 +147,14 @@ export class ToolExecutor {
     return this.approvals.get(callId);
   }
 
+  private pushApproval(action: PendingAction, tool: string, targetId: string): void {
+    try {
+      pushApprovalFor(this.ctx, action, tool, targetId);
+    } catch (error) {
+      console.error("approval push failed", error);
+    }
+  }
+
   async execute(name: string, rawInput: unknown, callId?: string): Promise<unknown> {
     const tool = this.find(name);
     if (!tool) throw new ToolError(`Tool "${name}" is not available.`);
@@ -217,6 +226,7 @@ export class ToolExecutor {
       const service = cardService(prepared);
       if (service) this.connectCards.set(service, action);
     }
+    this.pushApproval(action, tool.name, prepared.targetId);
     return {
       status: "awaiting_owner_approval",
       action: prepared.summary,
@@ -268,11 +278,30 @@ export class ToolExecutor {
     });
     this.connectCards.set(service, action);
     if (callId) this.approvals.set(callId, action);
+    this.pushApproval(action, connect.name, prepared.targetId);
     return {
       action,
       note: `A card to connect ${appName} now appears right under this step: the owner approves it there and signs in or pastes the key on the card. Tell the owner, in one or two sentences in their language, that ${appName} is not connected yet, that they can connect it on the card below, and that you will do what they asked once it is connected. Never say the task was done. Do not call connect_service for ${appName} (the card is already there), do not ask for a key or password in the chat, and do not retry the action in this turn.`,
     };
   }
+}
+
+/**
+ * Tells the owner's devices an approval is waiting. The device decides whether to show it: a
+ * phone with the chat open in front of the owner stays quiet (the service worker checks for a
+ * focused window), a phone in a pocket rings. Approve/Decline buttons only for low-risk actions.
+ */
+function pushApprovalFor(ctx: ToolContext, action: PendingAction, tool: string, targetId: string): void {
+  if (!ctx.conversationId) return;
+  ctx.services.push.notify({
+    kind: "approval",
+    title: tool === CONNECT_TOOL ? "Connect an app?" : "Approval needed",
+    body: excerpt(action.summary),
+    tag: `approval-${action.id}`,
+    url: `/chat/${ctx.conversationId}#action-${action.id}`,
+    actionId: action.id,
+    actions: isLowRiskAction(tool, targetId),
+  });
 }
 
 /** The service a prepared connect proposal is for, from its card. */

@@ -111,7 +111,13 @@ export class AutomationRepository {
   }
 }
 
+/** Which device-notification category an in-app notification belongs to. */
+export type NotificationKind = "result" | "reminder";
+
 export class NotificationRepository {
+  /** Called after every notification is stored — the push service hooks in here. */
+  onCreate: ((notification: Notification, kind: NotificationKind) => void) | null = null;
+
   constructor(private readonly db: Database) {}
 
   list(opts: { unreadOnly?: boolean; limit?: number } = {}): Notification[] {
@@ -125,7 +131,7 @@ export class NotificationRepository {
     return this.db.one<{ n: number }>(`SELECT count(*) AS n FROM tal_notifications WHERE read_at IS NULL`)?.n ?? 0;
   }
 
-  create(input: { title: string; body: string; automation_id?: string | null }): Notification {
+  create(input: { title: string; body: string; automation_id?: string | null; kind?: NotificationKind }): Notification {
     const n: Notification = {
       id: newId(),
       title: input.title,
@@ -141,6 +147,11 @@ export class NotificationRepository {
     this.db.run(
       `DELETE FROM tal_notifications WHERE id NOT IN (SELECT id FROM tal_notifications ORDER BY created_at DESC LIMIT 500)`,
     );
+    try {
+      this.onCreate?.(n, input.kind ?? "reminder");
+    } catch (error) {
+      console.error("notification listener failed", error);
+    }
     return n;
   }
 

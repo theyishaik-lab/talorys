@@ -33,4 +33,11 @@ export interface Env {
    * Needs OPEN_CONNECTOR_URL (the admin API is reached over the public URL).
    */
   OPEN_CONNECTOR_ADMIN_TOKEN?: string;
+  /**
+   * Web Push (VAPID). Both keys are Worker secrets set by the installer (one pair per install);
+   * device notifications are off without them. The subject is the contact the push services see.
+   */
+  VAPID_PUBLIC_KEY?: string;
+  VAPID_PRIVATE_KEY?: string;
+  VAPID_SUBJECT?: string;
 }

@@ -6,7 +6,7 @@ import { COMPATIBILITY_DATE, detectTimezone, generateInstallationId, type Resour
 import { type Manifest, markStep, readManifest, writeManifest } from "./manifest";
 import { checkNodeVersion, detectGlobalClis } from "./requirements";
 import { assertSafeTarget, readTemplateInfo, scaffoldProject, templatesDir } from "./scaffold";
-import { buildOwnerSecrets, PASSWORD_SECRET, REQUIRED_SECRETS, SESSION_SECRET, validatePassword } from "./secrets";
+import { buildOwnerSecrets, PASSWORD_SECRET, REQUIRED_SECRETS, SESSION_SECRET, VAPID_SECRETS, validatePassword, vapidSubject } from "./secrets";
 import type { Ui } from "./ui";
 import { type FetchLike, type CheckResult, verifyDeployment } from "./verify";
 import type { CloudflareAccount, Wrangler, WhoAmI } from "./wrangler";
@@ -282,13 +282,20 @@ export async function install(opts: InstallOptions, deps: Deps): Promise<Manifes
     manifest = markStep(dir, { ...manifest, deployment_version: template.version }, "worker");
 
     if (missingSecrets.length > 0) {
-      await ui.step("Configuring authentication", async () => {
-        const secrets = await buildOwnerSecrets(password ?? "", { includeSessionSecret: missingSecrets.includes(SESSION_SECRET) });
+      // Push keys are made once per install: an existing pair is never replaced (every subscribed
+      // device would stop receiving), so only a Worker missing any of the three gets a fresh set.
+      const includeVapid = VAPID_SECRETS.some((s) => missingSecrets.includes(s));
+      await ui.step("Configuring authentication and push keys", async () => {
+        const secrets = await buildOwnerSecrets(password ?? "", {
+          includeSessionSecret: missingSecrets.includes(SESSION_SECRET),
+          includeVapid,
+          vapidSubject: vapidSubject(who.email, manifest?.public_url),
+        });
         if (!missingSecrets.includes(PASSWORD_SECRET)) delete secrets[PASSWORD_SECRET];
         await wrangler.putSecrets(names.workerName, secrets);
-      }, () => "Authentication configured (password hashed locally; secrets stored as Cloudflare secrets)");
+      }, () => `${missingSecrets.includes(PASSWORD_SECRET) ? "Authentication configured (password hashed locally)" : "Secrets completed"}${includeVapid ? " · device-notification keys generated" : ""} — stored as Cloudflare secrets`);
     } else {
-      ui.success("Authentication already configured — owner password unchanged");
+      ui.success("Authentication and push keys already configured — owner password unchanged");
     }
     manifest = markStep(dir, manifest, "secrets");
 

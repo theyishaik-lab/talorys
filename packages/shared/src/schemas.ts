@@ -146,6 +146,31 @@ export interface PendingAction {
   card?: ConnectCard;
 }
 
+/** Device notification categories; each subscribed device keeps its own on/off per kind. */
+export const PUSH_KINDS = ["approval", "result", "reminder"] as const;
+export type PushKind = (typeof PUSH_KINDS)[number];
+export type PushPrefs = Record<PushKind, boolean>;
+
+export interface PushSubscriptionView {
+  id: string;
+  label: string;
+  prefs: PushPrefs;
+  created_at: string;
+  last_used_at: string | null;
+  failures: number;
+}
+
+export const pushPrefsSchema = z.object({ approval: z.boolean().optional(), result: z.boolean().optional(), reminder: z.boolean().optional() });
+
+/** What `PushSubscription.toJSON()` gives a browser, plus a device label. */
+export const pushSubscribeSchema = z.object({
+  endpoint: z.string().url().max(2048).refine((u) => u.startsWith("https://"), "Push endpoints must be https."),
+  keys: z.object({ p256dh: z.string().min(80).max(120), auth: z.string().min(16).max(32) }),
+  label: z.string().max(80).optional(),
+  prefs: pushPrefsSchema.optional(),
+});
+export type PushSubscribeInput = z.infer<typeof pushSubscribeSchema>;
+
 export interface ToolActivity {
   id: string;
   name: string;

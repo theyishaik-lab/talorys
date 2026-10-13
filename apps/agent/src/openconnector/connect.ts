@@ -302,7 +302,7 @@ export function connectTools(admin: OpenConnectorAdmin, runtime: OpenConnectorCl
         const profile = await admin.storeCredential(target.service, target.method, values);
         const account = profile.profile?.displayName ?? profile.profile?.accountId ?? "";
         ctx.services.activity.record("connector.connect", `${target.name} connected${account ? ` as ${account}` : ""}`);
-        ctx.services.notifications.create({ title: "Connected", body: `${target.name} is connected${account ? ` as ${account}` : ""}. Ask me to use it.` });
+        ctx.services.notifications.create({ title: "Connected", body: `${target.name} is connected${account ? ` as ${account}` : ""}. Ask me to use it.`, kind: "result" });
         return { card: { kind: "connect", service: target.service, name: target.name, method: "api_key", account: account || "connected" } satisfies ConnectCard };
       },
     }),

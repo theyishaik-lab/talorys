@@ -11,6 +11,7 @@ import { ActivityLog, UsageService } from "./usage";
 import { AuthService } from "../auth/auth-service";
 import { AutomationService, type Scheduler } from "../agent/scheduling";
 import { MemoryHistoryService, type MemoryHistoryHooks } from "../memory";
+import { excerpt, PushService, pushKeysFromEnv } from "../push/service";
 
 /** All data services for the single owner, bound to one Durable Object's storage. */
 export interface Services {
@@ -29,9 +30,13 @@ export interface Services {
   auth: AuthService;
   automations: AutomationService;
   memoryHistory: MemoryHistoryService;
+  push: PushService;
 }
 
-export function createServices(storage: DurableObjectStorage, env: Env, scheduler: Scheduler, memoryHooks: MemoryHistoryHooks = {}): Services {
+/** Runs a background promise; the Durable Object passes `ctx.waitUntil`. Errors never surface to the request. */
+export type Deliver = (work: Promise<unknown>) => void;
+
+export function createServices(storage: DurableObjectStorage, env: Env, scheduler: Scheduler, memoryHooks: MemoryHistoryHooks = {}, deliver: Deliver = (w) => void w.catch((e) => console.error("push delivery failed", e))): Services {
   const db = new Database(storage);
   const settings = new SettingsService(db, {
     ...(env.TALORYS_DEFAULT_TIMEZONE ? { timezone: env.TALORYS_DEFAULT_TIMEZONE } : {}),
@@ -42,7 +47,13 @@ export function createServices(storage: DurableObjectStorage, env: Env, schedule
   const activity = new ActivityLog(db);
   const memories = new MemoryRepository(db);
   const usage = new UsageService(db);
+  const push = new PushService(db, pushKeysFromEnv(env), (work) => deliver(work.catch((e) => console.error("push delivery failed", e))));
+  // Everything that lands in the bell also reaches the devices that asked for it.
+  notifications.onCreate = (n, kind) => {
+    push.notify({ kind, title: n.title, body: excerpt(n.body), tag: `notification-${n.id}`, url: "/chat?notifications=1" });
+  };
   return {
+    push,
     db,
     tasks: new TaskRepository(db),
     memories,

@@ -345,7 +345,7 @@ export function openConnectorTools(client: OpenConnectorClient): ToolDefinition[
         const data = await client.data("execute_action", { actionId: run.action, input: run.input, ...(run.connection ? { connectionName: run.connection } : {}) });
         const excerpt = JSON.stringify(truncateResult(data, 600)) ?? "";
         ctx.services.activity.record("connector.action", summary);
-        ctx.services.notifications.create({ title: "Done", body: `${summary}\n\nResult: ${excerpt.slice(0, 700)}` });
+        ctx.services.notifications.create({ title: "Done", body: `${summary}\n\nResult: ${excerpt.slice(0, 700)}`, kind: "result" });
         return data;
       },
     }),

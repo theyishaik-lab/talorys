@@ -12,6 +12,14 @@ async function pbkdf2(password: string): Promise<string> {
   return `pbkdf2-sha256$100000$${b64(salt)}$${b64(new Uint8Array(bits))}`;
 }
 
+/** A throwaway VAPID pair so push tests run with device notifications configured. */
+async function vapid(): Promise<{ publicKey: string; privateKey: string }> {
+  const pair = await webcrypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+  const publicKey = Buffer.from(await webcrypto.subtle.exportKey("raw", pair.publicKey)).toString("base64url");
+  const jwk = await webcrypto.subtle.exportKey("jwk", pair.privateKey);
+  return { publicKey, privateKey: jwk.d! };
+}
+
 export default defineConfig(async () => ({
   plugins: [
     cloudflareTest({
@@ -25,6 +33,8 @@ export default defineConfig(async () => ({
           OWNER_PASSWORD_HASH: await pbkdf2(TEST_PASSWORD),
           SESSION_SECRET: "test-session-secret-0123456789abcdefghijklmnop",
           TEST_PASSWORD,
+          ...(await vapid().then((k) => ({ VAPID_PUBLIC_KEY: k.publicKey, VAPID_PRIVATE_KEY: k.privateKey }))),
+          VAPID_SUBJECT: "mailto:test@example.com",
         },
       },
     }),

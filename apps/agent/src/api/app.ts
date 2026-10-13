@@ -8,6 +8,7 @@ import { chatRoutes } from "./routes/chat";
 import { dataRoutes } from "./routes/data";
 import { automationRoutes } from "./routes/automations";
 import { systemRoutes } from "./routes/system";
+import { pushRoutes } from "./routes/push";
 import { semanticRoutes } from "../semantic/routes";
 
 export interface AppEnv {
@@ -36,6 +37,7 @@ export function createApi() {
   app.route("/", chatRoutes);
   app.route("/", dataRoutes);
   app.route("/", automationRoutes);
+  app.route("/", pushRoutes);
 
   return app;
 }
