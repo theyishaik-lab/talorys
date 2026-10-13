@@ -266,7 +266,6 @@ export const MIGRATIONS: Migration[] = [
         failures INTEGER NOT NULL DEFAULT 0
       )`,
     ],
->>>>>>> 73706b2 (mobile: native Android app (Expo/React Native) — chat, approvals, drawer, settings, Hebrew RTL, local signed APK; agent: bearer sessions for the native app + FCM native push channel)
   },
 ];
 

@@ -172,4 +172,3 @@ Secrets: `FCM_SERVICE_ACCOUNT` (the service-account JSON, verbatim; SECRETS.md) 
 `PUBLIC_APP_URL` var. Android channels `approvals` (high) and `updates` (default); a tap opens the
 chat in `data.conversation_id`. Approve/Decline buttons on the tray notification are not there yet
 (MOBILE.md).
->>>>>>> 73706b2 (mobile: native Android app (Expo/React Native) — chat, approvals, drawer, settings, Hebrew RTL, local signed APK; agent: bearer sessions for the native app + FCM native push channel)

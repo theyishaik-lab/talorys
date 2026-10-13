@@ -113,7 +113,7 @@ describe("native device registry", () => {
   });
 
   it("has the devices table", () => {
-    expect(LATEST_SCHEMA_VERSION).toBeGreaterThanOrEqual(7);
+    expect(LATEST_SCHEMA_VERSION).toBeGreaterThanOrEqual(8);
   });
 
   it("registers a phone once per token, keeps its preferences, and tells the app whether push is configured", async () => {
