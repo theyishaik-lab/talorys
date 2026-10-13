@@ -17,8 +17,11 @@
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TalorysAgent"] }],
   // OpenConnector runs as the Worker "open-connector" in the same account (see docs/openconnector.md).
-  "services": [{ "binding": "OPEN_CONNECTOR", "service": "open-connector" }],
+  // Called over its public URL, not a service binding: through the binding, OpenConnector's
+  // catalog search hit "Worker exceeded CPU time limit" on the free plan (Oct 13, 2026), while
+  // the same calls over HTTP succeed.
   "vars": {
+    "OPEN_CONNECTOR_URL": "https://open-connector.yishai-kaminsky.workers.dev",
     "TALORYS_INSTALLATION_ID": "lxl5w9o0",
     "TALORYS_DEPLOYED_VERSION": "0.1.5-openconnector",
     "TALORYS_DEFAULT_TIMEZONE": "UTC",

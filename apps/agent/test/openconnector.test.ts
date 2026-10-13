@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { inAgent } from "./helpers";
 import { buildSystemPrompt, CONNECTOR_RULE, NO_ACCESS_RULE } from "../src/agent/prompt";
 import type { Env } from "../src/env";
-import { compactResult, truncateResult } from "../src/openconnector/client";
+import { compactResult, isPlatformLimitError, servicesHintedBy, truncateResult } from "../src/openconnector/client";
+import { rankCatalogRows, schemaInputLines } from "../src/openconnector/tools";
 import { OpenConnectorClient, isReadOnlyAction, openConnectorTools, toolsWithOpenConnector, withOpenConnector } from "../src/openconnector";
 import { guideInputs, proposalSummary } from "../src/openconnector/tools";
 import { ALL_TOOLS, runApprovedAction, ToolExecutor, type ToolContext } from "../src/tools";
@@ -209,5 +210,50 @@ describe("compactResult", () => {
     const out = truncateResult({ repositories: repos }, 3500) as { repositories?: unknown[]; truncated?: boolean };
     expect(out.truncated).toBeUndefined();
     expect(out.repositories).toHaveLength(3);
+  });
+});
+
+describe("catalog fallback when the fuzzy search is cut off", () => {
+  it("recognises the platform cut-off and hints services from the words", () => {
+    expect(isPlatformLimitError(new Error("Worker exceeded CPU time limit."))).toBe(true);
+    expect(isPlatformLimitError(new Error("OpenConnector answered 500: boom"))).toBe(false);
+    expect(servicesHintedBy("what are my latest emails")).toEqual(["gmail"]);
+    expect(servicesHintedBy("מה שלושת המיילים האחרונים שלי")).toEqual(["gmail"]);
+    expect(servicesHintedBy("אילו ריפוזיטוריז יש לי בגיטהאב")).toEqual(["github"]);
+    expect(servicesHintedBy("events in my calendar tomorrow")).toEqual(["googlecalendar"]);
+  });
+  it("ranks catalog rows by the query and reads inputs from the schema", () => {
+    const rows = [
+      { id: "gmail.add_label_to_email", description: "Add labels on a message." },
+      { id: "gmail.search_threads", description: "Search Gmail threads by query.", inputSchema: { properties: { query: { type: "string", description: "Gmail search query." }, maxResults: { type: "integer" } }, required: ["query"] } },
+      { id: "gmail.send_email", description: "Send an email." },
+    ];
+    const ranked = rankCatalogRows(rows, "search threads");
+    expect(ranked[0]?.id).toBe("gmail.search_threads");
+    expect(schemaInputLines(rows[1]?.inputSchema)).toEqual(["query (string, required): Gmail search query.", "maxResults (integer)"]);
+  });
+  it("search_actions falls back to per-service listings when OpenConnector is cut off", async () => {
+    const calls: string[] = [];
+    const binding = {
+      fetch: async (req: Request) => {
+        const url = new URL(req.url);
+        calls.push(url.pathname + url.search);
+        if (url.pathname === "/mcp") {
+          const body = (await req.json()) as { params: { name: string } };
+          if (body.params.name === "search_actions") throw new Error("Worker exceeded CPU time limit.");
+          return new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: { structuredContent: { ok: true, data: [{ id: "gmail:default", service: "gmail" }] } } }), { headers: { "content-type": "application/json" } });
+        }
+        if (url.pathname === "/v1/actions" && url.searchParams.get("service") === "gmail") {
+          return new Response(JSON.stringify({ success: true, data: [{ id: "gmail.search_threads", description: "Search Gmail threads by query.", inputSchema: { properties: { query: { type: "string" } }, required: ["query"] } }, { id: "gmail.send_email", description: "Send an email." }] }), { headers: { "content-type": "application/json" } });
+        }
+        return new Response("nope", { status: 404 });
+      },
+    } as unknown as Fetcher;
+    const client = new OpenConnectorClient({ binding, token: "t" });
+    const tool = openConnectorTools(client).find((t) => t.name === "search_actions") as ImmediateTool;
+    const out = (await tool.execute({ query: "latest emails" }, {} as ToolContext)) as { actions: { id: string; inputs: string[] }[]; note: string };
+    expect(out.actions.map((a) => a.id)).toEqual(["gmail.search_threads"]);
+    expect(out.note).toContain("gmail");
+    expect(calls.some((c) => c.startsWith("/v1/actions?service=gmail"))).toBe(true);
   });
 });

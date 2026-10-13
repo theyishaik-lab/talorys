@@ -70,6 +70,53 @@ export class OpenConnectorClient {
     if (!result.ok) throw new ToolError(`OpenConnector could not complete ${name}: ${describe(result.error ?? result.data ?? "unknown error")}`);
     return result.data;
   }
+
+  /**
+   * One of OpenConnector's plain runtime endpoints (`GET /v1/...`), which answer `{ success, data }`.
+   * These read the catalog directly and cost 1-2 ms of CPU, where the MCP fuzzy search builds an
+   * index over every catalog action and is cut off by the free plan's CPU limit when the call
+   * comes from another Worker (measured Oct 13, 2026).
+   */
+  async get(path: string): Promise<unknown> {
+    const base = this.config.binding ? "https://open-connector" : (this.config.url ?? "").replace(/\/+$/, "");
+    const fetcher = this.config.binding ?? { fetch: (req: Request) => fetch(req) };
+    let response: Response;
+    try {
+      response = await fetcher.fetch(new Request(`${base}${path}`, { headers: { authorization: `Bearer ${this.config.token}`, accept: "application/json" } }));
+    } catch (error) {
+      throw new ToolError(`OpenConnector is unreachable: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    const body = await response.text();
+    if (response.status === 401 || response.status === 403) throw new ToolError("OpenConnector rejected Talorys' runtime token. The owner must fix the connector setup.");
+    if (response.status === 404) throw new ToolError(`OpenConnector has no such action: ${path.slice(path.lastIndexOf("/") + 1)}`);
+    if (!response.ok) throw new ToolError(`OpenConnector answered ${response.status}: ${body.slice(0, 200)}`);
+    const parsed = JSON.parse(body) as { success?: boolean; message?: string; data?: unknown };
+    if (parsed.success === false) throw new ToolError(`OpenConnector could not answer ${path}: ${parsed.message ?? "unknown error"}`);
+    return parsed.data;
+  }
+}
+
+/** The words of a CPU-limit or similar platform cut-off, as the error reaches us. */
+export function isPlatformLimitError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /CPU time limit|exceeded CPU|Worker exceeded|1102|resource limit/i.test(message);
+}
+
+/** Services a free-text query points at, so a failed catalog search can fall back to per-service listings. */
+export function servicesHintedBy(query: string): string[] {
+  const q = query.toLowerCase();
+  const hints: [RegExp, string][] = [
+    [/gmail|e-?mail|mail|inbox|\u05de\u05d9\u05d9\u05dc|\u05d2['\u05f3]?\u05d9\u05de\u05d9\u05d9\u05dc|\u05d3\u05d5\u05d0\u05e8/, "gmail"],
+    [/calendar|event|meeting|\u05d9\u05d5\u05de\u05df|\u05e4\u05d2\u05d9\u05e9|\u05d0\u05d9\u05e8\u05d5\u05e2/, "googlecalendar"],
+    [/drive|file|folder|document|\u05d3\u05e8\u05d9\u05d9\u05d1|\u05e7\u05d5\u05d1\u05e5|\u05de\u05e1\u05de\u05da/, "googledrive"],
+    [/github|repo|repositor|issue|pull request|\u05d2\u05d9\u05d8\u05d4\u05d0\u05d1|\u05e8\u05d9\u05e4\u05d5/, "github"],
+    [/sheet|spreadsheet|\u05d2\u05d9\u05dc\u05d9\u05d5\u05df/, "googlesheets"],
+    [/docs?\b|google doc/, "googledocs"],
+    [/task|todo|\u05de\u05e9\u05d9\u05de/, "googletasks"],
+    [/arxiv|paper/, "arxiv"],
+    [/hacker ?news|\bhn\b/, "hackernews"],
+  ];
+  return hints.filter(([re]) => re.test(q)).map(([, service]) => service);
 }
 
 /** The endpoint answers JSON or a one-event SSE body depending on the Accept negotiation. */

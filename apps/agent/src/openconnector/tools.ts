@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { defineTool, quoteTitle, type ToolContext, type ToolDefinition } from "../tools/registry";
-import { type OpenConnectorClient, truncateResult } from "./client";
+import { defineTool, quoteTitle, ToolError, type ToolContext, type ToolDefinition } from "../tools/registry";
+import { type OpenConnectorClient, isPlatformLimitError, servicesHintedBy, truncateResult } from "./client";
 
 const ACTION_ID = z
   .string()
@@ -43,6 +43,63 @@ const asArray = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 /** One line per input, compact enough for a small model: `to (string, required): Recipient`. */
 function inputLines(rows: ActionRow["inputSummary"]): string[] {
   return (rows ?? []).slice(0, 12).map((p) => `${p.name} (${p.type ?? "any"}${p.required ? ", required" : ""})${p.description ? `: ${p.description.slice(0, 120)}` : ""}`);
+}
+
+/** A catalog row from the plain `GET /v1/actions` endpoints: a JSON schema instead of an input summary. */
+interface CatalogActionRow {
+  id?: string;
+  service?: string;
+  name?: string;
+  description?: string;
+  inputSchema?: { properties?: Record<string, { type?: string; description?: string }>; required?: string[] };
+}
+
+/** Input lines from a JSON schema, the shape `GET /v1/actions/<id>` answers with. */
+export function schemaInputLines(schema: CatalogActionRow["inputSchema"]): string[] {
+  const required = new Set(schema?.required ?? []);
+  return Object.entries(schema?.properties ?? {})
+    .slice(0, 12)
+    .map(([name, p]) => `${name} (${p?.type ?? "any"}${required.has(name) ? ", required" : ""})${p?.description ? `: ${p.description.slice(0, 120)}` : ""}`);
+}
+
+/** Ranks per-service catalog rows against the query words: id and description hits, read verbs first on ties. */
+export function rankCatalogRows(rows: CatalogActionRow[], query: string, limit = 8): CatalogActionRow[] {
+  const words = query.toLowerCase().split(/[^a-z0-9\u0590-\u05ff]+/).filter((w) => w.length > 1);
+  const score = (r: CatalogActionRow) => {
+    const id = (r.id ?? "").toLowerCase();
+    const desc = (r.description ?? "").toLowerCase();
+    let s = 0;
+    for (const w of words) {
+      if (id.includes(w)) s += 3;
+      else if (desc.includes(w)) s += 1;
+    }
+    if (r.id && isReadOnlyAction(r.id)) s += 0.5;
+    return s;
+  };
+  return rows
+    .map((r) => ({ r, s: score(r) }))
+    .filter((x) => x.s > 0 || words.length === 0)
+    .sort((a, b) => b.s - a.s)
+    .slice(0, limit)
+    .map((x) => x.r);
+}
+
+/**
+ * The cheap search: per-service catalog listings instead of the fuzzy index. OpenConnector's
+ * `search_actions` builds a MiniSearch index over all ~15k actions on first use, which the free
+ * Workers plan cuts off at 10 ms CPU when the call comes from this Worker (Oct 13, 2026).
+ */
+async function searchViaCatalog(client: OpenConnectorClient, query: string, service: string | undefined, connectedServices: () => Promise<string[]>) {
+  const services = service ? [service] : [...new Set([...servicesHintedBy(query), ...(await connectedServices())])].slice(0, 4);
+  const rows: CatalogActionRow[] = [];
+  for (const s of services) {
+    try {
+      rows.push(...(asArray<CatalogActionRow>(await client.get(`/v1/actions?service=${encodeURIComponent(s)}`))));
+    } catch {
+      // one service's listing failing should not hide the others
+    }
+  }
+  return { services, rows: rankCatalogRows(rows, query) };
 }
 
 /** The owner-facing summary on the approval card: the action plus its main inputs. */
@@ -112,7 +169,32 @@ export function openConnectorTools(client: OpenConnectorClient): ToolDefinition[
       }),
       label: (i) => `Searching actions for ${quoteTitle(i.query, 40)}`,
       execute: async (i) => {
-        const rows = asArray<ActionRow>(await client.data("search_actions", { query: i.query, ...(i.service ? { service: i.service } : {}), limit: 8 }));
+        let rows: ActionRow[];
+        try {
+          rows = asArray<ActionRow>(await client.data("search_actions", { query: i.query, ...(i.service ? { service: i.service } : {}), limit: 8 }));
+        } catch (error) {
+          if (!isPlatformLimitError(error)) throw error;
+          const fallback = await searchViaCatalog(client, i.query, i.service, async () =>
+            asArray<ConnectionRow>(await client.data("list_connections", {}))
+              .map((c) => c.service ?? "")
+              .filter((s) => s && !["arxiv", "hackernews", "npm", "pubmed"].includes(s)),
+          );
+          if (!fallback.rows.length) {
+            throw new ToolError(
+              `The catalog search is unavailable right now and no actions matched in ${fallback.services.join(", ") || "the connected apps"}. Try search_actions with a service id (gmail, googlecalendar, googledrive, github) or use action_guide with a known action id.`,
+            );
+          }
+          return {
+            actions: fallback.rows.map((a) => ({
+              id: a.id,
+              description: a.description?.slice(0, 160),
+              read_only: a.id ? isReadOnlyAction(a.id) : undefined,
+              ready: true,
+              inputs: schemaInputLines(a.inputSchema),
+            })),
+            note: `Matched from the ${fallback.services.join(", ")} catalog. read_only actions go through run_action; everything else through propose_action (the owner approves it).`,
+          };
+        }
         return {
           actions: rows.map((a) => ({
             id: a.id,
@@ -133,10 +215,14 @@ export function openConnectorTools(client: OpenConnectorClient): ToolDefinition[
       input: z.object({ action: ACTION_ID, connection: CONNECTION }),
       label: (i) => `Reading the guide for ${i.action}`,
       execute: async (i) => {
-        const data = (await client.data("get_action_guide", { actionId: i.action, ...(i.connection ? { connectionName: i.connection } : {}) })) as {
-          markdown?: string;
-          capability?: { connection?: { configured?: boolean; profile?: { displayName?: string } } };
-        };
+        let data: { markdown?: string; capability?: { connection?: { configured?: boolean; profile?: { displayName?: string } } } };
+        try {
+          data = (await client.data("get_action_guide", { actionId: i.action, ...(i.connection ? { connectionName: i.connection } : {}) })) as typeof data;
+        } catch (error) {
+          if (!isPlatformLimitError(error)) throw error;
+          const row = (await client.get(`/v1/actions/${encodeURIComponent(i.action)}`)) as CatalogActionRow;
+          return { action: i.action, read_only: isReadOnlyAction(i.action), account: null, ready: null, inputs: schemaInputLines(row.inputSchema), note: "Inputs read from the catalog; whether the app is connected is in connected_apps." };
+        }
         return {
           action: i.action,
           read_only: isReadOnlyAction(i.action),
