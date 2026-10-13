@@ -16,7 +16,7 @@ see SECRETS.md). Account id `25e3dffccdb99cd3801798bcc4a5b54a`.
 ```bash
 npm install
 npm run typecheck
-npm test -w @talorys/agent      # 261 tests, ~40 s (runs inside workerd)
+npm test -w @talorys/agent      # 282 tests, ~40 s (runs inside workerd)
 npm test -w @talorys/web        # when apps/web changed
 ```
 
@@ -147,7 +147,7 @@ the **mock AI** (deterministic, offline), a local password and session secret; s
 | Command | What |
 | --- | --- |
 | `npm test` | all workspaces (shared, agent in workerd, web, installer) |
-| `npm test -w @talorys/agent` | agent incl. `openconnector.test.ts` — 261 passing on Oct 13, 2026 |
+| `npm test -w @talorys/agent` | agent incl. `openconnector.test.ts` + `leak-guard.test.ts` — 282 passing on Oct 13, 2026 |
 | `npm run test:e2e` | Playwright UI tests on an isolated local stack (`tests/e2e/`) |
 | `npm run typecheck` / `npm run lint` | TypeScript / Biome |
 
