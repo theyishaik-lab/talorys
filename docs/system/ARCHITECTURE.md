@@ -13,7 +13,8 @@ October 13, 2026 it can also reach outside apps (GitHub today, Google next) thro
 | **Agent** | The backend: Hono HTTP API + `TalorysAgent` Durable Object with its own SQLite database; runs the AI loop and the tools | Worker `talorys-lxl5w9o0-agent` (private, no public URL) | `apps/agent` in this repo |
 | **AI model** | `@cf/zai-org/glm-4.7-flash` | Workers AI (binding `AI`), free daily allocation | — |
 | **OpenConnector** | Auth gateway: holds the credentials of outside apps, exposes ~14,700 actions of ~1,420 providers over MCP and HTTP, has a web console | Worker `open-connector` → https://open-connector.yishai-kaminsky.workers.dev, D1 database `open-connector`, KV namespace `open-connector-transit-files` | [theyishaik-lab/open-connector](https://github.com/theyishaik-lab/open-connector), branch `main` |
-| **Android app** | Full-screen WebView wrapper around the web app | Yishai's phone, package `bot.tab.talorys.yishai` | [theyishaik-lab/talorys-android](https://github.com/theyishaik-lab/talorys-android) (private) |
+| **Android app (native)** | React Native / Expo app on the same agent API: chat, approvals, drawer, settings, FCM notifications (`docs/system/MOBILE.md`) | Yishai's phone, package `dev.talorys.app`, APK built locally | `apps/mobile` |
+| **Android app (old, deprecated)** | Full-screen WebView wrapper around the web app — no push, replaced by the native app | package `bot.tab.talorys.yishai` | [theyishaik-lab/talorys-android](https://github.com/theyishaik-lab/talorys-android) (private) |
 | **Shared code** | Zod schemas, constants, recurrence rules, crypto helpers | bundled into web + agent | `packages/shared` |
 | **Installer** | `create-talorys` CLI (the original one-command install) | used once, Oct 12, 2026 | `packages/create-talorys` |
 
@@ -22,7 +23,7 @@ October 13, 2026 it can also reach outside apps (GitHub today, Google next) thro
 ```mermaid
 flowchart LR
   subgraph Clients
-    APK["Android app<br/>bot.tab.talorys.yishai (WebView)"]
+    APK["Native Android app<br/>dev.talorys.app (React Native)"]
     BR["Any browser"]
   end
   subgraph CF["Cloudflare account (free plan)"]

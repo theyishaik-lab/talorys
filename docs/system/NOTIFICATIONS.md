@@ -12,7 +12,8 @@ No Firebase, no Apple account, no third-party relay: each install has its own VA
 | iPhone / iPad (iOS 16.4+) | Safari → Share → **Add to Home Screen**, then open it from the home screen | Full screen; notifications work **only** from the home-screen app, never from a Safari tab |
 | Desktop (Chrome, Edge) | Address-bar install icon or Settings → Install | A window without browser chrome |
 
-The Android WebView app (`docs/system/ANDROID.md`) is **deprecated**: a WebView has no Push API, so
+The **native Android app** (`docs/system/MOBILE.md`) gets its notifications through Firebase Cloud
+Messaging instead — see "Native push" at the end. The Android WebView app (`docs/system/ANDROID.md`) is **deprecated**: a WebView has no Push API, so
 it can never receive notifications. Install from Chrome instead; sign in once more (the installed
 app has its own storage). The APK project stays in the repo until Yishai confirms the installed app
 and its notifications work on his phone; then it goes.
@@ -149,3 +150,26 @@ Oct 13, 2026 ~14:30 IL, production, headless Chromium (Pixel UA, Hebrew): the th
 render correctly (not asked / blocked with guidance + Retry / allowed); enable → subscribed, registered
 "yes"; "send test" → "delivered (201)"; the test device was then removed (0 subscriptions left).
 Screenshots: Tab's files `talorys-notif-fix-prod-*.png`.
+
+## Native push (the Android app)
+
+`apps/mobile` registers its FCM device token (`POST /api/push/devices`, `tal_push_devices`,
+migration 8) and the agent sends through **FCM HTTP v1** from the Worker
+(`apps/agent/src/push/fcm.ts`): a service-account JWT signed with WebCrypto (RS256), an OAuth
+access token cached for 55 minutes, one `messages:send` per device. `PushService.notify()` fans
+every message out to both channels, so the triggers and the three kinds above are identical; each
+phone keeps its own toggles. A 404 / `UNREGISTERED` from FCM deletes the device row.
+
+| Route | What |
+| --- | --- |
+| `GET /api/push/native` | `{ enabled, devices }` — enabled when the Worker has `FCM_SERVICE_ACCOUNT` |
+| `POST /api/push/devices` | `{ token, platform, label?, prefs? }` → upsert by token → `{ device }` |
+| `PATCH /api/push/devices/:id` | `{ approval?, result?, reminder? }` |
+| `DELETE /api/push/devices/:id` | forget a phone |
+| `POST /api/push/devices/test` | `{ id? }` → sends now, returns FCM's answer (`name` on success) per phone |
+
+Secrets: `FCM_SERVICE_ACCOUNT` (the service-account JSON, verbatim; SECRETS.md) and the optional
+`PUBLIC_APP_URL` var. Android channels `approvals` (high) and `updates` (default); a tap opens the
+chat in `data.conversation_id`. Approve/Decline buttons on the tray notification are not there yet
+(MOBILE.md).
+>>>>>>> 73706b2 (mobile: native Android app (Expo/React Native) — chat, approvals, drawer, settings, Hebrew RTL, local signed APK; agent: bearer sessions for the native app + FCM native push channel)

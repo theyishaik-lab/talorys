@@ -40,4 +40,11 @@ export interface Env {
   VAPID_PUBLIC_KEY?: string;
   VAPID_PRIVATE_KEY?: string;
   VAPID_SUBJECT?: string;
+  /**
+   * Native push for the Android app (apps/mobile): the Firebase service-account JSON, verbatim, as a
+   * Worker secret. Messages go out through FCM HTTP v1 signed by the Worker. Off without it.
+   */
+  FCM_SERVICE_ACCOUNT?: string;
+  /** Absolute origin notification deep links point at (the web app URL); defaults to the request origin. */
+  PUBLIC_APP_URL?: string;
 }

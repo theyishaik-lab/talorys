@@ -30,7 +30,7 @@ npx wrangler deploy --config deploy/agent.wrangler.jsonc
 - `deploy/agent.wrangler.jsonc` is the production config: same Worker name, Durable Object binding and
   class (`TalorysAgent`), migration tag `v1`, the `AI` binding and the `OPEN_CONNECTOR` service
   binding. A deploy keeps all data, the URL and every logged-in session.
-- Secrets (`OWNER_PASSWORD_HASH`, `SESSION_SECRET`, `OPEN_CONNECTOR_TOKEN`, `OPEN_CONNECTOR_ADMIN_TOKEN`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`) live on the Worker and are
+- Secrets (`OWNER_PASSWORD_HASH`, `SESSION_SECRET`, `OPEN_CONNECTOR_TOKEN`, `OPEN_CONNECTOR_ADMIN_TOKEN`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `FCM_SERVICE_ACCOUNT` for the native app's notifications) live on the Worker and are
   untouched by a deploy. Set or replace one with `npx wrangler secret put NAME --config deploy/agent.wrangler.jsonc`.
 - **Never rename** the Durable Object binding or class and never add a DO migration — that would
   orphan the database. Schema changes go into `apps/agent/src/db/migrations.ts` (append-only); they run
@@ -174,3 +174,10 @@ Files this fork changes relative to upstream (expect conflicts only here):
 `agent/talorys-agent.ts`, `api/routes/chat.ts` (approval uses the connector tool set), `env.ts`,
 `semantic/hooks.ts`, `packages/shared/src/constants.ts` (`DEFAULT_LIMITS` 10 tool calls / 8 steps),
 tests `agent.test.ts` + `openconnector.test.ts`, `DEPLOY.md`, `deploy/`, `docs/`.
+
+
+## 5. The native Android app
+
+Built locally from `apps/mobile` (`scripts/build-apk.sh`); not deployed anywhere — the APK is sent
+to the phone. Steps, signing, Firebase setup and versioning: `docs/system/MOBILE.md`. A web deploy
+does **not** update the app; a new APK does.

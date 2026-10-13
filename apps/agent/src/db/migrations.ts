@@ -250,6 +250,24 @@ export const MIGRATIONS: Migration[] = [
     // and offer the right fix (for a spent quota: Settings → Model).
     statements: [`ALTER TABLE tal_messages ADD COLUMN error_code TEXT`],
   },
+  {
+    version: 8,
+    name: "native push devices",
+    // Phones running the native app (apps/mobile), one row per FCM device token.
+    statements: [
+      `CREATE TABLE IF NOT EXISTS tal_push_devices (
+        id TEXT PRIMARY KEY,
+        token TEXT NOT NULL UNIQUE,
+        platform TEXT NOT NULL DEFAULT 'android',
+        label TEXT NOT NULL DEFAULT '',
+        prefs TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        last_used_at TEXT,
+        failures INTEGER NOT NULL DEFAULT 0
+      )`,
+    ],
+>>>>>>> 73706b2 (mobile: native Android app (Expo/React Native) — chat, approvals, drawer, settings, Hebrew RTL, local signed APK; agent: bearer sessions for the native app + FCM native push channel)
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

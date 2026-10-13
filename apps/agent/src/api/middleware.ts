@@ -53,7 +53,17 @@ export function sessionCookieName(c: Context<AppEnv>): string {
   return new URL(c.req.url).protocol === "https:" ? SESSION_COOKIE : DEV_SESSION_COOKIE;
 }
 
+/** The native app (apps/mobile) sends this header; its login response then carries the session token. */
+export const NATIVE_CLIENT_HEADER = "x-talorys-client";
+export function isNativeClient(c: Context<AppEnv>): boolean {
+  return c.req.header(NATIVE_CLIENT_HEADER) === "native";
+}
+
 export function readSessionToken(c: Context<AppEnv>): string | null {
+  // The native app keeps its session in the phone's secure store and sends it as a bearer token
+  // (no cookie jar, no CSRF surface: a bearer header is never attached by a browser on its own).
+  const auth = c.req.header("authorization");
+  if (auth?.startsWith("Bearer ")) return auth.slice(7).trim() || null;
   const header = c.req.header("cookie");
   if (!header) return null;
   const name = sessionCookieName(c);

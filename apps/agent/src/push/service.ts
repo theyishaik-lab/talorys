@@ -1,6 +1,7 @@
 import type { Database } from "../db/database";
 import { newId, now } from "../db/database";
 import type { Env } from "../env";
+import type { NativePushService } from "./native";
 import { type PushKeys, type SendResult, sendPush } from "./webpush";
 
 /** What a device can be told about. Each subscription keeps its own on/off per kind. */
@@ -81,6 +82,8 @@ export function pushKeysFromEnv(env: Pick<Env, "VAPID_PUBLIC_KEY" | "VAPID_PRIVA
 export class PushService {
   /** The transport; tests replace it with a fake push service. */
   send: typeof sendPush = sendPush;
+  /** The native (FCM) channel, when the Worker has a Firebase service account. Same kinds, own devices. */
+  native: NativePushService | null = null;
 
   constructor(
     private readonly db: Database,
@@ -151,11 +154,12 @@ export class PushService {
 
   /** Queues `message` for every device that wants `message.kind`. Returns how many were queued. */
   notify(message: PushMessage): number {
-    if (!this.keys) return 0;
+    const native = this.native?.notify(message) ?? 0;
+    if (!this.keys) return native;
     const rows = this.db.all<Row>(`SELECT * FROM tal_push_subscriptions`).filter((r) => message.kind === "test" || parsePrefs(r.prefs)[message.kind]);
-    if (rows.length === 0) return 0;
+    if (rows.length === 0) return native;
     this.deliver(this.sendAll(rows, message));
-    return rows.length;
+    return rows.length + native;
   }
 
   /** Sends now and waits for the push services' answers — the Settings "test" button. */

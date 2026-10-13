@@ -1,7 +1,7 @@
 import { changePasswordSchema, loginSchema } from "@talorys/shared";
 import { Hono } from "hono";
 import type { AppEnv } from "../app";
-import { body, clientId, readSessionToken, sessionCookie } from "../middleware";
+import { body, clientId, isNativeClient, readSessionToken, sessionCookie } from "../middleware";
 import { AppError } from "../errors";
 
 export const authRoutes = new Hono<AppEnv>();
@@ -11,6 +11,10 @@ authRoutes.post("/login", async (c) => {
   const auth = c.env.agent.services.auth;
   const { token, expiresAt } = await auth.login(password, clientId(c), c.req.header("user-agent") ?? "");
   c.env.agent.services.activity.record("auth.login", "Signed in");
+  if (isNativeClient(c)) {
+    // The native app cannot read an HttpOnly cookie; it stores the token itself (expo-secure-store).
+    return c.json({ authenticated: true, expires_at: expiresAt.toISOString(), token });
+  }
   c.header("set-cookie", sessionCookie(c, token, expiresAt));
   return c.json({ authenticated: true, expires_at: expiresAt.toISOString() });
 });

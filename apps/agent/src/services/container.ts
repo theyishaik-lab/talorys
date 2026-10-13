@@ -11,6 +11,8 @@ import { ActivityLog, UsageService } from "./usage";
 import { AuthService } from "../auth/auth-service";
 import { AutomationService, type Scheduler } from "../agent/scheduling";
 import { MemoryHistoryService, type MemoryHistoryHooks } from "../memory";
+import { parseFcmCredentials } from "../push/fcm";
+import { NativePushService } from "../push/native";
 import { excerpt, PushService, pushKeysFromEnv } from "../push/service";
 import { ProviderKeyStore } from "../ai/keys";
 import { ModelCatalogService } from "../ai/catalog";
@@ -54,8 +56,12 @@ export function createServices(storage: DurableObjectStorage, env: Env, schedule
   const memories = new MemoryRepository(db);
   const usage = new UsageService(db);
   const push = new PushService(db, pushKeysFromEnv(env), (work) => deliver(work.catch((e) => console.error("push delivery failed", e))));
+<<<<<<< HEAD
   const providerKeys = new ProviderKeyStore(settings, env.SESSION_SECRET);
   const catalog = new ModelCatalogService(env.AI, providerKeys);
+=======
+  push.native = new NativePushService(db, parseFcmCredentials(env.FCM_SERVICE_ACCOUNT), env.PUBLIC_APP_URL ?? "", (work) => deliver(work.catch((e) => console.error("native push delivery failed", e))));
+>>>>>>> 73706b2 (mobile: native Android app (Expo/React Native) — chat, approvals, drawer, settings, Hebrew RTL, local signed APK; agent: bearer sessions for the native app + FCM native push channel)
   // Everything that lands in the bell also reaches the devices that asked for it.
   notifications.onCreate = (n, kind) => {
     push.notify({ kind, title: n.title, body: excerpt(n.body), tag: `notification-${n.id}`, url: "/chat?notifications=1" });

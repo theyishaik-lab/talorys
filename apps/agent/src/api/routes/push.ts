@@ -61,3 +61,54 @@ pushRoutes.post("/push/test", async (c) => {
   );
   return c.json({ results: results.map((r) => ({ id: r.id, label: r.label, ok: r.ok, status: r.status, gone: r.gone })) });
 });
+
+// ---------- Native push (the Android app, Firebase Cloud Messaging) ----------
+
+const deviceRegisterSchema = z.object({
+  token: z.string().min(20).max(4096),
+  platform: z.enum(["android", "ios"]).default("android"),
+  label: z.string().max(80).optional(),
+  prefs: pushPrefsSchema.optional(),
+});
+
+function nativePush(c: { env: AppEnv["Bindings"] }) {
+  const native = c.env.agent.services.push.native;
+  if (!native) throw new AppError("NOT_CONFIGURED", "Native push is not set up on this install (no Firebase service account).");
+  return native;
+}
+
+/** Whether native push is configured and which phones are registered. */
+pushRoutes.get("/push/native", (c) => {
+  const native = c.env.agent.services.push.native;
+  return c.json({ enabled: native?.enabled ?? false, devices: native?.list() ?? [] });
+});
+
+/** Registers this phone's FCM token (idempotent per token) and returns its row. */
+pushRoutes.post("/push/devices", async (c) => {
+  const native = nativePush(c);
+  if (!native.enabled) throw new AppError("NOT_CONFIGURED", "Native push is not set up on this install (no Firebase service account).");
+  const input = await body(c, deviceRegisterSchema);
+  return c.json({ device: native.register(input) }, 201);
+});
+
+pushRoutes.patch("/push/devices/:id", async (c) => {
+  const patch = await body(c, pushPrefsSchema);
+  const device = nativePush(c).setPrefs(c.req.param("id"), patch);
+  if (!device) throw new NotFoundError("This phone is no longer registered.");
+  return c.json({ device });
+});
+
+pushRoutes.delete("/push/devices/:id", (c) => {
+  nativePush(c).unregister(c.req.param("id"));
+  return c.body(null, 204);
+});
+
+/** Sends a test message through FCM now and reports what FCM answered, per phone. */
+pushRoutes.post("/push/devices/test", async (c) => {
+  const native = nativePush(c);
+  if (!native.enabled) throw new AppError("NOT_CONFIGURED", "Native push is not set up on this install (no Firebase service account).");
+  const { id } = await body(c, z.object({ id: z.string().max(64).optional() }));
+  const agentName = c.env.agent.services.settings.get().agentName;
+  const results = await native.sendNow({ kind: "test", title: agentName, body: "Notifications are working on this phone. This is a test.", tag: `test-${Date.now()}`, url: "/settings" }, id);
+  return c.json({ ok: results.every((r) => r.ok), results: results.map((r) => ({ id: r.id, label: r.label, ok: r.ok, status: r.status, gone: r.gone, name: r.name, error: r.ok ? undefined : r.body })) });
+});
