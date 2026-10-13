@@ -5,25 +5,25 @@
 | # | Issue | Impact | Fix / workaround |
 | --- | --- | --- | --- |
 | 1 | **OpenConnector bundle 3,034 KiB of the 3,072 KiB free-plan limit** | The next upstream merge may not deploy on the free plan | Exclude unused providers from the Cloudflare bundle; or Workers Paid ($5/month, 10 MiB) |
-| 2 | **Weak free model** (`glm-4.7-flash`) | Fine for one-step requests in English and Hebrew; unreliable for multi-step flows across apps and sometimes in Hebrew (answers without calling tools, or guesses an action's input before reading its guide, then recovers) | Raised limits to 10 tool calls / 8 steps. Real fix: a stronger model (needs a provider/API key, see below) or direct per-app tools that skip catalog discovery |
+| 2 | ~~Weak free model~~ **improved Oct 13, 2026** | Settings → Model picks Workers AI, Gemini or OpenRouter `:free`, with a fallback chain and per-model error attribution (MODELS.md) | Free tiers are rate-limited and sometimes overloaded (Gemini 503s); a paid key would remove that |
 | 3 | **Google app is unverified** | Consent shows "Google hasn't verified this app" → Advanced → Go to Talorys | Expected for a personal app; verification is only needed for other users |
 | 4 | **Google setup in progress** | Gmail/Calendar/Drive not usable yet | See CONNECTIONS.md |
-| 5 | **Live web lags `main`** | The "AI usage today" popover (upstream `980331b`) is on `main` but not live | Next web deploy from the fork (DEPLOY.md §3) |
+| 5 | ~~Live web lags `main`~~ | **Done Oct 13, 2026**: web is deployed from `main` | — |
 | 6 | ~~No right-to-left support in the UI~~ | **Done Oct 13, 2026** (`9b41c85`): Hebrew locale + RTL layout, Settings → General → Language | Remaining: translate the Memory/Tasks/Notes/Automations pages and the other Settings tabs — UI.md → "Hebrew / right-to-left" |
-| 7 | ~~No push notifications~~ **done Oct 13, 2026** | Web Push from the agent Worker with per-install VAPID keys; installable app (PWA); the WebView APK is deprecated — `NOTIFICATIONS.md` | — |
-| 8 | **Daily AI budget** | 200 AI requests/day (Talorys) and the Workers AI free Neuron allocation; when it runs out the chat stops answering until the next UTC day (03:00 Israel time in summer, 02:00 in winter) | Settings → AI; the usage popover after the web deploy |
+| 7 | ~~No push notifications~~ **done Oct 13, 2026** | Web Push from the agent Worker with per-install VAPID keys; installable app (PWA); FCM for the native Android app — `NOTIFICATIONS.md` | — |
+| 8 | **Daily AI budget** | 400 AI requests/day (Talorys setting), the Workers AI free Neuron allocation and the providers' free limits (OpenRouter 50/day); when it runs out the chat stops answering until the next UTC day (03:00 Israel time in summer, 02:00 in winter) | Settings → AI; the usage popover after the web deploy |
 | 9 | **Single runtime token with full access** | Talorys's runtime token can run any action on any connection (writes still need Yishai's Approve) | Create a scoped key in OpenConnector's Access page (per-service / per-action grants, from Yishai's grants commit) and swap `OPEN_CONNECTOR_TOKEN` |
 | 10 | **Installer `update` is a trap** | Overwrites the connector integration | Never run it; deploy from the fork |
 | 11 | **Upstream OpenConnector is 330 commits ahead** | Missing newer providers/fixes | Merge `upstream-main` with conflict resolution + size check |
-| 12 | **`/api/health` says `0.1.5`** | It reports the shared constant; the real deploy marker is `deployed_version` (`0.1.5-openconnector`) in `/api/system` | Cosmetic |
+| 12 | **`/api/health` says `0.1.5`** | It reports the shared constant; the real deploy marker is `deployed_version` (e.g. `0.1.13-attrib`) in `/api/system` | Cosmetic |
 | 13 | **Worker var `TALORYS_DEFAULT_TIMEZONE` = `UTC`** | Only the first-run default; the app setting is `Asia/Jerusalem` and wins | Cosmetic; could set the var to `Asia/Jerusalem` on the next agent deploy |
-| 14 | **Android app untested on a real device by Tab** | — | Feedback from Yishai's phone |
+| 14 | **No emulator on Tab's box** | Native app screens are verified on Yishai's Pixel 9 Pro (v0.1.2 confirmed working Oct 13, 2026), not by Tab | Feedback from Yishai's phone |
 | 15 | **Public repos** | URLs and resource ids visible (no secrets) | Make repos private if preferred |
 
 ## Done Oct 13, 2026: the agent adds connections itself (CONNECTIONS.md "Connecting an app from the chat")
 
 Agreed with Yishai on Oct 13, 2026. Goal: "connect Notion" in the chat is enough. Items 1–3 below are
-implemented (`feat/self-connect`); the key is typed on the card, never in the chat. Still open:
+implemented (merged into `main`); the key is typed on the card, never in the chat. Still open:
 item 4 (a Connections page), enabling the Docs/Sheets/Tasks APIs in the Cloud project, and
 registering OAuth apps for non-Google providers.
 
@@ -44,12 +44,8 @@ registering OAuth apps for non-Google providers.
 ## Later ideas
 
 - **UI work** (Yishai, next): layout and look (redesign/rebrand) — RTL is in; see UI.md.
-- **Stronger model**: an `AIProvider` for an external API (OpenRouter, Gemini, Anthropic, OpenAI) next
-  to Workers AI, selected in `TalorysAgent.aiProvider()` and Settings. Needs an API key (paid or a free
-  tier) as a Worker secret.
-- **Push notifications**: Web Push from the agent Worker (VAPID keys as secrets) and/or Firebase Cloud
-  Messaging in the Android app.
+- **Fallback chain in the UI**: the chain is set through the API today (MODELS.md); neither picker edits it.
 - **Scoped runtime token** for Talorys (issue 9).
 - **Deploy automation**: a GitHub Actions workflow on `theyishaik-lab/talorys` that runs tests and
   deploys agent + web on push to `main` (needs `CLOUDFLARE_API_TOKEN` as a repository secret).
-- **Android 1.1**: pull-to-refresh, push, Play-store-ready signing if ever published.
+- **Native app**: pull-to-refresh, Play-store-ready signing if ever published (MOBILE.md).

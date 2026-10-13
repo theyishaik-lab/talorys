@@ -16,7 +16,7 @@ see SECRETS.md). Account id `25e3dffccdb99cd3801798bcc4a5b54a`.
 ```bash
 npm install
 npm run typecheck
-npm test -w @talorys/agent      # 282 tests, ~40 s (runs inside workerd)
+npm test -w @talorys/agent      # 381 tests, ~40 s (runs inside workerd)
 npm test -w @talorys/web        # when apps/web changed
 ```
 
@@ -43,8 +43,8 @@ Check: `curl https://talorys-lxl5w9o0-web.pages.dev/api/health` → `"ok":true`;
 
 ## 3. Deploy the web app (Pages project `talorys-lxl5w9o0-web`)
 
-Needed only when `apps/web` changed. Android picks the change up automatically (the app loads the live
-site), so no APK rebuild is needed for UI work.
+Needed only when `apps/web` changed. It updates the browser and the installed web app (PWA); the
+native Android app is separate (section 5) and only changes with a new APK.
 
 The build also writes `dist/sw.js` (the service worker, see NOTIFICATIONS.md) with a hash of this
 build: every deploy installs a new worker on the phones and drops the old shell cache. If the build

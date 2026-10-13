@@ -42,7 +42,7 @@ Fixes (`bc77518`):
 On his live agent afterwards: first word **1.0 s** for a simple Hebrew question, **2.1 s** for one that
 used a tool (tool chip at 1.05 s).
 
-## Fallback chain (branch feat/openrouter-chain, Oct 13, 2026)
+## Fallback chain (agent 0.1.12-chain, Oct 13, 2026)
 
 Oct 13 ~16:50 IL every free Gemini model answered 503 "high demand" at once and Workers AI was spent, so a
 single backup was not enough. `settings.fallback` gained an additive `chain`:

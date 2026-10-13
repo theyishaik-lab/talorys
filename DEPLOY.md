@@ -1,7 +1,7 @@
 # Yishai's deployment — quick reference
 
-Full documentation: **[docs/README.md](docs/README.md)** (architecture, deploy, connections, UI, Android,
-secrets, roadmap). This page is the short version.
+Full documentation: **[docs/README.md](docs/README.md)** (architecture, deploy, connections, UI, mobile,
+models, secrets, roadmap). This page is the short version.
 
 > ⚠️ **Never run `npx create-talorys update` on this installation.** It redeploys the published npm
 > package and removes the OpenConnector integration. Deploy from this fork
@@ -9,13 +9,13 @@ secrets, roadmap). This page is the short version.
 
 | | |
 | --- | --- |
-| App | https://talorys-lxl5w9o0-web.pages.dev (Talorys 0.1.6-push + OpenConnector tools, installation `lxl5w9o0`) |
+| App | https://talorys-lxl5w9o0-web.pages.dev (agent `0.1.13-attrib` from this fork + OpenConnector tools, installation `lxl5w9o0`) |
 | Cloudflare account | `25e3dffccdb99cd3801798bcc4a5b54a`, free plan, no card; login email is Tab's mailbox for Yishai |
 | Agent Worker | `talorys-lxl5w9o0-agent` (private) — deployed from this repo's `main` with `deploy/agent.wrangler.jsonc` |
 | Web | Pages project `talorys-lxl5w9o0-web` |
-| Model | Workers AI `@cf/zai-org/glm-4.7-flash` |
+| Model | Chosen in Settings → Model (Workers AI / Gemini / OpenRouter) with a fallback chain — [docs/system/MODELS.md](docs/system/MODELS.md) |
 | OpenConnector | Worker `open-connector`, https://open-connector.yishai-kaminsky.workers.dev ([theyishaik-lab/open-connector](https://github.com/theyishaik-lab/open-connector)) |
-| Phone app | Install from Chrome (Settings → Device notifications → Install) or iOS Share → Add to Home Screen — [docs/system/NOTIFICATIONS.md](docs/system/NOTIFICATIONS.md). The WebView APK ([talorys-android](https://github.com/theyishaik-lab/talorys-android)) is deprecated |
+| Phone app | Native Android app `dev.talorys.app` (`apps/mobile`, APKs as `native-v0.1.x` GitHub releases) — [docs/system/MOBILE.md](docs/system/MOBILE.md). Or install the web app from Chrome / iOS Add to Home Screen — [docs/system/NOTIFICATIONS.md](docs/system/NOTIFICATIONS.md) |
 | App timezone | `Asia/Jerusalem` (app setting) |
 
 ## Deploy in three lines

@@ -5,7 +5,7 @@ you ever need one, ask Tab; it travels privately.
 
 "Tab's secret store" means files on Tab's private machine that only Tab reads (mode 600):
 `state/talorys-secrets.json`, `state/openconnector-secrets.json`, `state/github-project-secrets.json`,
-`state/talorys-android-keystore/`. Saved website logins sit in Tab's encrypted login vault.
+`state/talorys-mobile-keystore/`, `state/talorys-firebase/`. Saved website logins sit in Tab's encrypted login vault.
 
 ## Cloudflare account
 
@@ -67,7 +67,7 @@ No secrets. One service binding `AGENT` → `talorys-lxl5w9o0-agent` (`deploy/we
 
 | Account | Used for | Where the login lives |
 | --- | --- | --- |
-| GitHub **theyishaik-lab** | the three repos, OpenConnector GitHub connection | Yishai signs in with Google; Tab holds an OAuth token (device flow, scopes repo/workflow/read:org/gist) |
+| GitHub **theyishaik-lab** | the repos (`talorys`, `open-connector`), OpenConnector GitHub connection | Yishai signs in with Google; Tab holds an OAuth token (device flow, scopes repo/workflow/read:org/gist) |
 | GitHub **yishaik** (personal) | **not used — never write here** | — |
 | Google **theyishaik@gmail.com** | Cloud project `talorys-connector`, Gmail/Calendar/Drive | Yishai; a copy saved by him in Tab's login vault (Oct 13) for the Cloud Console setup |
 
@@ -75,7 +75,11 @@ No secrets. One service binding `AGENT` → `talorys-lxl5w9o0-agent` (`deploy/we
 
 | Name | Where |
 | --- | --- |
-| `talorys.jks` (alias `talorys`) + `keystore.json` (store password) | Tab's secret store (`state/talorys-android-keystore/`) — never in git |
+| `talorys-release.jks` (alias `talorys`) for `dev.talorys.app` | Tab's secret store (`state/talorys-mobile-keystore/`, `env.sh` beside it); passwords in `talorys-secrets.json` → `mobile_keystore` — never in git. Every update must be signed with it (MOBILE.md) |
+| `google-services.json`, FCM service-account key | Tab's secret store (`state/talorys-firebase/`); copied to `apps/mobile/google-services.json` (gitignored) at build time |
+
+The old WebView APK (`bot.tab.talorys.yishai`) and its keystore were deleted on Oct 13, 2026, after
+the native app was confirmed on Yishai's phone.
 
 ## Git hygiene
 

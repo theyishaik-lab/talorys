@@ -1,6 +1,6 @@
 # Installable app and device notifications
 
-Since Oct 13, 2026 (branch `feat/pwa-push`), the web app is an **installable app (PWA)** and sends
+Since Oct 13, 2026 (agent 0.1.6-push), the web app is an **installable app (PWA)** and sends
 **real device notifications with Web Push**, signed and encrypted by the owner's own agent Worker.
 No Firebase, no Apple account, no third-party relay: each install has its own VAPID key pair.
 
@@ -13,10 +13,8 @@ No Firebase, no Apple account, no third-party relay: each install has its own VA
 | Desktop (Chrome, Edge) | Address-bar install icon or Settings → Install | A window without browser chrome |
 
 The **native Android app** (`docs/system/MOBILE.md`) gets its notifications through Firebase Cloud
-Messaging instead — see "Native push" at the end. The Android WebView app (`docs/system/ANDROID.md`) is **deprecated**: a WebView has no Push API, so
-it can never receive notifications. Install from Chrome instead; sign in once more (the installed
-app has its own storage). The APK project stays in the repo until Yishai confirms the installed app
-and its notifications work on his phone; then it goes.
+Messaging instead — see "Native push" at the end. The first, WebView-based APK (no Push API) was
+retired on Oct 13, 2026 and its source, key and download page deleted.
 
 ## How a notification gets to the phone
 
@@ -115,7 +113,7 @@ open invalidates the notifications and conversation queries (`main.tsx`).
 
 ### What the section shows (Oct 13, 2026, `34ded0e`, `0c75a3f`)
 
-- **State panel**: where it runs (browser tab / installed app / old Android app), permission
+- **State panel**: where it runs (browser tab / installed app / an Android WebView), permission
   (not asked yet / allowed / blocked), registered with the agent yes/no, last test result with the push
   service's HTTP status (Google answers 201 when it accepted the message).
 - A failed enable names the step that failed (permission, service worker, subscribe, server) in Hebrew
@@ -132,7 +130,7 @@ finished subscribing (the old WebView APK has no Push API, or Chrome quieted the
 
 - **iOS**: notifications only from the home-screen app (iOS 16.4+); no action buttons; no silent
   pushes; permission is asked from a tap inside the installed app; Focus modes apply.
-- **Android WebView** (the old APK): no push, ever. **Firefox Android**: push works from the browser.
+- **Android WebView**: no Push API, ever. **Firefox Android**: push works from the browser.
 - A push payload is kept under 1 KB (title, one line of body, tag, url, action id).
 - Chrome shows "This site has been updated in the background" if a push shows no notification while
   no window is focused — the worker always shows one in that case.

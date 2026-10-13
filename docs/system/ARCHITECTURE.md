@@ -11,10 +11,9 @@ October 13, 2026 it can also reach outside apps (GitHub today, Google next) thro
 | --- | --- | --- | --- |
 | **Web app** | React single-page app + a tiny `/api` proxy function | Cloudflare Pages project `talorys-lxl5w9o0-web` → https://talorys-lxl5w9o0-web.pages.dev | `apps/web` in this repo |
 | **Agent** | The backend: Hono HTTP API + `TalorysAgent` Durable Object with its own SQLite database; runs the AI loop and the tools | Worker `talorys-lxl5w9o0-agent` (private, no public URL) | `apps/agent` in this repo |
-| **AI model** | `@cf/zai-org/glm-4.7-flash` | Workers AI (binding `AI`), free daily allocation | — |
+| **AI model** | Chosen in Settings → Model: Workers AI, Gemini or OpenRouter `:free`, with a fallback chain (MODELS.md). Oct 13, 2026: OpenRouter Nemotron 3 Super → Gemini 3.5 Flash → Gemini 3.5 Flash Lite → Workers AI Gemma 4 | Workers AI (binding `AI`) and the providers' free tiers, keys stored encrypted in the agent | `apps/agent/src/ai` |
 | **OpenConnector** | Auth gateway: holds the credentials of outside apps, exposes ~14,700 actions of ~1,420 providers over MCP and HTTP, has a web console | Worker `open-connector` → https://open-connector.yishai-kaminsky.workers.dev, D1 database `open-connector`, KV namespace `open-connector-transit-files` | [theyishaik-lab/open-connector](https://github.com/theyishaik-lab/open-connector), branch `main` |
 | **Android app (native)** | React Native / Expo app on the same agent API: chat, approvals, drawer, settings, FCM notifications (`docs/system/MOBILE.md`) | Yishai's phone, package `dev.talorys.app`, APK built locally | `apps/mobile` |
-| **Android app (old, deprecated)** | Full-screen WebView wrapper around the web app — no push, replaced by the native app | package `bot.tab.talorys.yishai` | [theyishaik-lab/talorys-android](https://github.com/theyishaik-lab/talorys-android) (private) |
 | **Shared code** | Zod schemas, constants, recurrence rules, crypto helpers | bundled into web + agent | `packages/shared` |
 | **Installer** | `create-talorys` CLI (the original one-command install) | used once, Oct 12, 2026 | `packages/create-talorys` |
 
@@ -133,8 +132,8 @@ owner taps Cancel  -> POST /api/actions/:id/cancel -> nothing runs
 The card shows the final state ("Approved and done", "Approved, but it failed", cancelled, expired).
 The bell list refreshes every 30 seconds while the app is open, and every notification that lands
 in it (plus every proposed approval) is also sent as a device notification (Web Push) to the phones
-that enabled it in Settings → Device notifications — see NOTIFICATIONS.md. The old Android WebView
-app never gets them; the installable web app does.
+that enabled it in Settings → Device notifications (Web Push), and to the native Android app
+through Firebase Cloud Messaging — see NOTIFICATIONS.md.
 
 ## OpenConnector itself
 
@@ -160,17 +159,17 @@ Yishai's personal account `yishaik`.
 
 | Repo | Visibility | Branches | What is deployed |
 | --- | --- | --- | --- |
-| [theyishaik-lab/talorys](https://github.com/theyishaik-lab/talorys) | public | `main` (deployable), `feat/openconnector` (merged into main) | Agent Worker = `main` (commit `20f4a6f`, deployed Oct 13 02:05 IL). Web = the installer's published 0.1.5 build, *not yet* `main` (see ROADMAP.md) |
+| [theyishaik-lab/talorys](https://github.com/theyishaik-lab/talorys) | public | `main` only (feature branches are deleted once merged); tags `native-v0.1.x` carry the APK releases | Agent Worker and web are both deployed from `main` (agent `0.1.13-attrib`, Oct 13, 2026); `/api/system` → `deployed_version` is the marker |
 | upstream [rociiu/talorys](https://github.com/rociiu/talorys) | public | `main` | remote `upstream` in the local clone |
 | [theyishaik-lab/open-connector](https://github.com/theyishaik-lab/open-connector) | public | `main` (= deployed), `upstream-main` (upstream's newer main, 330 commits ahead, not merged) | Worker `open-connector` = `main` @ `4d5a7bc3`, deployed Oct 13 00:18 IL |
-| [theyishaik-lab/talorys-android](https://github.com/theyishaik-lab/talorys-android) | private | `main` | APK v1.0 (versionCode 1) |
+| theyishaik-lab/talorys-android | archived | `main` | Nothing — the old WebView APK, retired Oct 13, 2026 (archived; to be deleted) |
 
 ## Data and state
 
 | What | Where |
 | --- | --- |
 | Chats, memories, tasks, notes, automations, notifications, settings, sessions, usage | SQLite inside the `TalorysAgent` Durable Object (one instance, `personal-agent`). Back up from Settings → Privacy → Download backup (`/api/export`). |
-| App settings such as timezone (`Asia/Jerusalem`) and AI limits (10 tool calls / 8 steps) | `tal_settings` in that database (changed in Settings; the Worker var `TALORYS_DEFAULT_TIMEZONE=UTC` is only the first-run default) |
+| App settings such as timezone (`Asia/Jerusalem`), the model and fallback chain, and AI limits (10 tool calls / 8 steps, 400 AI requests a day) | `tal_settings` in that database (changed in Settings; the Worker var `TALORYS_DEFAULT_TIMEZONE=UTC` is only the first-run default) |
 | Connected accounts, OAuth client configs, run audit | OpenConnector's D1 database, encrypted |
 | Secrets | Worker secrets on Cloudflare + Tab's private secret store — see SECRETS.md |
 
@@ -179,6 +178,7 @@ Yishai's personal account `yishaik`.
 - Workers free plan: compressed Worker size limit 3 MiB. The agent bundle is ~632 KiB gzip; the
   OpenConnector bundle is ~3,034 KiB of 3,072 KiB — almost full.
 - Workers free plan CPU: 10 ms per request (waiting on network does not count).
-- Workers AI free allocation is a daily Neuron budget; Talorys also enforces its own 200 requests/day.
+- Workers AI free allocation is a daily Neuron budget; OpenRouter `:free` allows 50 requests a day on
+  this key; Talorys also enforces its own daily cap (Settings → AI, 400 since Oct 13, 2026).
 - No R2, no Vectorize, no paid add-ons. Everything else (D1, KV, Durable Objects with SQLite, Pages)
   is on the free plan.

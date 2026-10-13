@@ -1,7 +1,8 @@
 # Changing the UI
 
-The whole user interface — web and Android — is one React app in **`apps/web`**. The Android app is a
-WebView that loads the live site, so a web deploy updates the phone too; no APK rebuild is needed.
+The web user interface (browser and installed PWA) is one React app in **`apps/web`**; a web deploy
+updates both. The native Android app is a separate React Native app in `apps/mobile` (MOBILE.md) — a
+web deploy does not change it.
 
 ## Stack
 
@@ -32,7 +33,7 @@ apps/web/
     lib/api.ts               fetch wrapper (CSRF header, 401 handling) + streamChat (SSE)
     lib/theme.ts             light / dark / auto per device (localStorage "talorys.theme")
     lib/utils.ts             cn() class joining, date/time formatting, copyText
-    lib/links.ts             REPO_URL / ANDROID_REPO_URL / DEPLOY_DOC_URL (this fork), UPSTREAM_URL
+    lib/links.ts             REPO_URL / ANDROID_SOURCE_URL (apps/mobile) / DEPLOY_DOC_URL (this fork), UPSTREAM_URL
     hooks/queries.ts         every API query/mutation + query keys + polling intervals
     hooks/session.tsx        login state
     hooks/toast.tsx          toasts
@@ -47,7 +48,7 @@ apps/web/
       Markdown.tsx           how assistant messages render
       WriterEditor.tsx       notes editor
       SemanticRecallCard.tsx settings card for semantic memory
-      SourceLinks.tsx        GitHubIcon + the "Source · Android" repository links (sidebar footer,
+      SourceLinks.tsx        GitHubIcon + the "Source · Android" source links (sidebar footer,
                              login footer; the About tab uses the icon too)
       Logo.tsx
       ui/index.tsx           the primitives: Button, Input, Textarea, Select, Label, Badge, Spinner,
@@ -196,12 +197,12 @@ before/after table is in the owner's `talorys-perf-report.md`.
 - **Content-Security-Policy** (`public/_headers`): only same-origin scripts, styles, fonts, images and
   connections are allowed (`default-src 'self'`). A Google Font, CDN script or external image will be
   blocked unless you bundle it or extend the policy deliberately. `frame-ancestors 'none'` — the app
-  cannot be embedded in an iframe (the Android WebView is not affected).
+  cannot be embedded in an iframe.
 - **Polling:** notifications refresh every 30 s, chat polls every 1.5 s only while a reply is
   streaming; a device push received while the app is open refreshes both at once (PWA + Web Push,
   `docs/system/NOTIFICATIONS.md`).
-- **Mobile:** the same layout serves the Android WebView; test at phone width (about 390 px) and with
-  the on-screen keyboard (the Android app uses `adjustResize`).
+- **Mobile:** the same layout serves phone browsers and the installed PWA; test at phone width (about
+  390 px) and with the on-screen keyboard.
 - Keep the bundle lean: the app is served from Pages (no size limit worth worrying about), but the
   phone loads it over mobile data.
 

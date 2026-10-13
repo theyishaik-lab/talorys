@@ -18,10 +18,10 @@ This folder has two kinds of documents:
 | [DEPLOY.md](system/DEPLOY.md) | How to deploy and update each piece safely, local dev, tests |
 | [CONNECTIONS.md](system/CONNECTIONS.md) | Which outside services are connected (GitHub, Google, public), how to add one |
 | [UI.md](system/UI.md) | Where the front end lives and how to change it, run it and ship it |
-| [ANDROID.md](system/ANDROID.md) | The Android app: package, versions, signing key, rebuild |
+| [MOBILE.md](system/MOBILE.md) | The native Android app (`apps/mobile`): build, signing key, releases, push, keyboard |
 | [SECRETS.md](system/SECRETS.md) | Every secret and config value by NAME and where it lives (never the values) |
-| [MODELS.md](system/MODELS.md) | Which Workers AI chat model is used and why (benchmark), the leak guard, how to re-run the bench |
-| [NOTIFICATIONS.md](system/NOTIFICATIONS.md) | The installable app (PWA) and device notifications (Web Push with per-install VAPID keys) |
+| [MODELS.md](system/MODELS.md) | Model providers (Workers AI, Gemini, OpenRouter), the picker, the fallback chain, error attribution, the leak guard and bench |
+| [NOTIFICATIONS.md](system/NOTIFICATIONS.md) | The installable app (PWA), Web Push (per-install VAPID keys) and native push (FCM) |
 | [ROADMAP.md](system/ROADMAP.md) | Known issues, limits and what comes next |
 
 ## Upstream reference docs
