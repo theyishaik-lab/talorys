@@ -397,9 +397,17 @@ export function isModelIdFor(provider: AiProviderId, model: string): boolean {
   return provider === "workers-ai" ? WORKERS_AI_MODEL.test(model) : OPEN_MODEL_ID.test(model);
 }
 
+/** Any provider's model id: no spaces, no URL (a model is chosen by id, never fetched from an address). */
+const modelIdString = z
+  .string()
+  .min(1)
+  .max(200)
+  .regex(/^@?[\w.\-/:]+$/, "Not a model id")
+  .refine((v) => !v.includes("://"), "Not a model id");
+
 const modelRef = z.object({ provider: aiProviderSchema, model: z.string().min(1).max(200) }).refine((v) => isModelIdFor(v.provider, v.model), "Not a model id of that provider");
 /** Where to turn when the chosen model's quota is spent. */
-export const fallbackSchema = z.object({ enabled: z.boolean(), provider: aiProviderSchema, model: z.string().min(1).max(200) });
+export const fallbackSchema = z.object({ enabled: z.boolean(), provider: aiProviderSchema, model: modelIdString });
 export type FallbackSettings = z.infer<typeof fallbackSchema>;
 export const DEFAULT_FALLBACK: FallbackSettings = { enabled: false, provider: "workers-ai", model: DEFAULT_MODEL };
 
@@ -410,7 +418,7 @@ export const settingsSchema = z
     theme: z.enum(["system", "light", "dark"]),
     /** The chat model's provider. Settings stored before this field existed are Workers AI. */
     modelProvider: aiProviderSchema.default("workers-ai"),
-    model: z.string().min(1).max(200),
+    model: modelIdString,
     fallback: fallbackSchema.default(DEFAULT_FALLBACK),
     temperature: z.number().min(0).max(1.5),
     limits: limitsSchema,
@@ -430,7 +438,7 @@ export const settingsUpdateSchema = z.object({
   timezone: z.string().refine(isValidTimeZone, "Unknown IANA timezone").optional(),
   theme: z.enum(["system", "light", "dark"]).optional(),
   modelProvider: aiProviderSchema.optional(),
-  model: z.string().min(1).max(200).optional(),
+  model: modelIdString.optional(),
   fallback: fallbackSchema.partial().optional(),
   temperature: z.number().min(0).max(1.5).optional(),
   autoMemory: z.boolean().optional(),

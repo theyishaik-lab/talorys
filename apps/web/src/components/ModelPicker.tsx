@@ -5,7 +5,7 @@ import { type ComponentType, type FormEvent, type ReactNode, useState } from "re
 import { useToast, errorMessage } from "../hooks/toast";
 import { keys as queryKeys, useApiMutation } from "../hooks/queries";
 import { api } from "../lib/api";
-import { type StringKey, useT } from "../lib/i18n";
+import { type StringKey, useLocale, useT } from "../lib/i18n";
 import { cn, relativeTime } from "../lib/utils";
 import { Badge, Button, Input, Select, Spinner, Switch } from "./ui";
 import { providerLabel } from "../lib/provider-label";
@@ -148,8 +148,35 @@ function ProviderSection({
   );
 }
 
+/**
+ * Short Hebrew lines for the models people actually pick; the rest show the provider's own
+ * (English) description, clamped to two lines. Speed / quality / tools / price are the tags below.
+ */
+const HE_DESCRIPTIONS: Record<string, string> = {
+  "gemini-3.5-flash": "מהיר וחכם, מומלץ לשימוש יומיומי. מתחיל לענות תוך כשנייה.",
+  "gemini-3.5-flash-lite": "הכי מהיר וחסכוני, לשאלות קצרות. מתאים כמודל גיבוי.",
+  "gemini-3.8-flash": "החדש והחזק של Flash. במסלול החינמי הוא לפעמים עמוס ועלול להתעכב.",
+  "gemini-3.7-flash": "דור קודם של Flash. חזק, לפעמים עמוס במסלול החינמי.",
+  "gemini-3.6-flash": "דור קודם של Flash, יציב.",
+  "gemini-3.1-flash-lite": "קל ומהיר, דור קודם.",
+  "gemini-3.1-pro-preview": "החזק ביותר לחשיבה מורכבת. איטי יותר, ומכסה חינמית קטנה.",
+  "gemini-3-flash-preview": "גרסת תצוגה מוקדמת של Gemini 3 Flash.",
+  "@cf/google/gemma-4-26b-a4b-it": "Gemma 4 של גוגל, רץ ב-Cloudflare. היה המודל הראשי של Talorys.",
+  "@cf/zai-org/glm-4.7-flash": "מהיר, תומך בכלים. מודל גיבוי טוב ב-Cloudflare.",
+  "@cf/meta/llama-3.3-70b-instruct-fp8-fast": "Llama גדול ומהיר. צורך הרבה מהמכסה היומית.",
+  "@cf/qwen/qwen3-30b-a3b-fp8": "Qwen מהיר, טוב בהפעלת כלים.",
+  "@cf/mistralai/mistral-small-3.1-24b-instruct": "Mistral קטן ומאוזן.",
+  "@cf/openai/gpt-oss-120b": "מודל פתוח של OpenAI. חזק בחשיבה, איטי יותר.",
+  "@cf/openai/gpt-oss-20b": "גרסה קטנה ומהירה של gpt-oss.",
+  "google/gemma-4-26b-a4b-it:free": "Gemma 4 בחינם דרך OpenRouter, עם הגבלת קצב.",
+  "openrouter/free": "OpenRouter בוחר לבד מודל חינמי פנוי.",
+};
+
 function ModelRow({ model: m, selected, disabled, onChoose }: { model: CatalogModel; selected: boolean; disabled: boolean; onChoose: () => void }) {
   const t = useT();
+  const { locale } = useLocale();
+  const he = locale === "he" ? HE_DESCRIPTIONS[m.id] : undefined;
+  const description = he ?? m.description;
   const tags: { text: string; tone: "neutral" | "accent" | "success" | "warning" }[] = [];
   if (m.speed) tags.push({ text: t(`model.tag.speed.${m.speed}` as StringKey), tone: "neutral" });
   if (m.quality) tags.push({ text: t(`model.tag.quality.${m.quality}` as StringKey), tone: "neutral" });
@@ -177,9 +204,9 @@ function ModelRow({ model: m, selected, disabled, onChoose }: { model: CatalogMo
           {m.recommended && <Badge tone="accent">{t("model.recommended")}</Badge>}
           {selected && <span className="text-[12px] text-accent">{t("model.selected")}</span>}
         </span>
-        {m.description && (
-          <span dir="auto" className="mt-0.5 block text-[12.5px] leading-5 text-fg-muted">
-            {m.description}
+        {description && (
+          <span dir="auto" className={cn("mt-0.5 block text-[12.5px] leading-5 text-fg-muted", !he && "line-clamp-2")}>
+            {description}
           </span>
         )}
         <span className="mt-1.5 flex flex-wrap gap-1">

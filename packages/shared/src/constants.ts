@@ -20,7 +20,7 @@ export const PROVIDER_KEY_URLS = {
  * From ai.google.dev/gemini-api/docs/models on Oct 13, 2026: the 2.5 generation is limited to
  * accounts that already used it; new projects get 3.x.
  */
-export const GEMINI_STATIC_MODELS = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-2.5-pro"] as const;
+export const GEMINI_STATIC_MODELS = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"] as const;
 
 export const BACKUP_FORMAT = "talorys-backup";
 export const BACKUP_VERSION = 1;

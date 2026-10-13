@@ -35,6 +35,9 @@ export function geminiThinking(modelId: string): { thinkingLevel?: "minimal" | "
 export function isGeminiChatModel(name: string, methods: string[] | undefined): boolean {
   const id = name.replace(/^models\//, "");
   if (!/^gemini-\d/.test(id)) return false;
+  // The 2.x generation still shows up in the list but answers 404 "no longer available to new
+  // users" to new keys (seen Oct 13, 2026 on a key made that day): offering it would only fail.
+  if (/^gemini-[12]\./.test(id)) return false;
   if (methods && !methods.includes("generateContent")) return false;
   return !/image|tts|audio|live|transcribe|computer-use|embedding|robotics|translate|thinking-exp/i.test(id);
 }

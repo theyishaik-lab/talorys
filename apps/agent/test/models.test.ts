@@ -116,6 +116,8 @@ describe("model catalog", () => {
   it("filters the Gemini list to chat models", () => {
     expect(isGeminiChatModel("models/gemini-3.8-flash", ["generateContent"])).toBe(true);
     expect(isGeminiChatModel("models/gemini-2.5-flash-image", ["generateContent"])).toBe(false);
+    expect(isGeminiChatModel("models/gemini-2.5-flash", ["generateContent"])).toBe(false);
+    expect(isGeminiChatModel("models/gemini-3.5-flash-lite", ["generateContent"])).toBe(true);
     expect(isGeminiChatModel("models/gemini-embedding-001", ["embedContent"])).toBe(false);
     expect(isGeminiChatModel("models/gemini-3.8-flash-tts", ["generateContent"])).toBe(false);
     expect(isGeminiChatModel("models/imagen-4", ["predict"])).toBe(false);
