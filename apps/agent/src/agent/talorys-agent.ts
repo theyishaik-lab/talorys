@@ -6,11 +6,11 @@ import { createServices, type Services } from "../services/container";
 import type { Scheduler } from "./scheduling";
 import { AgentRunner } from "./runner";
 import { createApi } from "../api/app";
-import type { AiProviderId } from "@talorys/shared";
+import type { AiProviderId, Settings } from "@talorys/shared";
 import { CloudflareWorkersAIProvider } from "../ai/workers-ai";
 import { GeminiProvider } from "../ai/gemini";
 import { OpenRouterProvider } from "../ai/openrouter";
-import { FallbackProvider } from "../ai/fallback";
+import { FallbackProvider, fallbackOrder } from "../ai/fallback";
 import { MockAIProvider } from "../ai/mock";
 import type { AIProvider } from "../ai/provider";
 import { localDayBounds, formatLocal } from "../services/time";
@@ -88,13 +88,24 @@ export class TalorysAgent extends Agent<Env, AgentState> {
     const settings = this.services.settings.get();
     if (settings.demoMode) return new MockAIProvider();
     if (this.env.TALORYS_ENV === "development" && this.env.TALORYS_MOCK_AI === "1") return new MockAIProvider();
+    const chain = this.providerChain(settings);
+    if (chain.length === 0) return null;
+    if (chain.length === 1) return chain[0] as AIProvider;
+    return new FallbackProvider(chain, (error, from, to) =>
+      this.services.activity.record("ai.fallback", `${from.modelId ?? from.id} → ${to.modelId ?? to.id}: ${error.message.slice(0, 200)}`),
+    );
+  }
+
+  /**
+   * The providers a turn tries, in order: the chosen model, the selected backup, then the extra
+   * backups (duplicates and providers without a binding skipped). Empty when the chosen model has
+   * no provider. See FallbackProvider for when a turn moves down the chain.
+   */
+  providerChain(settings: Settings = this.services.settings.get()): AIProvider[] {
     const primary = this.providerFor(settings.modelProvider, settings.model);
-    if (!primary) return null;
-    const fb = settings.fallback;
-    if (!fb.enabled || (fb.provider === settings.modelProvider && fb.model === settings.model)) return primary;
-    const backup = this.providerFor(fb.provider, fb.model);
-    if (!backup) return primary;
-    return new FallbackProvider(primary, backup, (error) => this.services.activity.record("ai.fallback", `${settings.model}: ${error.message.slice(0, 200)}`));
+    if (!primary) return [];
+    const order = fallbackOrder({ provider: settings.modelProvider, model: settings.model }, settings.fallback);
+    return [primary, ...order.slice(1).flatMap((ref) => this.providerFor(ref.provider, ref.model) ?? [])];
   }
 
   /** One provider for a (provider, model) pair; null when Workers AI has no binding. Keys are read lazily from the encrypted store. */

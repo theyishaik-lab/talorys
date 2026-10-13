@@ -9,7 +9,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: "system",
   modelProvider: "workers-ai",
   model: DEFAULT_MODEL,
-  fallback: { ...DEFAULT_FALLBACK },
+  fallback: { ...DEFAULT_FALLBACK, chain: [] },
   temperature: 0.4,
   limits: { ...DEFAULT_LIMITS },
   autoMemory: true,

@@ -12,7 +12,7 @@ stored server-side in the agent's settings (`modelProvider`, `model`, `fallback`
 | OpenRouter | live public models list, `:free` models | optional OpenRouter key, stored encrypted |
 
 API: `GET /api/ai/models[?refresh=1]`, `PUT|DELETE /api/ai/keys/:provider`, `POST /api/ai/keys/:provider/test`,
-`PATCH /api/settings {modelProvider, model, fallback}`. A key is checked with the provider before it is stored,
+`PATCH /api/settings {modelProvider, model, fallback}` (`fallback.chain`: see "Fallback chain" below). A key is checked with the provider before it is stored,
 and only its last four characters are ever returned (`…xbFA`). Each row shows a short Hebrew line for the
 common models (others: the provider's description), speed / quality / tools / free tags, and the current one
 checked. The backup ("fallback") model takes over when the chosen one fails on quota, configuration or an
@@ -41,6 +41,34 @@ Fixes (`bc77518`):
 
 On his live agent afterwards: first word **1.0 s** for a simple Hebrew question, **2.1 s** for one that
 used a tool (tool chip at 1.05 s).
+
+## Fallback chain (branch feat/openrouter-chain, Oct 13, 2026)
+
+Oct 13 ~16:50 IL every free Gemini model answered 503 "high demand" at once and Workers AI was spent, so a
+single backup was not enough. `settings.fallback` gained an additive `chain`:
+
+```json
+{ "enabled": true, "provider": "gemini", "model": "gemini-3.5-flash",
+  "chain": [ { "provider": "openrouter", "model": "<vendor>/<model>:free" } ] }
+```
+
+- Order tried: the chosen model → `fallback.provider/model` (the selected backup, what the picker has always
+  written) → each `chain` entry. Duplicate (provider, model) pairs are tried once; a provider with no binding
+  is skipped; `enabled: false` turns the whole chain off. At most 4 chain entries (`MAX_FALLBACK_CHAIN`).
+- Backwards compatible: settings stored before `chain` read as `chain: []`; a `PATCH /api/settings` whose
+  `fallback` has no `chain` (the current web and mobile pickers) keeps the stored chain; `chain: []` clears
+  it. `GET /api/ai/models` returns the whole `fallback` including `chain`.
+- `FallbackProvider([a, b, c, …])` (`apps/agent/src/ai/fallback.ts`): a candidate is replaced only while it
+  has produced no text and no tool event — on `AI_QUOTA_EXHAUSTED` / `AI_UNAVAILABLE` / `NOT_CONFIGURED`, or
+  after 15 s of silence (cancelled through its own abort signal). The watchdog runs on every candidate except
+  the last (nothing behind it). After any text or tool event the turn is committed: a later failure is the
+  turn's error, never a retry (no double answers, no repeated tool effects). `usage` and nested `provider`
+  events never commit. The `provider` event for a backup is yielded only once that backup produced real
+  content, so the activity log names the model that actually answered; each hop is logged as `ai.fallback`
+  "from → to: reason". A cancelled turn stops the chain.
+- Tests: `apps/agent/test/fallback-chain.test.ts` (503→503→ok, timeout per candidate, no retry after text /
+  tool, abort, non-fallback errors, slow last candidate, `generate()`, ordering/dedupe) and the settings API
+  test in `models.test.ts`.
 
 # Workers AI model benchmark (free plan)
 

@@ -60,7 +60,7 @@ describe("fallback provider", () => {
     const primary = scripted("workers-ai", "@cf/a", new AppError("AI_QUOTA_EXHAUSTED", "spent", { provider: "workers-ai" }));
     const backup = scripted("gemini", "gemini-x", "from backup");
     const seen: AppError[] = [];
-    const p = new FallbackProvider(primary, backup, (e) => seen.push(e));
+    const p = new FallbackProvider([primary, backup], (e) => seen.push(e));
     const events: AgentEvent[] = [];
     for await (const e of p.generateWithTools(req)) events.push(e);
     expect(events[0]).toEqual({ type: "provider", provider: "gemini", model: "gemini-x" });
@@ -70,7 +70,7 @@ describe("fallback provider", () => {
   });
 
   it("does not fall back on other errors, nor after the chosen model started answering", async () => {
-    const p = new FallbackProvider(scripted("workers-ai", "@cf/a", new AppError("AI_LIMIT_REACHED", "daily cap")), scripted("gemini", "g", "no"));
+    const p = new FallbackProvider([scripted("workers-ai", "@cf/a", new AppError("AI_LIMIT_REACHED", "daily cap")), scripted("gemini", "g", "no")]);
     await expect(async () => {
       for await (const _ of p.generateWithTools(req)) void _;
     }).rejects.toMatchObject({ code: "AI_LIMIT_REACHED" });
@@ -82,7 +82,7 @@ describe("fallback provider", () => {
         throw new AppError("AI_QUOTA_EXHAUSTED", "spent");
       },
     };
-    const p2 = new FallbackProvider(halfway, scripted("gemini", "g", "no"));
+    const p2 = new FallbackProvider([halfway, scripted("gemini", "g", "no")]);
     const out: AgentEvent[] = [];
     await expect(async () => {
       for await (const e of p2.generateWithTools(req)) out.push(e);
@@ -219,6 +219,30 @@ describe("settings → model", () => {
   });
 });
 
+describe("settings → fallback chain", () => {
+  it("stores extra backups, keeps them when an old client patches only the selected backup, and builds the whole chain", async () => {
+    const c = await loggedIn();
+    const chain = [{ provider: "openrouter", model: "meta-llama/llama-4-maverick:free" }, { provider: "gemini", model: "gemini-3.5-flash-lite" }];
+    const set = await c.json("/api/settings", { method: "PATCH", body: { modelProvider: "gemini", model: "gemini-3.8-flash", fallback: { enabled: true, provider: "gemini", model: "gemini-3.5-flash", chain } } });
+    expect(set.settings.fallback).toEqual({ enabled: true, provider: "gemini", model: "gemini-3.5-flash", chain });
+    // The old Settings UI only sends enabled/provider/model: the chain survives.
+    const old = await c.json("/api/settings", { method: "PATCH", body: { fallback: { provider: "gemini", model: "gemini-3.5-flash-lite" } } });
+    expect(old.settings.fallback.chain).toEqual(chain);
+    expect((await c.json("/api/ai/models")).fallback.chain).toEqual(chain);
+    await inAgent(async (a) => {
+      // gemini-3.5-flash-lite appears twice (selected backup and chain): tried once.
+      expect(a.providerChain().map((x) => `${x.id}:${x.modelId}`)).toEqual(["gemini:gemini-3.8-flash", "gemini:gemini-3.5-flash-lite", "openrouter:meta-llama/llama-4-maverick:free"]);
+    });
+    const badChain = await c.call("/api/settings", { method: "PATCH", body: { fallback: { chain: [{ provider: "workers-ai", model: "gemini-3.5-flash" }] } } });
+    expect(badChain.status).toBe(400);
+    const tooLong = await c.call("/api/settings", { method: "PATCH", body: { fallback: { chain: Array.from({ length: 5 }, (_, i) => ({ provider: "openrouter", model: `m${i}:free` })) } } });
+    expect(tooLong.status).toBe(400);
+    const cleared = await c.json("/api/settings", { method: "PATCH", body: { fallback: { chain: [] } } });
+    expect(cleared.settings.fallback.chain).toEqual([]);
+    await c.json("/api/settings", { method: "PATCH", body: { modelProvider: "workers-ai", model: "@cf/zai-org/glm-4.7-flash", fallback: { enabled: false } } });
+  });
+});
+
 describe("latency guards", () => {
   it("asks Gemini for the lowest thinking level each model accepts", () => {
     expect(geminiThinking("gemini-3.8-flash")).toEqual({ thinkingLevel: "low" });
@@ -239,7 +263,7 @@ describe("latency guards", () => {
       },
     };
     const seen: AppError[] = [];
-    const p = new FallbackProvider(silent, scripted("gemini", "gemini-3.5-flash-lite", "fast answer"), (e) => seen.push(e), 30);
+    const p = new FallbackProvider([silent, scripted("gemini", "gemini-3.5-flash-lite", "fast answer")], (e) => seen.push(e), 30);
     const events: AgentEvent[] = [];
     const started = Date.now();
     for await (const e of p.generateWithTools(req)) events.push(e);
@@ -259,7 +283,7 @@ describe("latency guards", () => {
         yield { type: "text", delta: "second" };
       },
     };
-    const p = new FallbackProvider(slowTail, scripted("gemini", "b", "backup"), undefined, 30);
+    const p = new FallbackProvider([slowTail, scripted("gemini", "b", "backup")], undefined, 30);
     const text: string[] = [];
     for await (const e of p.generateWithTools(req)) if (e.type === "text") text.push(e.delta);
     expect(text.join("")).toBe("first second");

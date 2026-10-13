@@ -406,10 +406,36 @@ const modelIdString = z
   .refine((v) => !v.includes("://"), "Not a model id");
 
 const modelRef = z.object({ provider: aiProviderSchema, model: z.string().min(1).max(200) }).refine((v) => isModelIdFor(v.provider, v.model), "Not a model id of that provider");
-/** Where to turn when the chosen model's quota is spent. */
-export const fallbackSchema = z.object({ enabled: z.boolean(), provider: aiProviderSchema, model: modelIdString });
+/** At most this many extra backups after the selected one (each costs up to a watchdog of silence). */
+export const MAX_FALLBACK_CHAIN = 4;
+/** One extra backup model in the fallback chain. */
+export const fallbackChainEntrySchema = z.object({ provider: aiProviderSchema, model: modelIdString }).refine((v) => isModelIdFor(v.provider, v.model), "Not a model id of that provider");
+export type FallbackChainEntry = z.infer<typeof fallbackChainEntrySchema>;
+/**
+ * Where to turn when the chosen model fails before answering (quota, 503, silence past the
+ * watchdog). `provider`/`model` is the selected backup (the field the Settings picker has always
+ * written); `chain` is an ordered list of further backups tried after it, so one overloaded
+ * provider cannot take the whole chat down. `enabled: false` turns the whole chain off.
+ * Settings stored before `chain` existed read as an empty chain.
+ */
+export const fallbackSchema = z.object({
+  enabled: z.boolean(),
+  provider: aiProviderSchema,
+  model: modelIdString,
+  chain: z.array(fallbackChainEntrySchema).max(MAX_FALLBACK_CHAIN).default([]),
+});
 export type FallbackSettings = z.infer<typeof fallbackSchema>;
-export const DEFAULT_FALLBACK: FallbackSettings = { enabled: false, provider: "workers-ai", model: DEFAULT_MODEL };
+export const DEFAULT_FALLBACK: FallbackSettings = { enabled: false, provider: "workers-ai", model: DEFAULT_MODEL, chain: [] };
+/**
+ * A partial fallback update. Each field is replaced when present and kept when absent — so a
+ * client that only knows `enabled`/`provider`/`model` never clears `chain`; `chain: []` clears it.
+ */
+export const fallbackUpdateSchema = z.object({
+  enabled: z.boolean().optional(),
+  provider: aiProviderSchema.optional(),
+  model: modelIdString.optional(),
+  chain: z.array(fallbackChainEntrySchema).max(MAX_FALLBACK_CHAIN).optional(),
+});
 
 export const settingsSchema = z
   .object({
@@ -439,7 +465,7 @@ export const settingsUpdateSchema = z.object({
   theme: z.enum(["system", "light", "dark"]).optional(),
   modelProvider: aiProviderSchema.optional(),
   model: modelIdString.optional(),
-  fallback: fallbackSchema.partial().optional(),
+  fallback: fallbackUpdateSchema.optional(),
   temperature: z.number().min(0).max(1.5).optional(),
   autoMemory: z.boolean().optional(),
   demoMode: z.boolean().optional(),
