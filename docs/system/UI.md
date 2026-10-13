@@ -117,6 +117,57 @@ One calm neutral surface, one accent, content first. Phone first, the same layou
 - **Fonts** are bundled (`@import "@fontsource-variable/inter"` / `heebo` in `index.css`), so the
   CSP's `font-src 'self'` holds; no Google Fonts request leaves the device.
 
+## Native feel and performance (Oct 13, 2026)
+
+The installed app has to feel like a native one on a mid-range Android phone. What is built, and the
+rules that keep it smooth — measured with the harness described at the end of this section.
+
+- **Screen transitions.** The app runs on a data router (`createBrowserRouter`, `main.tsx`) so
+  navigations can be View Transitions. `useNav()` in `lib/native.ts` is the one way to navigate with a
+  direction: `push` slides the new screen in from the end edge (from the left in Hebrew), `pop` slides it
+  back out, `fade` cross-fades (drawer jumps), `none` for same-screen pops. The CSS lives under
+  "Screen transitions" in `styles/index.css`; browsers without the API just switch. Settings sub-screens
+  (`?tab=`) and notes are pushed (`state: { settingsPushed / notePushed }`), their back buttons pop.
+- **Android back button.** `useHistoryLayer(open, onClose)` gives an overlay its own history entry: the
+  drawer, every `Dialog` (sheets, confirm dialogs, the notification center). Back closes the overlay
+  instead of leaving the app; closing from the UI pops the entry itself. A navigation out of the drawer
+  replaces the drawer's entry, so Back from the new screen lands where the drawer was opened.
+- **Drawer.** One `Drawer` mounted once on phones (`AppShell`), moved only with `transform`; opening
+  toggles nothing inherited on its subtree (that restyled 200 elements per open) — see the comment above
+  `.drawer-root` in the stylesheet. `hooks/drawer-gesture.ts`: a swipe in from the start edge opens it,
+  a swipe on the panel or scrim closes it, release decides by velocity then position; while the finger
+  is down the transform/opacity are written directly, then the CSS transition finishes the move. Note:
+  on phones with gesture navigation Android itself owns the first ~20 px of each edge (system Back), so
+  the open swipe mostly works with 3-button navigation; tap-to-open and swipe-to-close always work.
+- **Streamed replies.** `ChatPage` batches `text` deltas (~80 ms) so a reply updates the screen about
+  12 times a second instead of once per token; persisted messages (`MessageView`) and the drawer are
+  memoised. The markdown renderer is already memoised per message.
+- **Composer.** `field-sizing: content` (Chrome 123+) sizes the textarea without a layout pass per
+  keystroke; the JS measurement is only the fallback.
+- **Theme switch** adds `.theme-switching` for one frame so the whole screen repaints once instead of
+  animating every button's colours for 150 ms.
+- **Native-feel CSS** (body): no text selection and no long-press callout on the app's chrome
+  (messages, notes and fields opt back in with `.selectable` / `.prose-talorys`), no tap highlight, no
+  overscroll / pull-to-refresh, `.pressable` press feedback at 60 ms. `haptic()` (navigator.vibrate)
+  ticks on send and on approve/decline.
+- **Startup.** `@talorys/shared` is side-effect free and the web app imports values from its zod-free
+  subpaths (`/constants`, `/recurrence`, `/password-policy`) — the validation schemas never ship to the
+  phone. The other screens' code is prefetched 4 s after login on an idle callback. `manifest`
+  `launch_handler: navigate-existing` reuses the open window. A new deploy is picked up quietly: the new
+  service worker takes over, and the app reloads the next time it goes to the background (`lib/pwa.ts`).
+- **Budget.** `npm run build -w @talorys/web` ends with `scripts/bundle-budget.mjs`: initial JS ≤ 200 KB
+  gzip (now ~181), CSS ≤ 20 KB, lazy chunks ≤ 32 KB. A build over budget fails on purpose.
+
+Rules of thumb: animate only `transform`/`opacity`; never toggle `display`/`visibility`/inherited
+properties on a big subtree to show or hide it; keep per-token work out of the chat (batch); measure
+before and after with the harness.
+
+**Measuring.** The perf harness used for the Oct 13 numbers (Playwright Chromium, 390×844, 4× CPU
+throttle, slow-4G, Hebrew UI) lives in the owner's task files (`perf/measure.mjs` — cold load, open
+chat, scroll, drawer, typing, settings, theme; `perf/stream-measure.mjs` + `perf/mock-server.mjs` — a
+streamed reply without spending model calls; `perf/trace.mjs` — a timeline breakdown). The
+before/after table is in the owner's `talorys-perf-report.md`.
+
 ## Things to know before designing
 
 - **Hebrew / right-to-left (since Oct 13, 2026, commit `9b41c85`):** the UI has two locales,

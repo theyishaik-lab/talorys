@@ -48,7 +48,11 @@ site), so no APK rebuild is needed for UI work.
 
 The build also writes `dist/sw.js` (the service worker, see NOTIFICATIONS.md) with a hash of this
 build: every deploy installs a new worker on the phones and drops the old shell cache. If the build
-fails, no `sw.js` is written — never deploy a `dist/` from a failed build.
+fails, no `sw.js` is written — never deploy a `dist/` from a failed build. The build ends with the
+bundle-size budget (`apps/web/scripts/bundle-budget.mjs`; initial JS ≤ 200 KB gzip) and fails when a
+change busts it — raise the budget in that file only on purpose. An installed app that is open while
+you deploy keeps the old build until it goes to the background, then reloads itself (UI.md, "Native
+feel and performance").
 
 The Pages deploy must contain **three things side by side**: the built `dist/`, the `functions/`
 folder (the `/api` proxy — without it every API call 404s and the app breaks), and a `wrangler.jsonc`
