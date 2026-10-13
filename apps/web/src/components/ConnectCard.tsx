@@ -136,24 +136,26 @@ export function ConnectCard({ action: initial }: { action: PendingAction & { car
   }
   if (awaitingSignIn && link) {
     return (
-      <div role="group" aria-label="Sign in" className="rounded-lg border border-border bg-surface px-3 py-2.5 shadow-sm">
-        <div className="flex items-start gap-2 text-sm">
-          <Plug className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+      <div role="group" aria-label="Sign in" className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
+        <div className="flex items-start gap-3 px-4 pb-3 pt-3.5">
+          <AppIcon>
+            <Plug className="h-5 w-5" />
+          </AppIcon>
           <div className="min-w-0 flex-1">
-            <p className="break-words font-medium text-fg">{card.name}</p>
-            <p className="flex items-center gap-1.5 text-xs text-fg-muted">
+            <p className="break-words text-[15px] font-semibold leading-snug text-fg">{card.name}</p>
+            <p className="mt-0.5 flex items-center gap-1.5 text-[12.5px] text-fg-muted">
               <Loader2 className="h-3 w-3 animate-spin" /> {t.waiting}
             </p>
           </div>
         </div>
-        <div className="mt-2.5 flex justify-end">
+        <div className="px-4 pb-3.5">
           <a
             href={link}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-accent px-3 text-sm font-medium text-accent-fg shadow-sm hover:opacity-90"
+            className="pressable inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 text-[15px] font-semibold text-accent-fg hover:opacity-90"
           >
-            <ExternalLink className="h-3.5 w-3.5" /> {t.openSignIn(card.name)}
+            <ExternalLink className="h-4 w-4" /> {t.openSignIn(card.name)}
           </a>
         </div>
       </div>
@@ -169,17 +171,17 @@ export function ConnectCard({ action: initial }: { action: PendingAction & { car
     );
   }
   return (
-    <div role="group" aria-label="Connection approval" className="rounded-lg border border-accent/40 bg-surface px-3 py-2.5 shadow-sm">
-      <div className="flex items-start gap-2 text-sm">
-        {card.method === "api_key" ? <KeyRound className="mt-0.5 h-4 w-4 shrink-0 text-accent" /> : <Plug className="mt-0.5 h-4 w-4 shrink-0 text-accent" />}
+    <div role="group" aria-label="Connection approval" className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
+      <div className="flex items-start gap-3 px-4 pb-3 pt-3.5">
+        <AppIcon>{card.method === "api_key" ? <KeyRound className="h-5 w-5" /> : <Plug className="h-5 w-5" />}</AppIcon>
         <div className="min-w-0 flex-1">
-          <p className="break-words font-medium text-fg">{t.title(card.name)}</p>
-          <p className="text-xs text-fg-muted">{card.method === "oauth" ? t.oauthHint : t.keyHint}</p>
+          <p className="break-words text-[15px] font-semibold leading-snug text-fg">{t.title(card.name)}</p>
+          <p className="mt-0.5 text-[12.5px] text-fg-muted">{card.method === "oauth" ? t.oauthHint : t.keyHint}</p>
         </div>
       </div>
       {card.method === "api_key" && fields.length > 0 && (
         <form
-          className="mt-2.5 space-y-2"
+          className="space-y-2 px-4 pb-1"
           onSubmit={(e) => {
             e.preventDefault();
             if (filled && !decide.isPending) decide.mutate("approve");
@@ -207,27 +209,34 @@ export function ConnectCard({ action: initial }: { action: PendingAction & { car
           ))}
         </form>
       )}
-      <div className="mt-2.5 flex justify-end gap-2">
-        <Button size="sm" variant="ghost" disabled={decide.isPending} onClick={() => decide.mutate("cancel")}>
-          {t.decline}
-        </Button>
+      <div className="flex gap-2 px-4 pb-3.5 pt-2">
         <Button
-          size="sm"
-          variant="primary"
+          className="flex-1 justify-center"
           loading={decide.isPending && decide.variables === "approve"}
           disabled={decide.isPending || (card.method === "api_key" && !filled)}
           onClick={() => decide.mutate("approve")}
         >
           {t.approve}
         </Button>
+        <Button variant="secondary" className="flex-1 justify-center" disabled={decide.isPending} onClick={() => decide.mutate("cancel")}>
+          {t.decline}
+        </Button>
       </div>
+    </div>
+  );
+}
+
+function AppIcon({ children }: { children: ReactNode }) {
+  return (
+    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-accent-soft text-accent-text" aria-hidden>
+      {children}
     </div>
   );
 }
 
 function Done({ icon, children }: { icon: "ok" | "off" | "error"; children: ReactNode }) {
   return (
-    <div className="flex items-start gap-2 rounded-lg border border-border bg-subtle px-3 py-2 text-sm text-fg-muted">
+    <div className="flex items-start gap-2 rounded-xl border border-border bg-subtle px-3 py-2 text-sm text-fg-muted">
       {icon === "ok" ? (
         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
       ) : (
