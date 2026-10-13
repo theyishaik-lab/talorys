@@ -12,6 +12,7 @@ import {
   settingsPatchForChain,
 } from "@talorys/shared";
 import { ChevronDown, ChevronUp, GripVertical, Plus, RefreshCw, RotateCcw, Server, Trash2 } from "lucide-react";
+import { createPortal } from "react-dom";
 import { type ComponentType, type FormEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { keys as queryKeys, useApiMutation } from "../hooks/queries";
 import { errorMessage, useToast } from "../hooks/toast";
@@ -153,20 +154,22 @@ export function ChainEditor({ settings, catalog, Section, Row }: { settings: Set
         )}
       </div>
 
-      {dirty && (
-        <div
-          className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+12px)] z-30 mx-auto flex max-w-xl items-center gap-2 rounded-2xl border border-border bg-surface/95 px-4 py-3 shadow-card backdrop-blur"
-          data-testid="chain-save-bar"
-        >
-          <span className="flex-1 text-[13px] text-fg-muted">{t("chain.unsaved")}</span>
-          <Button variant="ghost" size="sm" onClick={() => setDraft(null)}>
-            {t("chain.discard")}
-          </Button>
-          <Button size="sm" loading={save.isPending} onClick={() => save.mutate(list)}>
-            {t("chain.save")}
-          </Button>
-        </div>
-      )}
+      {dirty &&
+        createPortal(
+          <div
+            className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+12px)] z-30 mx-auto flex max-w-xl items-center gap-2 rounded-2xl border border-border bg-surface/95 px-4 py-3 shadow-card backdrop-blur"
+            data-testid="chain-save-bar"
+          >
+            <span className="flex-1 text-[13px] text-fg-muted">{t("chain.unsaved")}</span>
+            <Button variant="ghost" size="sm" onClick={() => setDraft(null)}>
+              {t("chain.discard")}
+            </Button>
+            <Button size="sm" loading={save.isPending} onClick={() => save.mutate(list)}>
+              {t("chain.save")}
+            </Button>
+          </div>,
+          document.body,
+        )}
 
       <AddModelDialog open={picker} onClose={() => setPicker(false)} catalog={catalog} endpoints={endpoints.data ?? []} list={list} onAdd={(r) => add(r)} />
       <AddEndpointDialog
@@ -262,8 +265,8 @@ function ChainList({
             </button>
             <span className="mt-1 w-5 shrink-0 text-center text-[12px] font-semibold tabular-nums text-fg-subtle">{i + 1}</span>
             <div className="min-w-0 flex-1">
-              <p dir="ltr" className="break-words text-start text-[14.5px] font-medium leading-5 [unicode-bidi:plaintext]">
-                {e?.label ?? (modelLabel(ref.model) || ref.model)}
+              <p className="break-words text-[14.5px] font-medium leading-5">
+                <bdi>{e?.label ?? (modelLabel(ref.model) || ref.model)}</bdi>
               </p>
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
                 <Badge>{e?.provider_label ?? providerLabel(t, ref.provider)}</Badge>
