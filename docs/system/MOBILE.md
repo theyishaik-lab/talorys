@@ -42,7 +42,7 @@ export TALORYS_KEYSTORE_PATH=… TALORYS_KEYSTORE_PASSWORD=… TALORYS_KEY_ALIAS
   The script builds **arm64-v8a only** (every phone since 2017; add `armeabi-v7a` for old ones).
 - R8 (minify + resource shrinking) is **on** (`app.json` → `expo-build-properties`): the APK is
   ~39 MB. R8 needs heap: at `-Xmx1536m` it died with "GC overhead limit exceeded"; `-Xmx3072m`
-  (set in `android/gradle.properties` after prebuild, when nothing else heavy runs on the box)
+  (the script's default since v0.1.3, `TALORYS_GRADLE_XMX` overrides; run it when nothing else heavy runs on the box)
   builds it in ~2 min. Everything else builds fine at 1.5 GB.
 - Yishai's keystore: `/home/user/tab/state/talorys-mobile-keystore/talorys-release.jks` on Tab's box,
   alias `talorys`, password in `talorys-secrets.json` → `mobile_keystore` (never in git). **Losing it

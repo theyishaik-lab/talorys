@@ -13,7 +13,9 @@ npx expo prebuild --platform android --no-install --clean
 # A phone-only build: arm64 keeps the APK small and the native compile short. Add armeabi-v7a for old phones.
 sed -i 's/^reactNativeArchitectures=.*/reactNativeArchitectures=arm64-v8a/' android/gradle.properties
 # Gentle on memory (the first native compile is heavy); lintVital is skipped — `expo lint` + tsc run in CI instead.
-sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC/' android/gradle.properties
+# R8 (minify + resource shrinking) needs ~3 GB of heap; 1.5 GB died with "GC overhead limit exceeded".
+# Lower it with TALORYS_GRADLE_XMX on a small box (then expect R8 to fail).
+sed -i "s/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx${TALORYS_GRADLE_XMX:-3072m} -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC/" android/gradle.properties
 printf 'org.gradle.workers.max=2\nkotlin.daemon.jvmargs=-Xmx1024m\n' >> android/gradle.properties
 cd android
 ./gradlew assembleRelease -x lintVitalAnalyzeRelease -x lintVitalReportRelease -x lintVitalRelease --no-daemon --console=plain
