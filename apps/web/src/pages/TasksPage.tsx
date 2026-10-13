@@ -87,7 +87,7 @@ export default function TasksPage() {
             )}
           >
             {t}
-            <span className="ml-1.5 text-xs text-fg-subtle">{sections[t].length}</span>
+            <span className="ms-1.5 text-xs text-fg-subtle">{sections[t].length}</span>
           </button>
         ))}
       </div>
@@ -137,8 +137,8 @@ export default function TasksPage() {
                     <Circle className="h-5 w-5" />
                   )}
                 </button>
-                <button type="button" onClick={() => setEditing(t)} className="min-w-0 flex-1 text-left">
-                  <p className={cn("text-[15px] leading-6", t.status === "done" && "text-fg-subtle line-through")}>{t.title}</p>
+                <button type="button" onClick={() => setEditing(t)} className="min-w-0 flex-1 text-start">
+                  <p className={cn("text-[15px] leading-6", t.status === "done" && "text-fg-subtle line-through")} dir="auto">{t.title}</p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-subtle">
                     {t.due_at && (
                       <span className={cn("inline-flex items-center gap-1", overdue && "font-medium text-danger")}>
@@ -153,7 +153,7 @@ export default function TasksPage() {
                 </button>
                 {(t.priority === "high" || t.priority === "urgent") && t.status !== "done" && (
                   <Badge tone={PRIORITY_TONE[t.priority]} className="mt-0.5 capitalize">
-                    <Flag className="mr-1 h-3 w-3" />
+                    <Flag className="me-1 h-3 w-3" />
                     {t.priority}
                   </Badge>
                 )}
@@ -237,11 +237,11 @@ function TaskEditor({ task, onClose, tz }: { task: Task | null; onClose: () => v
         <div className="space-y-4">
           <div>
             <Label htmlFor="task-title">Title</Label>
-            <Input id="task-title" value={form.title} maxLength={300} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+            <Input id="task-title" dir="auto" value={form.title} maxLength={300} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           </div>
           <div>
             <Label htmlFor="task-desc">Notes</Label>
-            <Textarea id="task-desc" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <Textarea id="task-desc" dir="auto" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

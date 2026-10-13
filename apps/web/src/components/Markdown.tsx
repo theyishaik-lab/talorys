@@ -9,7 +9,7 @@ function CodeBlock({ children, className }: { children?: React.ReactNode; classN
   const text = String(children ?? "").replace(/\n$/, "");
   const lang = /language-(\w+)/.exec(className ?? "")?.[1];
   return (
-    <div className="group relative">
+    <div className="group relative" dir="ltr">
       <div className="absolute right-2 top-2 flex items-center gap-2">
         {lang && <span className="text-[11px] uppercase tracking-wide text-fg-subtle">{lang}</span>}
         <button type="button"
@@ -25,7 +25,7 @@ function CodeBlock({ children, className }: { children?: React.ReactNode; classN
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
         </button>
       </div>
-      <pre>
+      <pre dir="ltr">
         <code className={className}>{text}</code>
       </pre>
     </div>
@@ -36,8 +36,23 @@ const components: Components = {
   pre: ({ children }) => <>{children}</>,
   code: ({ className, children }) => {
     const isBlock = /language-/.test(className ?? "") || String(children).includes("\n");
-    return isBlock ? <CodeBlock className={className}>{children}</CodeBlock> : <code>{children}</code>;
+    return isBlock ? <CodeBlock className={className}>{children}</CodeBlock> : <code dir="ltr">{children}</code>;
   },
+  // Each block decides its own direction from its first strong character, so a Hebrew answer that
+  // quotes an English line (or the reverse) reads correctly paragraph by paragraph.
+  p: ({ children }) => <p dir="auto">{children}</p>,
+  h1: ({ children }) => <h1 dir="auto">{children}</h1>,
+  h2: ({ children }) => <h2 dir="auto">{children}</h2>,
+  h3: ({ children }) => <h3 dir="auto">{children}</h3>,
+  h4: ({ children }) => <h4 dir="auto">{children}</h4>,
+  li: ({ className, children }) => (
+    <li className={className} dir="auto">
+      {children}
+    </li>
+  ),
+  blockquote: ({ children }) => <blockquote dir="auto">{children}</blockquote>,
+  th: ({ children, style }) => <th dir="auto" style={style}>{children}</th>,
+  td: ({ children, style }) => <td dir="auto" style={style}>{children}</td>,
   // Links open in a new tab without referrer or opener.
   a: ({ href, children }) => (
     <a href={href} target="_blank" rel="noopener noreferrer nofollow">
@@ -61,6 +76,7 @@ function taskComponents(onToggleTask: (line: number) => void): Components {
       return (
         <li
           className={cn(className, done && "task-done")}
+          dir="auto"
           onClick={isTask ? (e) => {
             if ((e.target as HTMLElement).tagName === "INPUT") onToggleTask(line);
           } : undefined}
@@ -76,7 +92,7 @@ function taskComponents(onToggleTask: (line: number) => void): Components {
 export const Markdown = memo(function Markdown({ content, compact, onToggleTask }: { content: string; compact?: boolean; onToggleTask?: (line: number) => void }) {
   const comps = useMemo(() => (onToggleTask ? taskComponents(onToggleTask) : components), [onToggleTask]);
   return (
-    <div className={cn("prose-talorys", compact && "text-sm leading-6")}>
+    <div className={cn("prose-talorys", compact && "text-sm leading-6")} dir="auto">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={comps} skipHtml>
         {content}
       </ReactMarkdown>

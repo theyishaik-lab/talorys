@@ -29,7 +29,7 @@ export default function NotesPage() {
 
   return (
     <div className="flex h-full min-h-[calc(100vh-3.5rem)] md:min-h-full">
-      <aside className={cn("w-full shrink-0 flex-col border-r border-border md:flex md:w-80", noteId ? "hidden" : "flex")}>
+      <aside className={cn("w-full shrink-0 flex-col border-e border-border md:flex md:w-80", noteId ? "hidden" : "flex")}>
         <div className="space-y-3 p-4">
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-semibold tracking-tight">Notes</h1>
@@ -43,8 +43,8 @@ export default function NotesPage() {
             </div>
           </div>
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search notes" className="h-9 pl-9 text-sm" aria-label="Search notes" />
+            <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search notes" className="h-9 ps-9 text-sm" dir="auto" aria-label="Search notes" />
           </div>
         </div>
         <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto px-2 pb-4">
@@ -69,12 +69,12 @@ export default function NotesPage() {
                   <button type="button"
                     onClick={() => navigate(`/notes/${n.id}`)}
                     className={cn(
-                      "w-full rounded-lg px-3 py-2.5 text-left transition-colors",
+                      "w-full rounded-lg px-3 py-2.5 text-start transition-colors",
                       n.id === noteId ? "bg-muted" : "hover:bg-muted/60",
                     )}
                   >
                     <div className="flex items-center gap-2">
-                      <p className="min-w-0 flex-1 truncate text-sm font-medium">{n.title}</p>
+                      <p className="min-w-0 flex-1 truncate text-sm font-medium" dir="auto">{n.title}</p>
                       {tasks.total > 0 && (
                         <span className={cn("flex shrink-0 items-center gap-1 text-[11px] tabular-nums", tasks.done === tasks.total ? "text-success" : "text-fg-subtle")}>
                           <CircleCheck className="h-3 w-3" />
@@ -223,7 +223,7 @@ function NoteEditor({ id, onBack }: { id: string; onBack: () => void }) {
       <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-3">
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" onClick={onBack} className="md:hidden" aria-label="Back to notes">
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="h-4 w-4 rtl:-scale-x-100" />
           </Button>
           <div className="flex rounded-lg bg-muted p-0.5">
             <button type="button" onClick={() => setMode("edit")} className={cn("flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium", mode === "edit" ? "bg-surface shadow-sm" : "text-fg-muted")}>

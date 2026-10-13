@@ -114,14 +114,14 @@ export default function MemoryPage() {
               )}
             >
               {f.label}
-              {count ? <span className="ml-1 text-fg-subtle">{count}</span> : null}
+              {count ? <span className="ms-1 text-fg-subtle">{count}</span> : null}
             </button>
           );
         })}
       </div>
       <div className="relative mb-6">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search memories" className="pl-9" aria-label="Search memories" />
+        <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search memories" className="ps-9" dir="auto" aria-label="Search memories" />
       </div>
 
       {(filter === "review" || filter === "all") && reviewList.length > 0 && <ReviewPanel reviews={reviewList} />}
@@ -155,16 +155,16 @@ export default function MemoryPage() {
           {grouped.map(([category, items]) => (
             <section key={category}>
               <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-fg-subtle">
-                {CATEGORY_LABELS[category]} <span className="ml-1 normal-case tracking-normal">· {items.length}</span>
+                {CATEGORY_LABELS[category]} <span className="ms-1 normal-case tracking-normal">· {items.length}</span>
               </h2>
               <ul className="divide-y divide-border rounded-xl border border-border bg-surface">
                 {items.map((m) => (
                   <li key={m.id} className="group flex items-start gap-3 px-4 py-3">
                     <div className="min-w-0 flex-1">
-                      <p className={cn("text-[15px] leading-6", m.status === "historical" && "text-fg-muted")}>
+                      <p className={cn("text-[15px] leading-6", m.status === "historical" && "text-fg-muted")} dir="auto">
                         {m.content}
-                        {m.status === "historical" && <Badge className="ml-2 align-middle">Past</Badge>}
-                        {m.status === "uncertain" && <Badge tone="warning" className="ml-2 align-middle">Unsure</Badge>}
+                        {m.status === "historical" && <Badge className="ms-2 align-middle">Past</Badge>}
+                        {m.status === "uncertain" && <Badge tone="warning" className="ms-2 align-middle">Unsure</Badge>}
                       </p>
                       <p className="mt-0.5 text-xs text-fg-subtle">
                         {sourceLabel(m)} · {relativeTime(m.updated_at)}
@@ -354,7 +354,7 @@ function CorrectDialog({ memory, onClose }: { memory: Memory | null; onClose: ()
         </p>
         <div>
           <Label htmlFor="memory-correct">What's true now?</Label>
-          <Textarea id="memory-correct" rows={3} value={content} onChange={(e) => setContent(e.target.value)} maxLength={2000} autoFocus />
+          <Textarea id="memory-correct" dir="auto" rows={3} value={content} onChange={(e) => setContent(e.target.value)} maxLength={2000} autoFocus />
         </div>
       </div>
     </Dialog>
@@ -406,7 +406,7 @@ function MemoryEditor({ memory, onClose }: { memory: Memory | "new" | null; onCl
       <div className="space-y-4">
         <div>
           <Label htmlFor="memory-content">What should Talorys remember?</Label>
-          <Textarea id="memory-content" rows={3} value={content} onChange={(e) => setContent(e.target.value)} maxLength={2000} autoFocus placeholder="Prefers concise answers" />
+          <Textarea id="memory-content" dir="auto" rows={3} value={content} onChange={(e) => setContent(e.target.value)} maxLength={2000} autoFocus placeholder="Prefers concise answers" />
           {memory !== "new" && memory && (
             <p className="mt-1 text-xs text-fg-subtle">Fixing a typo? Edit here. Did the fact change? Use “Update this fact” to keep the old version as history.</p>
           )}

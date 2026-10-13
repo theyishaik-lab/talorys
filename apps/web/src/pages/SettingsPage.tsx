@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { checkPasswordStrength, LIMIT_CEILINGS, type Limits, type MemoryHistorySettings, type Settings, TALORYS_VERSION } from "@talorys/shared";
-import { Download, ExternalLink, LogOut, Monitor, Moon, Sun, Upload } from "lucide-react";
+import { Download, ExternalLink, Languages, LogOut, Monitor, Moon, Sun, Upload } from "lucide-react";
 import { GitHubIcon } from "../components/SourceLinks";
 import { ANDROID_REPO_URL, DEPLOY_DOC_URL, REPO_URL, UPSTREAM_URL } from "../lib/links";
 import { Badge, Button, Card, ConfirmDialog, ErrorNotice, Input, Label, PageHeader, Select, Spinner, Switch } from "../components/ui";
@@ -13,6 +13,7 @@ import { useToast, errorMessage } from "../hooks/toast";
 import { api, ApiError } from "../lib/api";
 import { applyTheme } from "../lib/theme";
 import { cn, relativeTime } from "../lib/utils";
+import { LOCALE_NAMES, LOCALES, type LocalePreference, useLocale } from "../lib/i18n";
 
 const TABS = ["General", "AI", "Privacy", "Security", "About"] as const;
 type Tab = (typeof TABS)[number];
@@ -46,22 +47,23 @@ export default function SettingsPage() {
   const tab: Tab = TABS.find((t) => t === param) ?? "General";
   const setTab = (t: Tab) => setSearchParams(t === "General" ? {} : { tab: t }, { replace: true });
   const { data: settings, isLoading, error, refetch } = useSettings();
+  const { t } = useLocale();
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 md:px-8">
-      <PageHeader title="Settings" />
-      <div className="mb-6 flex gap-1 overflow-x-auto border-b border-border" role="tablist">
-        {TABS.map((t) => (
+      <PageHeader title={t("settings.title")} />
+      <div className="mb-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-border" role="tablist">
+        {TABS.map((tab_) => (
           <button type="button"
-            key={t}
+            key={tab_}
             role="tab"
-            aria-selected={tab === t}
-            onClick={() => setTab(t)}
+            aria-selected={tab === tab_}
+            onClick={() => setTab(tab_)}
             className={cn(
               "-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-              tab === t ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg",
+              tab === tab_ ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg",
             )}
           >
-            {t}
+            {t(`settings.tab.${tab_}`)}
           </button>
         ))}
       </div>
@@ -86,9 +88,10 @@ export default function SettingsPage() {
 
 function useSaveSettings() {
   const qc = useQueryClient();
+  const { t } = useLocale();
   type Patch = Partial<Omit<Settings, "limits" | "memoryHistory">> & { limits?: Partial<Limits>; memoryHistory?: Partial<MemoryHistorySettings> };
   return useApiMutation((patch: Patch) => api<{ settings: Settings }>("/settings", { method: "PATCH", body: patch }), {
-    success: "Settings saved",
+    success: t("settings.saved"),
     onSuccess: (r) => {
       qc.setQueryData(keys.settings, r.settings);
       void qc.invalidateQueries({ queryKey: ["session"] });
@@ -99,12 +102,13 @@ function useSaveSettings() {
 
 function GeneralTab({ settings }: { settings: Settings }) {
   const save = useSaveSettings();
+  const { t, preference, detected, setPreference } = useLocale();
   const [name, setName] = useState(settings.agentName);
   const zones = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : [settings.timezone];
   const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   return (
-    <Section title="General">
-      <Row label="Agent name" hint="How your assistant introduces itself.">
+    <Section title={t("settings.general")}>
+      <Row label={t("settings.agentName")} hint={t("settings.agentNameHint")}>
         <form
           className="flex gap-2"
           onSubmit={(e) => {
@@ -112,25 +116,25 @@ function GeneralTab({ settings }: { settings: Settings }) {
             if (name.trim() && name !== settings.agentName) save.mutate({ agentName: name.trim() });
           }}
         >
-          <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} aria-label="Agent name" />
+          <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} aria-label={t("settings.agentName")} dir="auto" />
           <Button type="submit" variant="outline" disabled={!name.trim() || name === settings.agentName}>
-            Save
+            {t("common.save")}
           </Button>
         </form>
       </Row>
       <Row
-        label="Timezone"
+        label={t("settings.timezone")}
         hint={
           settings.timezone !== browserTz ? (
             <button type="button" className="text-accent underline-offset-2 hover:underline" onClick={() => save.mutate({ timezone: browserTz })}>
-              Use this device's timezone ({browserTz})
+              {t("settings.useDeviceTimezone", { tz: browserTz })}
             </button>
           ) : (
-            "Used for due dates and schedules. Changing it re-schedules automations."
+            t("settings.timezoneHint")
           )
         }
       >
-        <Select value={settings.timezone} onChange={(e) => save.mutate({ timezone: e.target.value })} aria-label="Timezone">
+        <Select value={settings.timezone} onChange={(e) => save.mutate({ timezone: e.target.value })} aria-label={t("settings.timezone")}>
           {(zones.includes(settings.timezone) ? zones : [settings.timezone, ...zones]).map((z) => (
             <option key={z} value={z}>
               {z}
@@ -138,7 +142,20 @@ function GeneralTab({ settings }: { settings: Settings }) {
           ))}
         </Select>
       </Row>
-      <Row label="Theme">
+      <Row label={t("settings.language")} hint={t("settings.languageHint")}>
+        <div className="flex items-center gap-2">
+          <Languages className="h-4 w-4 shrink-0 text-fg-subtle" aria-hidden />
+          <Select value={preference} onChange={(e) => setPreference(e.target.value as LocalePreference)} aria-label={t("settings.language")}>
+            <option value="auto">{t("settings.language.auto", { name: LOCALE_NAMES[detected] })}</option>
+            {LOCALES.map((l) => (
+              <option key={l} value={l}>
+                {LOCALE_NAMES[l]}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </Row>
+      <Row label={t("settings.theme")}>
         <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
           {(
             [
@@ -154,12 +171,12 @@ function GeneralTab({ settings }: { settings: Settings }) {
                 save.mutate({ theme: value });
               }}
               className={cn(
-                "flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium capitalize",
+                "flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium",
                 settings.theme === value ? "bg-surface shadow-sm" : "text-fg-muted",
               )}
             >
               <Icon className="h-3.5 w-3.5" />
-              {value}
+              {t(`settings.theme.${value}`)}
             </button>
           ))}
         </div>
@@ -217,7 +234,7 @@ function AiTab({ settings }: { settings: Settings }) {
         <Row label="Temperature" hint="Lower is more focused and predictable.">
           <div className="flex items-center gap-3">
             <input type="range" min={0} max={1.5} step={0.1} value={temperature} onChange={(e) => setTemperature(Number(e.target.value))} className="flex-1 accent-[var(--accent)]" aria-label="Temperature" />
-            <span className="w-8 text-right text-sm tabular-nums">{temperature.toFixed(1)}</span>
+            <span className="w-8 text-end text-sm tabular-nums">{temperature.toFixed(1)}</span>
           </div>
         </Row>
         {LIMIT_FIELDS.map((f) => (
@@ -270,7 +287,7 @@ function AiTab({ settings }: { settings: Settings }) {
               ))}
             </div>
             <Row label="Last 7 days" hint="Local estimates measured by Talorys.">
-              <p className="text-right text-sm tabular-nums text-fg-muted">
+              <p className="text-end text-sm tabular-nums text-fg-muted">
                 {usage.data.last_7_days.ai_requests} requests · {usage.data.last_7_days.ai_errors} errors
               </p>
             </Row>
@@ -511,10 +528,10 @@ function AboutTab() {
   return (
     <Section title="About Talorys">
       <Row label="Version">
-        <p className="text-right font-mono text-sm">{info.data?.deployed_version ?? TALORYS_VERSION}</p>
+        <p className="text-end font-mono text-sm" dir="ltr">{info.data?.deployed_version ?? TALORYS_VERSION}</p>
       </Row>
       <Row label="Deployment" hint="Your own Cloudflare account. Pages frontend → service binding → private Worker → Durable Object.">
-        <div className="space-y-1 text-right text-xs text-fg-muted">
+        <div className="space-y-1 text-end text-xs text-fg-muted">
           {info.data ? (
             <>
               <p>Installation: <span className="font-mono">{info.data.installation_id ?? "local"}</span></p>
@@ -522,7 +539,7 @@ function AboutTab() {
               <p>AI: {info.data.ai_provider === "workers-ai" ? "Cloudflare Workers AI" : info.data.ai_provider === "mock" ? "Demo responder" : "Not available"}</p>
             </>
           ) : (
-            <Spinner className="ml-auto h-4 w-4" />
+            <Spinner className="ms-auto h-4 w-4" />
           )}
         </div>
       </Row>

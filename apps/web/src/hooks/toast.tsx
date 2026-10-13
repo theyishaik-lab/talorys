@@ -32,7 +32,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           >
             {t.tone === "error" ? <AlertCircle className="h-4 w-4 shrink-0" /> : <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />}
             <span>{t.message}</span>
-            <button type="button" className="ml-1 text-fg-subtle hover:text-fg" onClick={() => setToasts((x) => x.filter((y) => y.id !== t.id))} aria-label="Dismiss">
+            <button type="button" className="ms-1 text-fg-subtle hover:text-fg" onClick={() => setToasts((x) => x.filter((y) => y.id !== t.id))} aria-label="Dismiss">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>

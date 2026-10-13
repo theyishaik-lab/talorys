@@ -51,11 +51,11 @@ export function ChatUsage() {
           setOpen(!open);
         }}>
         <Gauge className="h-[18px] w-[18px]" aria-hidden />
-        {nearLimit && <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-warning" />}
+        {nearLimit && <span className="absolute end-1 top-1 h-1.5 w-1.5 rounded-full bg-warning" />}
       </Button>
       {open && (
         <div ref={panel} id={id} role="dialog" aria-modal="false" aria-labelledby={`${id}-title`} tabIndex={-1}
-          className="absolute right-0 top-full z-30 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-surface p-4 text-sm shadow-lg outline-none animate-fade-in">
+          className="absolute end-0 top-full z-30 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-surface p-4 text-sm shadow-lg outline-none animate-fade-in">
           <div className="mb-3 flex items-center justify-between">
             <h3 id={`${id}-title`} className="font-medium text-fg">AI usage today</h3>
             <Button variant="ghost" size="icon" aria-label="Close usage" className="h-6 w-6" onClick={() => {

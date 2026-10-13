@@ -150,7 +150,7 @@ export default function AutomationsPage() {
                           {r.error ?? r.result ?? (r.status === "running" ? "Running…" : "")}
                         </p>
                       </div>
-                      <div className="shrink-0 text-right">
+                      <div className="shrink-0 text-end">
                         <Badge tone={r.status === "success" ? "success" : r.status === "error" ? "danger" : "neutral"}>{r.status}</Badge>
                         <p className="mt-0.5 text-xs text-fg-subtle">{relativeTime(r.started_at)}</p>
                       </div>

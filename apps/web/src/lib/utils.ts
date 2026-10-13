@@ -2,10 +2,25 @@ export function cn(...classes: (string | false | null | undefined)[]): string {
   return classes.filter(Boolean).join(" ");
 }
 
-const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+/** The UI locale as applied on <html lang>, so dates and relative times follow the language toggle. */
+function uiLocale(): string {
+  return (typeof document !== "undefined" && document.documentElement.lang) || "en";
+}
+
+const rtfs = new Map<string, Intl.RelativeTimeFormat>();
+function rtfFor(locale: string): Intl.RelativeTimeFormat {
+  let f = rtfs.get(locale);
+  if (!f) {
+    f = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+    rtfs.set(locale, f);
+  }
+  return f;
+}
 
 export function relativeTime(iso: string | null | undefined): string {
   if (!iso) return "";
+  const locale = uiLocale();
+  const rtf = rtfFor(locale);
   const diff = Date.parse(iso) - Date.now();
   const abs = Math.abs(diff);
   const units: [Intl.RelativeTimeFormatUnit, number][] = [
@@ -19,6 +34,7 @@ export function relativeTime(iso: string | null | undefined): string {
   for (const [unit, ms] of units) {
     if (abs >= ms) return rtf.format(Math.round(diff / ms), unit);
   }
+  if (locale.startsWith("he")) return diff < 0 ? "ממש עכשיו" : "עוד רגע";
   return diff < 0 ? "just now" : "in a moment";
 }
 
@@ -26,7 +42,7 @@ export function relativeTime(iso: string | null | undefined): string {
 export function formatDateTime(iso: string | null | undefined, timeZone: string, opts: { dateOnly?: boolean } = {}): string {
   if (!iso) return "";
   const d = new Date(iso);
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(uiLocale(), {
     timeZone,
     month: "short",
     day: "numeric",

@@ -125,22 +125,22 @@ select:focus-visible {
 .prose-talorys h1 { @apply text-xl font-semibold tracking-tight mt-5; }
 .prose-talorys h2 { @apply text-lg font-semibold tracking-tight mt-5; }
 .prose-talorys h3 { @apply text-base font-semibold mt-4; }
-.prose-talorys ul { @apply list-disc pl-5; }
-.prose-talorys ol { @apply list-decimal pl-5; }
+.prose-talorys ul { @apply list-disc ps-5; }
+.prose-talorys ol { @apply list-decimal ps-5; }
 .prose-talorys li + li { margin-top: 0.25em; }
 .prose-talorys a { @apply text-accent underline underline-offset-2; }
-.prose-talorys blockquote { @apply border-l-2 border-border-strong pl-4 text-fg-muted; }
+.prose-talorys blockquote { @apply border-s-2 border-border-strong ps-4 text-fg-muted; }
 .prose-talorys code:not(pre code) {
   @apply rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em];
 }
 .prose-talorys pre { @apply overflow-x-auto rounded-lg bg-subtle p-4 font-mono text-[13px] leading-6 border border-border; }
 .prose-talorys table { @apply w-full text-sm border-collapse; }
-.prose-talorys th, .prose-talorys td { @apply border border-border px-3 py-1.5 text-left; }
+.prose-talorys th, .prose-talorys td { @apply border border-border px-3 py-1.5 text-start; }
 .prose-talorys hr { @apply border-border; }
-.prose-talorys input[type="checkbox"] { @apply mr-1.5 align-middle; }
+.prose-talorys input[type="checkbox"] { @apply me-1.5 align-middle; }
 
-.prose-talorys li.task-list-item { @apply list-none -ml-5 transition-colors; }
-.prose-talorys li.task-list-item input[type="checkbox"] { @apply h-4 w-4 cursor-pointer accent-[var(--accent)] mr-2 -mt-0.5; }
+.prose-talorys li.task-list-item { @apply list-none -ms-5 transition-colors; }
+.prose-talorys li.task-list-item input[type="checkbox"] { @apply h-4 w-4 cursor-pointer accent-[var(--accent)] me-2 -mt-0.5; }
 .prose-talorys li.task-done { @apply text-fg-subtle line-through decoration-fg-subtle/60; }
 
 /* Markdown editor: textarea and highlighted mirror must share metrics exactly. */

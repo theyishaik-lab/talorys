@@ -4,9 +4,11 @@ import { Markdown } from "./Markdown";
 import { keys, useApiMutation, useNotifications } from "../hooks/queries";
 import { api } from "../lib/api";
 import { cn, relativeTime } from "../lib/utils";
+import { useT } from "../lib/i18n";
 
 /** In-app notification center for reminders and automation results. */
 export function NotificationCenter({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const t = useT();
   const { data, isLoading } = useNotifications();
   const markRead = useApiMutation((id?: string) => api("/notifications/read", { method: "POST", body: id ? { id } : {} }), {
     invalidate: [keys.notifications],
@@ -17,12 +19,12 @@ export function NotificationCenter({ open, onClose }: { open: boolean; onClose: 
     <Dialog
       open={open}
       onClose={onClose}
-      title="Notifications"
+      title={t("nav.notifications")}
       wide
       footer={
         (data?.unread ?? 0) > 0 ? (
           <Button variant="outline" size="sm" onClick={() => markRead.mutate(undefined)} loading={markRead.isPending}>
-            Mark all as read
+            {t("notifications.markAllRead")}
           </Button>
         ) : undefined
       }
@@ -32,8 +34,8 @@ export function NotificationCenter({ open, onClose }: { open: boolean; onClose: 
           <Spinner />
         </div>
       ) : !data?.notifications.length ? (
-        <EmptyState icon={<BellOff className="h-8 w-8" />} title="No notifications">
-          Reminders and automation results will appear here.
+        <EmptyState icon={<BellOff className="h-8 w-8" />} title={t("notifications.empty")}>
+          {t("notifications.emptyHint")}
         </EmptyState>
       ) : (
         <ul className="-mx-2 divide-y divide-border">
@@ -42,17 +44,17 @@ export function NotificationCenter({ open, onClose }: { open: boolean; onClose: 
               <span className={cn("mt-2 h-2 w-2 shrink-0 rounded-full", n.read_at ? "bg-transparent" : "bg-accent")} />
               <div className="min-w-0 flex-1" onClick={() => !n.read_at && markRead.mutate(n.id)}>
                 <div className="flex items-baseline justify-between gap-3">
-                  <p className="font-medium">{n.title}</p>
+                  <p className="font-medium" dir="auto">{n.title}</p>
                   <time className="shrink-0 text-xs text-fg-subtle">{relativeTime(n.created_at)}</time>
                 </div>
-                <div className="mt-1 text-sm text-fg-muted">
+                <div className="mt-1 text-sm text-fg-muted" dir="auto">
                   <Markdown content={n.body} compact />
                 </div>
               </div>
               <button type="button"
                 onClick={() => remove.mutate(n.id)}
                 className="self-start rounded p-1 text-fg-subtle opacity-0 transition-opacity hover:text-danger group-hover:opacity-100 focus:opacity-100"
-                aria-label="Delete notification"
+                aria-label={t("notifications.delete")}
               >
                 <Trash2 className="h-4 w-4" />
               </button>

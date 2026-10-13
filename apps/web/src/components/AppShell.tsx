@@ -7,17 +7,19 @@ import { SourceLinks } from "./SourceLinks";
 import { useSession } from "../hooks/session";
 import { useNotifications, useSettings } from "../hooks/queries";
 import { cn } from "../lib/utils";
+import { type StringKey, useT } from "../lib/i18n";
 
-const NAV = [
-  { to: "/chat", label: "Chat", icon: MessageSquare },
-  { to: "/memory", label: "Memory", icon: Brain },
-  { to: "/tasks", label: "Tasks", icon: CheckSquare },
-  { to: "/notes", label: "Notes", icon: NotebookPen },
-  { to: "/automations", label: "Automations", icon: CalendarClock },
-] as const;
+const NAV: readonly { to: string; label: StringKey; mobileLabel?: StringKey; icon: typeof MessageSquare }[] = [
+  { to: "/chat", label: "nav.chat", icon: MessageSquare },
+  { to: "/memory", label: "nav.memory", icon: Brain },
+  { to: "/tasks", label: "nav.tasks", icon: CheckSquare },
+  { to: "/notes", label: "nav.notes", icon: NotebookPen },
+  { to: "/automations", label: "nav.automations", mobileLabel: "nav.schedules", icon: CalendarClock },
+];
 
 export function AppShell() {
   const { logout } = useSession();
+  const t = useT();
   const settings = useSettings();
   const notifications = useNotifications();
   const [notifOpen, setNotifOpen] = useState(false);
@@ -30,11 +32,11 @@ export function AppShell() {
     <button type="button"
       onClick={() => setNotifOpen(true)}
       className="relative rounded-lg p-2 text-fg-muted transition-colors hover:bg-muted hover:text-fg"
-      aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`}
+      aria-label={unread ? t("nav.notificationsUnread", { n: unread }) : t("nav.notifications")}
     >
       <Bell className="h-[18px] w-[18px]" />
       {unread > 0 && (
-        <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-accent-fg">
+        <span className="absolute end-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-accent-fg">
           {unread > 9 ? "9+" : unread}
         </span>
       )}
@@ -44,7 +46,7 @@ export function AppShell() {
   return (
     <div className="flex h-full">
       {/* Desktop sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-subtle md:flex">
+      <aside className="hidden w-60 shrink-0 flex-col border-e border-border bg-subtle md:flex">
         <div className="flex h-14 items-center justify-between px-4">
           <div className="flex min-w-0 items-center gap-2.5">
             <Logo />
@@ -65,7 +67,7 @@ export function AppShell() {
               }
             >
               <Icon className="h-4 w-4" />
-              {label}
+              {t(label)}
             </NavLink>
           ))}
         </nav>
@@ -80,14 +82,14 @@ export function AppShell() {
             }
           >
             <Settings className="h-4 w-4" />
-            Settings
+            {t("nav.settings")}
           </NavLink>
           <button type="button"
             onClick={() => void logout()}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-fg-muted transition-colors hover:bg-muted hover:text-fg"
           >
-            <LogOut className="h-4 w-4" />
-            Lock
+            <LogOut className="h-4 w-4 rtl:-scale-x-100" />
+            {t("nav.lock")}
           </button>
           <SourceLinks className="px-3 pt-2" />
         </div>
@@ -102,7 +104,7 @@ export function AppShell() {
           </div>
           <div className="flex items-center">
             {bell}
-            <NavLink to="/settings" className="rounded-lg p-2 text-fg-muted hover:bg-muted" aria-label="Settings">
+            <NavLink to="/settings" className="rounded-lg p-2 text-fg-muted hover:bg-muted" aria-label={t("nav.settings")}>
               <Settings className="h-[18px] w-[18px]" />
             </NavLink>
           </div>
@@ -117,7 +119,7 @@ export function AppShell() {
           aria-label="Main"
           className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden"
         >
-          {NAV.map(({ to, label, icon: Icon }) => (
+          {NAV.map(({ to, label, mobileLabel, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -126,7 +128,7 @@ export function AppShell() {
               }
             >
               <Icon className="h-5 w-5" />
-              {label === "Automations" ? "Schedules" : label}
+              {t(mobileLabel ?? label)}
             </NavLink>
           ))}
         </nav>

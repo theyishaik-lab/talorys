@@ -1,5 +1,6 @@
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { cn } from "../lib/utils";
+import { firstStrongDirection } from "../lib/i18n";
 
 /**
  * A distraction-free Markdown editor.
@@ -226,7 +227,7 @@ export const WriterEditor = forwardRef<WriterHandle, Props>(function WriterEdito
 
   let fence = false;
   return (
-    <div className={cn("writer relative grid", focusMode && "writer-focus")}>
+    <div className={cn("writer relative grid", focusMode && "writer-focus")} dir={firstStrongDirection(value)}>
       <div aria-hidden className="writer-layer pointer-events-none col-start-1 row-start-1">
         {lines.map((line, i) => {
           const fenceLine = /^\s*(```|~~~)/.test(line);

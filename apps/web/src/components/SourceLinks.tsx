@@ -1,5 +1,6 @@
 import { ANDROID_REPO_URL, REPO_URL } from "../lib/links";
 import { cn } from "../lib/utils";
+import { useT } from "../lib/i18n";
 
 /** GitHub mark (Octicons, MIT) — lucide ships no brand icons. */
 export function GitHubIcon({ className }: { className?: string }) {
@@ -14,15 +15,16 @@ const linkClass = "transition-colors hover:text-fg hover:underline";
 
 /** Small "Source · Android" line pointing at this installation's repositories. */
 export function SourceLinks({ className }: { className?: string }) {
+  const t = useT();
   return (
     <p className={cn("flex items-center gap-1.5 text-xs text-fg-subtle", className)}>
       <GitHubIcon className="h-3.5 w-3.5 shrink-0" />
       <a href={REPO_URL} target="_blank" rel="noopener noreferrer" className={linkClass} title="Talorys source on GitHub">
-        Source
+        {t("source.source")}
       </a>
       <span aria-hidden>·</span>
       <a href={ANDROID_REPO_URL} target="_blank" rel="noopener noreferrer" className={linkClass} title="Android app source on GitHub">
-        Android
+        {t("source.android")}
       </a>
     </p>
   );
