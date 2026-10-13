@@ -213,6 +213,15 @@ describe("compactResult", () => {
   });
 });
 
+describe("action ids", () => {
+  it("accepts dotted names like googledrive.files.list and reads the verb from the last segment", () => {
+    const tool = openConnectorTools(new OpenConnectorClient({ url: "https://x", token: "t" })).find((t) => t.name === "run_action") as ImmediateTool;
+    expect(tool.input.safeParse({ action: "googledrive.files.list", input: {} }).success).toBe(true);
+    expect(tool.input.safeParse({ action: "googledrive", input: {} }).success).toBe(false);
+    expect(isReadOnlyAction("googledrive.files.list")).toBe(true);
+  });
+});
+
 describe("catalog fallback when the fuzzy search is cut off", () => {
   it("recognises the platform cut-off and hints services from the words", () => {
     expect(isPlatformLimitError(new Error("Worker exceeded CPU time limit."))).toBe(true);

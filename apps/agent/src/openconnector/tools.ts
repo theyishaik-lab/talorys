@@ -7,7 +7,7 @@ const ACTION_ID = z
   .trim()
   .min(3)
   .max(120)
-  .regex(/^[a-z0-9_]+\.[a-z0-9_]+$/i, "Use the full action id, e.g. gmail.search_threads");
+  .regex(/^[a-z0-9_]+(\.[a-z0-9_-]+)+$/i, "Use the full action id, e.g. gmail.search_threads or googledrive.files.list");
 const CONNECTION = z.string().trim().min(1).max(100).optional();
 const INPUT = z.record(z.string(), z.unknown()).default({});
 
