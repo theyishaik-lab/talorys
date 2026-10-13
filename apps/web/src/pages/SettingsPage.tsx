@@ -3,6 +3,8 @@ import { useLocation, useSearchParams } from "react-router";
 import { useNav } from "../lib/native";
 import { BellButton, MenuButton, TopBar } from "../components/AppShell";
 import { DeviceNotificationsSection } from "../components/DeviceNotifications";
+import { ModelPicker, providerLabel, shortModel } from "../components/ModelPicker";
+import { ConnectionsSection } from "../components/ConnectionsSection";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Limits, MemoryHistorySettings, Settings } from "@talorys/shared";
 import { LIMIT_CEILINGS, TALORYS_VERSION } from "@talorys/shared/constants";
@@ -18,7 +20,7 @@ import { useToast, errorMessage } from "../hooks/toast";
 import { api, ApiError } from "../lib/api";
 import { applyTheme, readThemePreference, type ThemePreference } from "../lib/theme";
 import { cn, relativeTime } from "../lib/utils";
-import { LOCALE_NAMES, LOCALES, type LocalePreference, useLocale } from "../lib/i18n";
+import { LOCALE_NAMES, LOCALES, type LocalePreference, type StringKey, useLocale } from "../lib/i18n";
 
 const TABS = ["General", "AI", "Privacy", "Security", "About"] as const;
 type Tab = (typeof TABS)[number];
@@ -99,7 +101,8 @@ export default function SettingsPage() {
       <AppearanceSection />
       <DeviceNotificationsSection Section={Section} Row={Row} />
       <Section title={t("settings.connections")} inset>
-        <LinkRow icon={Cpu} label={t("settings.model")} value={<span dir="ltr">{shortModel(settings.model)}</span>} onClick={() => setTab("AI")} />
+        <LinkRow icon={Cpu} label={t("settings.model")} value={<span dir="ltr">{shortModel(settings.model)} · {providerLabel(t, settings.modelProvider)}</span>} onClick={() => setTab("AI")} />
+        <ConnectionsSection />
       </Section>
       <Section title={t("settings.account")} inset>
         <LinkRow icon={Settings2} label={t("settings.tab.General")} value={settings.agentName} onClick={() => setTab("General")} />
@@ -143,11 +146,6 @@ export default function SettingsPage() {
       </div>
     </div>
   );
-}
-
-function shortModel(id: string): string {
-  const last = id.split("/").at(-1) ?? id;
-  return last.replace(/-it$/, "").replace(/-a4b$/, "");
 }
 
 const THEMES: { value: ThemePreference; icon: typeof Sun; label: "settings.theme.light" | "settings.theme.dark" | "settings.theme.auto" }[] = [
@@ -270,67 +268,48 @@ function GeneralTab({ settings }: { settings: Settings }) {
   );
 }
 
-const LIMIT_FIELDS: { key: keyof Limits; label: string; hint: string }[] = [
-  { key: "maxOutputTokens", label: "Max output tokens", hint: "Upper bound for each AI reply." },
-  { key: "maxContextTokens", label: "Max context tokens", hint: "Recent history sent to the model. Older messages are summarized." },
-  { key: "maxToolCalls", label: "Max tool calls per request", hint: "0 disables tools entirely." },
-  { key: "maxAgentIterations", label: "Max reasoning steps", hint: "Model round-trips per request." },
-  { key: "maxAiRequestsPerDay", label: "Max AI requests per day", hint: "Hard daily cap enforced by Talorys." },
-  { key: "maxScheduledAiRunsPerDay", label: "Max scheduled AI runs per day", hint: "Budget for AI routines. Reminders never use AI." },
-];
+const LIMIT_FIELDS: (keyof Limits)[] = ["maxOutputTokens", "maxContextTokens", "maxToolCalls", "maxAgentIterations", "maxAiRequestsPerDay", "maxScheduledAiRunsPerDay"];
 
 function AiTab({ settings }: { settings: Settings }) {
   const save = useSaveSettings();
   const usage = useUsage();
-  const [model, setModel] = useState(settings.model);
+  const { t } = useLocale();
   const [limits, setLimits] = useState<Limits>(settings.limits);
   const [temperature, setTemperature] = useState(settings.temperature);
   const dirtyLimits = JSON.stringify(limits) !== JSON.stringify(settings.limits) || temperature !== settings.temperature;
   return (
     <>
-      <Section title="Model">
-        <Row label="Workers AI model" hint="Default: @cf/zai-org/glm-4.7-flash. Must support tool calling.">
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (model !== settings.model) save.mutate({ model: model.trim() });
-            }}
-          >
-            <Input value={model} onChange={(e) => setModel(e.target.value)} aria-label="Model id" className="font-mono text-xs" />
-            <Button type="submit" variant="outline" disabled={model === settings.model}>
-              Save
-            </Button>
-          </form>
-        </Row>
-        <Row label="Learn from conversations" hint="Let Talorys save clearly lasting preferences without being asked. Off = only explicit “remember …”.">
+      <ModelPicker settings={settings} Section={Section} Row={Row} />
+
+      <Section title={t("settings.tab.AI")}>
+        <Row label={t("ai.learn")} hint={t("ai.learnHint")}>
           <div className="flex justify-end">
-            <Switch checked={settings.autoMemory} onChange={(v) => save.mutate({ autoMemory: v })} label="Learn from conversations" />
+            <Switch checked={settings.autoMemory} onChange={(v) => save.mutate({ autoMemory: v })} label={t("ai.learn")} />
           </div>
         </Row>
-        <Row label="Demo mode" hint="Replaces Workers AI with a simple offline responder. Useful when your AI quota is exhausted. Never enabled automatically.">
+        <Row label={t("ai.demo")} hint={t("ai.demoHint")}>
           <div className="flex justify-end">
-            <Switch checked={settings.demoMode} onChange={(v) => save.mutate({ demoMode: v })} label="Demo mode" />
+            <Switch checked={settings.demoMode} onChange={(v) => save.mutate({ demoMode: v })} label={t("ai.demo")} />
           </div>
         </Row>
       </Section>
 
-      <Section title="Generation & execution limits">
-        <Row label="Temperature" hint="Lower is more focused and predictable.">
+      <Section title={t("ai.limits")}>
+        <Row label={t("ai.temperature")} hint={t("ai.temperatureHint")}>
           <div className="flex items-center gap-3">
-            <input type="range" min={0} max={1.5} step={0.1} value={temperature} onChange={(e) => setTemperature(Number(e.target.value))} className="flex-1 accent-[var(--accent)]" aria-label="Temperature" />
+            <input type="range" min={0} max={1.5} step={0.1} value={temperature} onChange={(e) => setTemperature(Number(e.target.value))} className="flex-1 accent-[var(--accent)]" aria-label={t("ai.temperature")} />
             <span className="w-8 text-end text-sm tabular-nums">{temperature.toFixed(1)}</span>
           </div>
         </Row>
-        {LIMIT_FIELDS.map((f) => (
-          <Row key={f.key} label={f.label} hint={`${f.hint} Max ${LIMIT_CEILINGS[f.key]}.`}>
+        {LIMIT_FIELDS.map((key) => (
+          <Row key={key} label={t(`ai.limit.${key}` as StringKey)} hint={`${t(`ai.limit.${key}Hint` as StringKey)} ${t("ai.limit.max", { n: LIMIT_CEILINGS[key] })}`}>
             <Input
               type="number"
               min={0}
-              max={LIMIT_CEILINGS[f.key]}
-              value={limits[f.key]}
-              onChange={(e) => setLimits({ ...limits, [f.key]: Number(e.target.value) })}
-              aria-label={f.label}
+              max={LIMIT_CEILINGS[key]}
+              value={limits[key]}
+              onChange={(e) => setLimits({ ...limits, [key]: Number(e.target.value) })}
+              aria-label={t(`ai.limit.${key}` as StringKey)}
             />
           </Row>
         ))}
@@ -343,15 +322,15 @@ function AiTab({ settings }: { settings: Settings }) {
               setTemperature(settings.temperature);
             }}
           >
-            Reset
+            {t("ai.reset")}
           </Button>
           <Button disabled={!dirtyLimits} loading={save.isPending} onClick={() => save.mutate({ limits, temperature })}>
-            Save limits
+            {t("ai.saveLimits")}
           </Button>
         </div>
       </Section>
 
-      <Section title="Usage">
+      <Section title={t("ai.usage")}>
         {usage.isLoading || !usage.data ? (
           <div className="flex justify-center p-6">
             <Spinner />
@@ -360,10 +339,10 @@ function AiTab({ settings }: { settings: Settings }) {
           <>
             <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-4">
               {[
-                ["AI requests today", `${usage.data.today.ai_requests} / ${usage.data.limits.maxAiRequestsPerDay}`],
-                ["Tokens today (est.)", (usage.data.today.input_tokens_estimate + usage.data.today.output_tokens_estimate).toLocaleString()],
-                ["Tool calls today", String(usage.data.today.tool_calls)],
-                ["Scheduled AI runs", `${usage.data.today.scheduled_ai_runs} / ${usage.data.limits.maxScheduledAiRunsPerDay}`],
+                [t("ai.usage.requests"), `${usage.data.today.ai_requests} / ${usage.data.limits.maxAiRequestsPerDay}`],
+                [t("ai.usage.tokens"), (usage.data.today.input_tokens_estimate + usage.data.today.output_tokens_estimate).toLocaleString()],
+                [t("ai.usage.toolCalls"), String(usage.data.today.tool_calls)],
+                [t("ai.usage.scheduled"), `${usage.data.today.scheduled_ai_runs} / ${usage.data.limits.maxScheduledAiRunsPerDay}`],
               ].map(([label, value]) => (
                 <div key={label} className="bg-surface px-5 py-4">
                   <p className="text-xs text-fg-subtle">{label}</p>
@@ -371,18 +350,16 @@ function AiTab({ settings }: { settings: Settings }) {
                 </div>
               ))}
             </div>
-            <Row label="Last 7 days" hint="Local estimates measured by Talorys.">
-              <p className="text-end text-sm tabular-nums text-fg-muted">
-                {usage.data.last_7_days.ai_requests} requests · {usage.data.last_7_days.ai_errors} errors
-              </p>
+            <Row label={t("ai.usage.last7")} hint={t("ai.usage.last7Hint")}>
+              <p className="text-end text-sm tabular-nums text-fg-muted">{t("ai.usage.last7Value", { requests: usage.data.last_7_days.ai_requests, errors: usage.data.last_7_days.ai_errors })}</p>
             </Row>
             <div className="px-5 py-4 text-xs leading-5 text-fg-subtle">
               <Badge tone="warning" className="mb-2">
-                Estimates, not billing data
+                {t("ai.usage.estimates")}
               </Badge>
-              <p>{usage.data.note}</p>
+              <p>{t("ai.usage.note")}</p>
               <a href={usage.data.dashboard_url} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex items-center gap-1 text-accent hover:underline">
-                Open Workers AI usage in the Cloudflare dashboard <ExternalLink className="h-3 w-3" />
+                {t("ai.usage.dashboard")} <ExternalLink className="h-3 w-3" />
               </a>
             </div>
           </>
@@ -396,21 +373,19 @@ function AiTab({ settings }: { settings: Settings }) {
 
 function MemoryHistorySection({ settings }: { settings: Settings }) {
   const save = useSaveSettings();
+  const { t } = useLocale();
   const mh = settings.memoryHistory;
   return (
-    <Section title="Memory history">
-      <Row
-        label="Memory conflict review"
-        hint="When a new memory clearly replaces an old one (“I sold my car…”), keep the old one as a past fact. Unclear cases wait for you on the Memory page. Uses no AI."
-      >
+    <Section title={t("ai.memoryHistory")}>
+      <Row label={t("ai.conflictReview")} hint={t("ai.conflictReviewHint")}>
         <div className="flex justify-end">
-          <Switch checked={mh.conflictReview} onChange={(v) => save.mutate({ memoryHistory: { conflictReview: v } })} label="Memory conflict review" />
+          <Switch checked={mh.conflictReview} onChange={(v) => save.mutate({ memoryHistory: { conflictReview: v } })} label={t("ai.conflictReview")} />
         </div>
       </Row>
       {mh.conflictReview && (
-        <Row label="Double-check conflicts with AI" hint="For unclear conflicts only, ask the chat model whether they really conflict. Uses one AI request per check. It never changes memories by itself.">
+        <Row label={t("ai.aiConflictCheck")} hint={t("ai.aiConflictCheckHint")}>
           <div className="flex justify-end">
-            <Switch checked={mh.aiConflictCheck} onChange={(v) => save.mutate({ memoryHistory: { aiConflictCheck: v } })} label="Double-check conflicts with AI" />
+            <Switch checked={mh.aiConflictCheck} onChange={(v) => save.mutate({ memoryHistory: { aiConflictCheck: v } })} label={t("ai.aiConflictCheck")} />
           </div>
         </Row>
       )}
@@ -610,10 +585,19 @@ function describeAgent(ua: string): string {
 
 function AboutTab() {
   const info = useSystemInfo();
+  const { t } = useLocale();
+  const { data: settings } = useSettings();
+  const standalone = typeof window !== "undefined" && window.matchMedia?.("(display-mode: standalone)").matches;
   return (
-    <Section title="About Talorys">
-      <Row label="Version">
+    <Section title={t("settings.tab.About")}>
+      <Row label={t("settings.version")}>
         <p className="text-end font-mono text-sm" dir="ltr">{info.data?.deployed_version ?? TALORYS_VERSION}</p>
+      </Row>
+      <Row label={t("settings.app")}>
+        <p className="text-end text-sm text-fg-muted">{standalone ? t("settings.installedApp") : t("settings.notInstalled")}</p>
+      </Row>
+      <Row label={t("settings.model")}>
+        <p className="text-end text-sm text-fg-muted" dir="ltr">{settings ? `${shortModel(settings.model)} · ${providerLabel(t, settings.modelProvider)}` : ""}</p>
       </Row>
       <Row label="Deployment" hint="Your own Cloudflare account. Pages frontend → service binding → private Worker → Durable Object.">
         <div className="space-y-1 text-end text-xs text-fg-muted">
@@ -621,7 +605,7 @@ function AboutTab() {
             <>
               <p>Installation: <span className="font-mono">{info.data.installation_id ?? "local"}</span></p>
               <p>Schema v{info.data.schema_version} · {info.data.environment}</p>
-              <p>AI: {info.data.ai_provider === "workers-ai" ? "Cloudflare Workers AI" : info.data.ai_provider === "mock" ? "Demo responder" : "Not available"}</p>
+              <p>AI: {info.data.ai_provider === "mock" ? "Demo responder" : info.data.ai_provider === "none" ? "Not available" : providerLabel(t, info.data.ai_provider)}</p>
             </>
           ) : (
             <Spinner className="ms-auto h-4 w-4" />

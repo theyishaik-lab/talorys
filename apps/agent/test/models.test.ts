@@ -169,7 +169,7 @@ describe("provider keys", () => {
     await inAgent(async (a) => {
       expect(await a.services.providerKeys.get("gemini")).toBe("AIzaSy-test-key-1234abcd");
       const row = a.services.settings.getJson<Record<string, { data: string }>>("ai.keys");
-      expect(row!.gemini.data).not.toContain("test-key");
+      expect(row!.gemini!.data).not.toContain("test-key");
     });
 
     const catalog = await c.json("/api/ai/models");
@@ -188,7 +188,7 @@ describe("provider keys", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { message: "API key not valid" } }), { status: 400 })));
     const res = await c.call("/api/ai/keys/openrouter", { method: "PUT", body: { key: "sk-or-v1-notvalid" } });
     expect(res.status).toBe(503);
-    const body = await res.json();
+    const body = (await res.json()) as { error: { code: string; message: string } };
     expect(body.error.code).toBe("NOT_CONFIGURED");
     expect(body.error.message).toContain("OpenRouter");
   });

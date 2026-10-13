@@ -21,6 +21,46 @@ export function permissionState(): NotificationPermission | "unsupported" {
   return typeof Notification === "undefined" ? "unsupported" : Notification.permission;
 }
 
+/** The old Android WebView app (`; wv)` in Chrome's UA): no Push API, ever. */
+export function isAndroidWebView(): boolean {
+  return typeof navigator !== "undefined" && /Android/.test(navigator.userAgent) && /; wv\)/.test(navigator.userAgent);
+}
+
+/** Where the enable flow stopped, so the UI can say what to do. */
+export type PushStep = "permission" | "service-worker" | "subscribe" | "server";
+export class PushEnableError extends Error {
+  constructor(
+    readonly step: PushStep,
+    readonly permission: NotificationPermission,
+    message: string,
+  ) {
+    super(message);
+    this.name = "PushEnableError";
+  }
+}
+
+export interface LastTest {
+  at: string;
+  ok: boolean;
+  status: number;
+}
+const LAST_TEST_KEY = "talorys.push.lastTest";
+export function readLastTest(): LastTest | null {
+  try {
+    const raw = localStorage.getItem(LAST_TEST_KEY);
+    return raw ? (JSON.parse(raw) as LastTest) : null;
+  } catch {
+    return null;
+  }
+}
+export function writeLastTest(result: LastTest): void {
+  try {
+    localStorage.setItem(LAST_TEST_KEY, JSON.stringify(result));
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 function toKey(base64url: string): Uint8Array {
   const padded = base64url.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (base64url.length % 4)) % 4);
   const bin = atob(padded);
@@ -57,20 +97,73 @@ function deviceLabel(): string {
   return `${os}${browser ? ` · ${browser}` : ""}`;
 }
 
-/** Asks for permission (must run from a tap), subscribes, and registers the device with the agent. */
-export async function enablePush(publicKey: string, prefs?: Partial<PushPrefs>): Promise<{ permission: NotificationPermission; device: PushSubscriptionView | null }> {
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") return { permission, device: null };
-  const reg = await registration();
-  await navigator.serviceWorker.ready;
-  let sub = await reg.pushManager.getSubscription();
-  if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toKey(publicKey) as BufferSource });
+/**
+ * Asks for permission (must run from a tap), subscribes, and registers the device with the agent.
+ * Every step that can fail throws a `PushEnableError` naming the step: "permission" when the
+ * prompt was blocked or closed, "service-worker" when none is active, "subscribe" when the
+ * browser could not register with its push service, "server" when the agent refused the row.
+ */
+export async function enablePush(publicKey: string, prefs?: Partial<PushPrefs>): Promise<{ permission: NotificationPermission; device: PushSubscriptionView }> {
+  let permission: NotificationPermission;
+  try {
+    permission = await Notification.requestPermission();
+  } catch (error) {
+    throw new PushEnableError("permission", Notification.permission, String(error));
+  }
+  if (permission !== "granted") throw new PushEnableError("permission", permission, permission);
+  let reg: ServiceWorkerRegistration;
+  try {
+    reg = await registration();
+    await withTimeout(navigator.serviceWorker.ready, 15_000);
+  } catch (error) {
+    throw new PushEnableError("service-worker", permission, String(error));
+  }
+  let sub: PushSubscription | null;
+  try {
+    sub = await reg.pushManager.getSubscription();
+    // A subscription made with another install's key cannot be reused: start over.
+    if (sub?.options.applicationServerKey && !sameKey(sub.options.applicationServerKey, publicKey)) {
+      await sub.unsubscribe().catch(() => false);
+      sub = null;
+    }
+    if (!sub) sub = await withTimeout(reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: toKey(publicKey) as BufferSource }), 20_000);
+  } catch (error) {
+    throw new PushEnableError("subscribe", permission, error instanceof Error ? `${error.name}: ${error.message}` : String(error));
+  }
   const json = sub.toJSON();
-  const { subscription } = await api<{ subscription: PushSubscriptionView }>("/push/subscriptions", {
-    method: "POST",
-    body: { endpoint: json.endpoint, keys: json.keys, label: deviceLabel(), ...(prefs ? { prefs } : {}) },
+  try {
+    const { subscription } = await api<{ subscription: PushSubscriptionView }>("/push/subscriptions", {
+      method: "POST",
+      body: { endpoint: json.endpoint, keys: json.keys, label: deviceLabel(), ...(prefs ? { prefs } : {}) },
+    });
+    return { permission, device: subscription };
+  } catch (error) {
+    throw new PushEnableError("server", permission, error instanceof Error ? error.message : String(error));
+  }
+}
+
+function sameKey(stored: ArrayBuffer | ArrayBufferView, publicKey: string): boolean {
+  const a = stored instanceof ArrayBuffer ? new Uint8Array(stored) : new Uint8Array(stored.buffer, stored.byteOffset, stored.byteLength);
+  const b = toKey(publicKey);
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`timed out after ${ms} ms`)), ms);
+    p.then(
+      (v) => {
+        clearTimeout(timer);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(timer);
+        reject(e);
+      },
+    );
   });
-  return { permission, device: subscription };
 }
 
 export async function disablePush(deviceId: string | null): Promise<void> {
