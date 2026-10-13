@@ -8,6 +8,7 @@ import { api } from "../lib/api";
 import { type StringKey, useT } from "../lib/i18n";
 import { cn, relativeTime } from "../lib/utils";
 import { Badge, Button, Input, Select, Spinner, Switch } from "./ui";
+import { providerLabel } from "../lib/provider-label";
 
 type SectionProps = { title?: string; children: ReactNode; inset?: boolean };
 type RowProps = { label: string; hint?: ReactNode; children: ReactNode };
@@ -29,10 +30,8 @@ export function shortModel(id: string): string {
   return last.replace(/-it$/, "").replace(/-a4b$/, "").replace(/:free$/, "");
 }
 
-export function providerLabel(t: (k: StringKey) => string, id: AiProviderId | string | undefined): string {
-  const key = `model.provider.${id}` as StringKey;
-  return id === "workers-ai" || id === "gemini" || id === "openrouter" ? t(key) : String(id ?? "");
-}
+// Lives in lib/provider-label so the chat screen can name a provider without pulling this page into startup JS.
+export { providerLabel };
 
 /**
  * Settings → Model: every provider with its models, the current one marked; API-key cards for the

@@ -33,7 +33,7 @@ import { api, ApiError, streamChat } from "../lib/api";
 import { cn, copyText } from "../lib/utils";
 import { type StringKey, useT } from "../lib/i18n";
 import { haptic } from "../lib/native";
-import { providerLabel } from "../components/ModelPicker";
+import { providerLabel } from "../lib/provider-label";
 
 interface StreamState {
   conversationId: string | null;
