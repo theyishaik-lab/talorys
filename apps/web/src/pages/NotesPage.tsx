@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useLocation, useParams } from "react-router";
+import { useNav } from "../lib/native";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Note, Project } from "@talorys/shared";
 import { ArrowLeft, CircleCheck, Crosshair, Eye, FolderKanban, ListTodo, NotebookPen, Pencil, Plus, Search, Trash2 } from "lucide-react";
@@ -12,7 +13,9 @@ import { cn, relativeTime } from "../lib/utils";
 
 export default function NotesPage() {
   const { noteId } = useParams();
-  const navigate = useNavigate();
+  const nav = useNav();
+  const location = useLocation();
+  const pushed = !!(location.state as { notePushed?: boolean } | null)?.notePushed;
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   const [projectsOpen, setProjectsOpen] = useState(false);
@@ -24,7 +27,7 @@ export default function NotesPage() {
 
   const create = useApiMutation(() => api<{ note: Note }>("/notes", { method: "POST", body: { title: "Untitled", content: "" } }), {
     invalidate: [["notes"]],
-    onSuccess: (r) => navigate(`/notes/${r.note.id}?edit=1`),
+    onSuccess: (r) => nav(`/notes/${r.note.id}?edit=1`, "push", { state: { notePushed: true } }),
   });
 
   return (
@@ -67,7 +70,7 @@ export default function NotesPage() {
                 return (
                 <li key={n.id}>
                   <button type="button"
-                    onClick={() => navigate(`/notes/${n.id}`)}
+                    onClick={() => nav(`/notes/${n.id}`, "push", { state: { notePushed: true } })}
                     className={cn(
                       "w-full rounded-lg px-3 py-2.5 text-start transition-colors",
                       n.id === noteId ? "bg-muted" : "hover:bg-muted/60",
@@ -97,7 +100,7 @@ export default function NotesPage() {
 
       <section className={cn("min-w-0 flex-1", !noteId && "hidden md:block")}>
         {noteId ? (
-          <NoteEditor key={noteId} id={noteId} onBack={() => navigate("/notes")} />
+          <NoteEditor key={noteId} id={noteId} onBack={() => (pushed ? nav(-1, "pop") : nav("/notes", "pop", { replace: true }))} />
         ) : (
           <EmptyState icon={<NotebookPen className="h-9 w-9" />} title="Select a note">
             Or create a new one with the + button.

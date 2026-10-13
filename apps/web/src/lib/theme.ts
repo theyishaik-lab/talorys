@@ -52,8 +52,9 @@ export function applyTheme(pref: ThemePreference): void {
 function syncThemeColor(): void {
   const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]:not([media])');
   if (!meta) return;
-  const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
-  if (bg) meta.content = bg;
+  // The two --bg values from the stylesheet; a constant here avoids forcing a synchronous style
+  // recalculation of the whole page on every switch.
+  meta.content = resolvedTheme() === "dark" ? "#0b0b0e" : "#ffffff";
 }
 
 /** Applies the last known theme before first render (no inline scripts under our CSP). */

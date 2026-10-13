@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ChatMessage, Conversation, PendingAction, ToolActivity } from "@talorys/shared";
@@ -31,6 +31,7 @@ import { keys, useApiMutation, useAutomations, useConversation, useSettings, use
 import { api, ApiError, streamChat } from "../lib/api";
 import { cn, copyText } from "../lib/utils";
 import { type StringKey, useT } from "../lib/i18n";
+import { haptic } from "../lib/native";
 
 interface StreamState {
   conversationId: string | null;
@@ -93,10 +94,30 @@ export function ChatPage() {
       );
     }
     setStream({ conversationId: convId, userText: opts.retry ? "" : text, assistantId: null, text: "", tools: [], error: null, done: false });
+    // Tokens arrive many times a second; the screen is updated at most ~12 times a second so a long
+    // reply never re-renders and re-parses the chat for every word (the stutter on phones).
+    let pendingText = "";
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+    const flushText = () => {
+      flushTimer = null;
+      if (!pendingText) return;
+      const delta = pendingText;
+      pendingText = "";
+      setStream((s) => s && { ...s, text: s.text + delta });
+    };
+    const queueText = (delta: string) => {
+      pendingText += delta;
+      if (!flushTimer) flushTimer = setTimeout(flushText, 80);
+    };
+    const flushNow = () => {
+      if (flushTimer) clearTimeout(flushTimer);
+      flushText();
+    };
     try {
       await streamChat(
         { conversation_id: convId ?? undefined, message: opts.retry ? "retry" : text, retry: opts.retry },
         (event) => {
+          if (event.type !== "text") flushNow();
           switch (event.type) {
             case "title":
               void qc.invalidateQueries({ queryKey: ["conversations"] });
@@ -109,7 +130,7 @@ export function ChatPage() {
               setStream((s) => s && { ...s, conversationId: event.conversation_id, assistantId: event.assistant_message_id });
               break;
             case "text":
-              setStream((s) => s && { ...s, text: s.text + event.delta });
+              queueText(event.delta);
               break;
             case "tool":
               setStream((s) => {
@@ -136,6 +157,7 @@ export function ChatPage() {
         controller.signal,
       );
     } catch (error) {
+      flushNow();
       if (controller.signal.aborted) {
         setStream((s) => s && { ...s, done: true });
       } else {
@@ -143,6 +165,7 @@ export function ChatPage() {
         setStream((s) => s && { ...s, error: message, done: true });
       }
     } finally {
+      flushNow();
       abortRef.current = null;
       void qc.invalidateQueries({ queryKey: ["conversations"] });
       void qc.invalidateQueries({ queryKey: keys.usage });
@@ -303,7 +326,8 @@ function EmptyChat({ name, onPick }: { name: string; onPick: (s: string) => void
   );
 }
 
-function MessageView({ message, onRetry }: { message: ChatMessage; onRetry?: () => void }) {
+/** A persisted message. Memoised so a streaming reply below it does not re-render the whole history. */
+const MessageView = memo(function MessageView({ message, onRetry }: { message: ChatMessage; onRetry?: () => void }) {
   if (message.role === "user") return <UserBubble text={message.content} />;
   return (
     <AssistantBubble
@@ -315,12 +339,12 @@ function MessageView({ message, onRetry }: { message: ChatMessage; onRetry?: () 
       onRetry={onRetry}
     />
   );
-}
+});
 
 function UserBubble({ text }: { text: string }) {
   return (
     <div className="flex justify-end animate-fade-in">
-      <div dir="auto" className="max-w-[80%] whitespace-pre-wrap break-words rounded-[20px] rounded-ee-md bg-bubble-user px-3.5 py-2.5 text-[15px] leading-6 text-bubble-user-fg">
+      <div dir="auto" className="selectable max-w-[80%] whitespace-pre-wrap break-words rounded-[20px] rounded-ee-md bg-bubble-user px-3.5 py-2.5 text-[15px] leading-6 text-bubble-user-fg">
         {text}
       </div>
     </div>
@@ -415,10 +439,26 @@ function PlainApprovalCard({ action: initial }: { action: PendingAction }) {
         <span className="shrink-0 rounded-full bg-warning/12 px-2 py-0.5 text-[11.5px] font-semibold text-warning">{t("chat.awaiting")}</span>
       </div>
       <div className="flex gap-2 px-4 pb-3.5">
-        <Button className="flex-1 justify-center" loading={decide.isPending && decide.variables === "approve"} disabled={decide.isPending} onClick={() => decide.mutate("approve")}>
+        <Button
+          className="flex-1 justify-center"
+          loading={decide.isPending && decide.variables === "approve"}
+          disabled={decide.isPending}
+          onClick={() => {
+            haptic("success");
+            decide.mutate("approve");
+          }}
+        >
           <Check className="h-4 w-4" /> {t("chat.approve")}
         </Button>
-        <Button variant="secondary" className="flex-1 justify-center" disabled={decide.isPending} onClick={() => decide.mutate("cancel")}>
+        <Button
+          variant="secondary"
+          className="flex-1 justify-center"
+          disabled={decide.isPending}
+          onClick={() => {
+            haptic("tap");
+            decide.mutate("cancel");
+          }}
+        >
           {t("chat.decline")}
         </Button>
       </div>
@@ -499,13 +539,17 @@ function AssistantBubble({
   );
 }
 
+const FIELD_SIZING = typeof CSS !== "undefined" && typeof CSS.supports === "function" && CSS.supports("field-sizing", "content");
+
 function Composer({ name, streaming, onSend, onStop, autoFocus }: { name: string; streaming: boolean; onSend: (t: string) => void; onStop: () => void; autoFocus?: boolean }) {
   const t = useT();
   const [value, setValue] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
+  // Auto-height: CSS `field-sizing: content` where supported (no layout work per keystroke);
+  // otherwise measure.
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || FIELD_SIZING) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
   }, [value]);
@@ -513,6 +557,7 @@ function Composer({ name, streaming, onSend, onStop, autoFocus }: { name: string
   function submit() {
     const text = value.trim();
     if (!text || streaming) return;
+    haptic("tap");
     onSend(text);
     setValue("");
   }
@@ -537,7 +582,7 @@ function Composer({ name, streaming, onSend, onStop, autoFocus }: { name: string
           placeholder={t("chat.placeholder", { name })}
           aria-label={t("chat.message")}
           dir="auto"
-          className="max-h-[200px] min-h-[36px] flex-1 resize-none bg-transparent px-3 py-[7px] text-[15px] leading-[22px] placeholder:text-fg-subtle focus:outline-none"
+          className="composer-input max-h-[200px] min-h-[36px] flex-1 resize-none bg-transparent px-3 py-[7px] text-[15px] leading-[22px] placeholder:text-fg-subtle focus:outline-none"
         />
         {streaming ? (
           <button type="button" onClick={onStop} aria-label={t("chat.stop")} className="pressable grid h-9 w-9 shrink-0 place-items-center rounded-full bg-fg text-bg">

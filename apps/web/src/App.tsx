@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router";
 import { useSession } from "./hooks/session";
 import { AppShell } from "./components/AppShell";
@@ -7,11 +7,35 @@ import { ChatPage } from "./pages/ChatPage";
 import { Spinner, ErrorNotice } from "./components/ui";
 import { Logo } from "./components/Logo";
 
-const MemoryPage = lazy(() => import("./pages/MemoryPage"));
-const TasksPage = lazy(() => import("./pages/TasksPage"));
-const NotesPage = lazy(() => import("./pages/NotesPage"));
-const AutomationsPage = lazy(() => import("./pages/AutomationsPage"));
-const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const loaders = {
+  memory: () => import("./pages/MemoryPage"),
+  tasks: () => import("./pages/TasksPage"),
+  notes: () => import("./pages/NotesPage"),
+  automations: () => import("./pages/AutomationsPage"),
+  settings: () => import("./pages/SettingsPage"),
+};
+const MemoryPage = lazy(loaders.memory);
+const TasksPage = lazy(loaders.tasks);
+const NotesPage = lazy(loaders.notes);
+const AutomationsPage = lazy(loaders.automations);
+const SettingsPage = lazy(loaders.settings);
+
+/** Fetches the other screens' code once the chat is idle, so tapping a tab is instant (native feel). */
+function usePrefetchPages(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return;
+    const run = () => {
+      for (const load of Object.values(loaders)) void load().catch(() => {});
+    };
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void };
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(run, { timeout: 4000 });
+      return () => w.cancelIdleCallback?.(id);
+    }
+    const id = setTimeout(run, 2500);
+    return () => clearTimeout(id);
+  }, [enabled]);
+}
 
 function FullScreen({ children }: { children: React.ReactNode }) {
   return <div className="flex min-h-full flex-col items-center justify-center gap-6 p-6">{children}</div>;
@@ -19,6 +43,7 @@ function FullScreen({ children }: { children: React.ReactNode }) {
 
 export function App() {
   const { session, loading, error, refresh } = useSession();
+  usePrefetchPages(!!session?.authenticated);
 
   if (loading) {
     return (

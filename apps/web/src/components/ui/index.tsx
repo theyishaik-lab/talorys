@@ -11,6 +11,7 @@ import {
 import { Loader2, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useT } from "../../lib/i18n";
+import { useHistoryLayer } from "../../lib/native";
 
 // Small shadcn-style primitives, styled with the Talorys tokens.
 
@@ -172,6 +173,8 @@ export function Dialog({
     if (open && !el.open) el.showModal();
     if (!open && el.open) el.close();
   }, [open]);
+  // The Android back button / gesture closes the sheet instead of leaving the app.
+  useHistoryLayer(open, onClose);
   return (
     <dialog
       ref={ref}

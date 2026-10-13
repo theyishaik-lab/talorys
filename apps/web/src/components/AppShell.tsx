@@ -1,5 +1,7 @@
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Outlet, useLocation, useMatch } from "react-router";
+import { useDrawerGesture } from "../hooks/drawer-gesture";
+import { type NavDirection, useHistoryLayer, useMediaQuery, useNav } from "../lib/native";
 import { Bell, Menu } from "lucide-react";
 import { Drawer, PAGES } from "./Drawer";
 import { NotificationCenter } from "./NotificationCenter";
@@ -12,6 +14,9 @@ interface ShellContextValue {
   openNotifications: () => void;
   unread: number;
 }
+
+/** The phone breakpoint where the drawer becomes a fixed sidebar (Tailwind `lg`). */
+const WIDE = "(min-width: 1024px)";
 const ShellContext = createContext<ShellContextValue | null>(null);
 
 export function useShell(): ShellContextValue {
@@ -64,10 +69,12 @@ export function TopBar({ start, title, end, className }: { start?: ReactNode; ti
 export function AppShell() {
   const t = useT();
   const { dir } = useLocale();
+  const nav = useNav();
   const notifications = useNotifications();
   const [notifOpen, setNotifOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const location = useLocation();
+  const wide = useMediaQuery(WIDE);
   const conversationId = useMatch("/chat/:conversationId")?.params.conversationId;
   const unread = notifications.data?.unread ?? 0;
   const isChat = location.pathname.startsWith("/chat");
@@ -75,42 +82,59 @@ export function AppShell() {
   const ownBar = isChat || location.pathname.startsWith("/settings");
   const pageLabel: StringKey | undefined = PAGES.find((p) => location.pathname.startsWith(p.to))?.label;
 
+  const panelRef = useRef<HTMLElement>(null);
+  const scrimRef = useRef<HTMLButtonElement>(null);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
-  // Any navigation closes the drawer; Escape too.
+  // Android back closes the drawer instead of leaving the app.
+  useHistoryLayer(drawerOpen && !wide, closeDrawer);
+  // Escape too.
   useEffect(() => {
     if (!drawerOpen) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDrawerOpen(false);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [drawerOpen]);
+  useDrawerGesture({ panel: panelRef, scrim: scrimRef, open: drawerOpen, setOpen: setDrawerOpen, rtl: dir === "rtl", enabled: !wide });
+
+  // A tap in the drawer: close it and move on. The drawer's own history entry is replaced by the
+  // destination, so Back from there returns to the screen the drawer was opened over.
+  const goFromDrawer = useCallback(
+    (to: string, direction: NavDirection = "fade") => {
+      const replace = drawerOpen && !wide;
+      setDrawerOpen(false);
+      nav(to, direction, { replace });
+    },
+    [drawerOpen, wide, nav],
+  );
 
   const ctx = useMemo<ShellContextValue>(() => ({ openDrawer: () => setDrawerOpen(true), openNotifications: () => setNotifOpen(true), unread }), [unread]);
 
   return (
     <ShellContext.Provider value={ctx}>
       <div className="app-viewport flex overflow-hidden">
-        {/* Wide screens: the drawer is a fixed sidebar. */}
-        <aside className="hidden w-[300px] shrink-0 border-e border-border bg-bg lg:flex lg:flex-col">
-          <Drawer activeId={conversationId} onNavigate={() => {}} />
-        </aside>
-
-        {/* Phones: the same drawer slides in from the start edge (the right in Hebrew). */}
-        {drawerOpen && (
-          <div className="fixed inset-0 z-40 lg:hidden">
-            <button type="button" className="absolute inset-0 bg-[var(--scrim)] animate-fade-in" aria-label={t("common.close")} onClick={closeDrawer} />
+        {wide ? (
+          /* Wide screens: the drawer is a fixed sidebar. */
+          <aside className="flex w-[300px] shrink-0 flex-col border-e border-border bg-bg">
+            <Drawer activeId={conversationId} go={goFromDrawer} />
+          </aside>
+        ) : (
+          /* Phones: one drawer, mounted once, slid in and out with a transform (no mount, no layout per open). */
+          <div className="drawer-root fixed inset-0 z-40" data-open={drawerOpen ? "" : undefined} aria-hidden={!drawerOpen}>
+            <button ref={scrimRef} type="button" className="drawer-scrim absolute inset-0 bg-[var(--scrim)]" aria-label={t("common.close")} onClick={closeDrawer} tabIndex={drawerOpen ? 0 : -1} />
             <aside
+              ref={panelRef}
               role="dialog"
               aria-modal="true"
               aria-label={t("drawer.menu")}
-              className="absolute inset-y-0 start-0 flex w-[min(318px,86vw)] flex-col rounded-e-3xl bg-bg shadow-card animate-drawer-in"
-              style={{ ["--drawer-from" as string]: dir === "rtl" ? "100%" : "-100%" }}
+              inert={!drawerOpen}
+              className="drawer-panel absolute inset-y-0 start-0 flex w-[min(318px,86vw)] flex-col rounded-e-3xl bg-bg shadow-card"
             >
-              <Drawer activeId={conversationId} onNavigate={closeDrawer} onClose={closeDrawer} />
+              <Drawer activeId={conversationId} go={goFromDrawer} onClose={closeDrawer} />
             </aside>
           </div>
         )}
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="screen flex min-w-0 flex-1 flex-col">
           {!ownBar && (
             <TopBar
               start={<MenuButton />}

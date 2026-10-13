@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { NavLink, useNavigate } from "react-router";
+import { NavLink } from "react-router";
+import type { NavDirection } from "../lib/native";
 import type { Conversation } from "@talorys/shared";
 import { Brain, CalendarClock, CheckSquare, LogOut, MoreHorizontal, NotebookPen, Pencil, Search, Settings, SquarePen, Trash2, X } from "lucide-react";
 import { Button, ConfirmDialog, Dialog, Input, Spinner } from "./ui";
@@ -22,9 +23,8 @@ export const PAGES: readonly { to: string; label: StringKey; icon: typeof Brain 
   { to: "/automations", label: "nav.automations", icon: CalendarClock },
 ];
 
-export function Drawer({ activeId, onNavigate, onClose }: { activeId?: string; onNavigate: () => void; onClose?: () => void }) {
+export function Drawer({ activeId, go, onClose }: { activeId?: string; go: (to: string, direction?: NavDirection) => void; onClose?: () => void }) {
   const t = useT();
-  const navigate = useNavigate();
   const settings = useSettings();
   const { logout } = useSession();
   const agentName = settings.data?.agentName ?? "Talorys";
@@ -64,10 +64,7 @@ export function Drawer({ activeId, onNavigate, onClose }: { activeId?: string; o
         </div>
         <button
           type="button"
-          onClick={() => {
-            navigate("/chat");
-            onNavigate();
-          }}
+          onClick={() => go("/chat")}
           className="pressable mt-3 flex h-11 w-full items-center gap-2.5 rounded-xl border border-border px-3 text-[14.5px] font-medium text-fg hover:bg-subtle"
         >
           <SquarePen className="h-[18px] w-[18px] text-fg-muted" />
@@ -80,10 +77,13 @@ export function Drawer({ activeId, onNavigate, onClose }: { activeId?: string; o
           <NavLink
             key={to}
             to={to}
-            onClick={onNavigate}
+            onClick={(e) => {
+              e.preventDefault();
+              go(to);
+            }}
             className={({ isActive }) =>
               cn(
-                "pressable flex items-center gap-3 rounded-lg px-2.5 py-2 text-[14.5px] transition-colors",
+                "pressable flex items-center gap-3 rounded-lg px-2.5 py-2 text-[14.5px] transition-colors active:bg-muted",
                 isActive ? "bg-muted font-medium text-fg" : "text-fg-2 hover:bg-subtle hover:text-fg",
               )
             }
@@ -94,7 +94,7 @@ export function Drawer({ activeId, onNavigate, onClose }: { activeId?: string; o
         ))}
       </nav>
 
-      <ConversationList activeId={activeId} query={debounced} onNavigate={onNavigate} />
+      <ConversationList activeId={activeId} query={debounced} go={go} />
 
       <div className="flex items-center gap-3 border-t border-border px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
         <div className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-full bg-accent-soft text-sm font-semibold text-accent-text" aria-hidden>
@@ -106,7 +106,10 @@ export function Drawer({ activeId, onNavigate, onClose }: { activeId?: string; o
         </div>
         <NavLink
           to="/settings"
-          onClick={onNavigate}
+          onClick={(e) => {
+            e.preventDefault();
+            go("/settings", "push");
+          }}
           className={({ isActive }) => cn("pressable rounded-xl p-2.5 hover:bg-subtle", isActive ? "text-fg" : "text-fg-2")}
           aria-label={t("nav.settings")}
         >
@@ -130,9 +133,8 @@ function bucketOf(iso: string, now: Date): Bucket {
 }
 
 /** Chat history grouped by day, with rename/delete behind the row menu. */
-export function ConversationList({ activeId, query, onNavigate }: { activeId?: string; query: string; onNavigate: () => void }) {
+export function ConversationList({ activeId, query, go }: { activeId?: string; query: string; go: (to: string, direction?: NavDirection) => void }) {
   const list = useConversations(query || undefined);
-  const navigate = useNavigate();
   const t = useT();
   const [renaming, setRenaming] = useState<Conversation | null>(null);
   const [deleting, setDeleting] = useState<Conversation | null>(null);
@@ -148,7 +150,7 @@ export function ConversationList({ activeId, query, onNavigate }: { activeId?: s
     success: t("chat.deleted"),
     onSuccess: (_r, id) => {
       setDeleting(null);
-      if (id === activeId) navigate("/chat");
+      if (id === activeId) go("/chat");
     },
   });
 
@@ -180,12 +182,9 @@ export function ConversationList({ activeId, query, onNavigate }: { activeId?: s
                 <li key={c.id} className="group relative">
                   <button
                     type="button"
-                    onClick={() => {
-                      navigate(`/chat/${c.id}`);
-                      onNavigate();
-                    }}
+                    onClick={() => go(`/chat/${c.id}`)}
                     className={cn(
-                      "pressable flex w-full items-center rounded-lg px-2.5 py-2 pe-9 text-start text-[14.5px] transition-colors",
+                      "pressable flex w-full items-center rounded-lg px-2.5 py-2 pe-9 text-start text-[14.5px] transition-colors active:bg-muted",
                       c.id === activeId ? "bg-muted font-medium text-fg" : "text-fg-2 hover:bg-subtle hover:text-fg",
                     )}
                   >

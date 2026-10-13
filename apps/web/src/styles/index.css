@@ -199,6 +199,25 @@ body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
   touch-action: manipulation;
+  /* Native feel: the app's chrome is not selectable and has no long-press callout; content below opts back in. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+/* What a person may select and copy: messages, notes, fields, settings values. */
+.prose-talorys,
+.selectable,
+input,
+textarea,
+[contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+}
+img,
+svg,
+a {
+  -webkit-user-drag: none;
 }
 
 /* Dynamic viewport height so the composer follows the on-screen keyboard. */
@@ -212,11 +231,89 @@ body {
 }
 .pressable:active {
   transform: scale(0.97);
+  transition-duration: 60ms;
+}
+
+/*
+ * Phone drawer: mounted once, moved with a transform only (compositor-driven: no layout, no paint
+ * of the screen behind). Closed it sits just past the start edge, hidden from focus and readers.
+ */
+.drawer-root {
+  pointer-events: none;
+}
+.drawer-root[data-open] {
+  pointer-events: auto;
+}
+.drawer-scrim {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 240ms var(--ease-out-quart), visibility 0s linear 240ms;
+}
+.drawer-root[data-open] .drawer-scrim {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 240ms var(--ease-out-quart), visibility 0s;
+}
+.drawer-panel {
+  transform: translate3d(-100%, 0, 0);
+  visibility: hidden;
+  will-change: transform;
+  transition: transform 240ms var(--ease-out-quart), visibility 0s linear 240ms;
+}
+[dir="rtl"] .drawer-panel {
+  transform: translate3d(100%, 0, 0);
+}
+.drawer-root[data-open] .drawer-panel {
+  transform: translate3d(0, 0, 0);
+  visibility: visible;
+  transition: transform 240ms var(--ease-out-quart), visibility 0s;
+}
+
+/*
+ * Screen transitions (View Transitions API; browsers without it just switch). `push` slides the
+ * new screen in from the end edge, `pop` slides the old one back out, `fade` cross-fades (drawer
+ * navigation). Directions flip with the writing direction so Hebrew pushes from the left.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 260ms;
+  animation-timing-function: var(--ease-out-quart);
+  mix-blend-mode: normal;
+}
+html[data-nav="push"]::view-transition-old(root) { animation-name: vt-push-out; }
+html[data-nav="push"]::view-transition-new(root) { animation-name: vt-push-in; }
+html[data-nav="pop"]::view-transition-old(root) { animation-name: vt-pop-out; z-index: 1; }
+html[data-nav="pop"]::view-transition-new(root) { animation-name: vt-pop-in; }
+html[data-nav="none"]::view-transition-old(root),
+html[data-nav="none"]::view-transition-new(root) { animation: none; }
+html[data-nav="fade"]::view-transition-old(root) { animation-name: vt-fade-out; animation-duration: 140ms; }
+html[data-nav="fade"]::view-transition-new(root) { animation-name: vt-fade-in; animation-duration: 180ms; }
+html[data-nav="push"][dir="rtl"]::view-transition-old(root) { animation-name: vt-push-out-rtl; }
+html[data-nav="push"][dir="rtl"]::view-transition-new(root) { animation-name: vt-push-in-rtl; }
+html[data-nav="pop"][dir="rtl"]::view-transition-old(root) { animation-name: vt-pop-out-rtl; }
+html[data-nav="pop"][dir="rtl"]::view-transition-new(root) { animation-name: vt-pop-in-rtl; }
+
+@keyframes vt-push-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes vt-push-out { from { transform: translateX(0); opacity: 1; } to { transform: translateX(-28%); opacity: 0.7; } }
+@keyframes vt-pop-out { from { transform: translateX(0); } to { transform: translateX(100%); } }
+@keyframes vt-pop-in { from { transform: translateX(-28%); opacity: 0.7; } to { transform: translateX(0); opacity: 1; } }
+@keyframes vt-push-in-rtl { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+@keyframes vt-push-out-rtl { from { transform: translateX(0); opacity: 1; } to { transform: translateX(28%); opacity: 0.7; } }
+@keyframes vt-pop-out-rtl { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+@keyframes vt-pop-in-rtl { from { transform: translateX(28%); opacity: 0.7; } to { transform: translateX(0); opacity: 1; } }
+@keyframes vt-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes vt-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* Composer: the textarea sizes itself to its content (Chrome 123+); older browsers use the JS fallback. */
+.composer-input {
+  field-sizing: content;
 }
 
 @media (prefers-reduced-motion: reduce) {
   /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override component animations */
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+  /* biome-ignore lint/complexity/noImportantStyles: reduced motion must override the screen transitions too */
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
 }
 
 ::selection {

@@ -1,11 +1,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter } from "react-router";
+import { createBrowserRouter, RouterProvider } from "react-router";
 import "./styles/index.css";
 import { initTheme } from "./lib/theme";
 import { initLocale, LocaleProvider } from "./lib/i18n";
 import { initPwa, onServiceWorkerMessage } from "./lib/pwa";
+import { initNativeNavigation } from "./lib/native";
 import { App } from "./App";
 import { SessionProvider } from "./hooks/session";
 import { ToastProvider } from "./hooks/toast";
@@ -14,6 +15,7 @@ import { ApiError } from "./lib/api";
 initTheme();
 initLocale();
 initPwa();
+initNativeNavigation();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,18 +35,27 @@ onServiceWorkerMessage((m) => {
   if (conversation) void queryClient.invalidateQueries({ queryKey: ["conversation", conversation] });
 });
 
+// A data router (not <BrowserRouter>) so navigations can run as View Transitions; the app keeps
+// its own <Routes> tree inside the single root route.
+const router = createBrowserRouter([
+  {
+    path: "*",
+    element: (
+      <LocaleProvider>
+        <ToastProvider>
+          <SessionProvider>
+            <App />
+          </SessionProvider>
+        </ToastProvider>
+      </LocaleProvider>
+    ),
+  },
+]);
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <LocaleProvider>
-          <ToastProvider>
-            <SessionProvider>
-              <App />
-            </SessionProvider>
-          </ToastProvider>
-        </LocaleProvider>
-      </BrowserRouter>
+      <RouterProvider router={router} />
     </QueryClientProvider>
   </StrictMode>,
 );

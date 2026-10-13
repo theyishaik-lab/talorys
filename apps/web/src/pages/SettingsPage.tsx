@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useLocation, useSearchParams } from "react-router";
+import { useNav } from "../lib/native";
 import { BellButton, MenuButton, TopBar } from "../components/AppShell";
 import { DeviceNotificationsSection } from "../components/DeviceNotifications";
 import { useQueryClient } from "@tanstack/react-query";
@@ -69,10 +70,18 @@ const TAB_LABELS: Record<Tab, Parameters<ReturnType<typeof useLocale>["t"]>[0]> 
 };
 
 export default function SettingsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
+  const nav = useNav();
+  const location = useLocation();
   const param = searchParams.get("tab");
   const tab: Tab | null = TABS.find((t) => t === param) ?? null;
-  const setTab = (t: Tab | null) => setSearchParams(t ? { tab: t } : {}, { replace: true });
+  // A sub-screen is pushed (slide in) so the Android back button returns to the Settings list; the
+  // list's own back button pops that entry when it is ours, else it just shows the list.
+  const setTab = (next: Tab | null) => {
+    if (next) nav(`/settings?tab=${next}`, "push", { state: { settingsPushed: true } });
+    else if ((location.state as { settingsPushed?: boolean } | null)?.settingsPushed) nav(-1, "pop");
+    else nav("/settings", "pop", { replace: true });
+  };
   const { data: settings, isLoading, error, refetch } = useSettings();
   const { t } = useLocale();
   const info = useSystemInfo();

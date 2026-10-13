@@ -24,5 +24,6 @@
     { "name": "New chat", "url": "/chat?source=shortcut", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
     { "name": "Settings", "url": "/settings?source=shortcut", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
   ],
+  "launch_handler": { "client_mode": "navigate-existing" },
   "prefer_related_applications": false
 }
