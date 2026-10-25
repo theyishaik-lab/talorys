@@ -30,14 +30,12 @@ function ServiceRow({
   connection,
   configured,
   onDisconnect,
-  connecting,
 }: {
   id: string;
   name: string;
   connection: Connection | undefined;
   configured: boolean;
   onDisconnect: (service: string, displayName: string) => void;
-  connecting: string | null;
 }) {
   const t = useT();
   const { dir } = useLocale();
@@ -107,7 +105,6 @@ function ServiceRow({
             variant="outline"
             size="sm"
             className="mt-2"
-            loading={connecting === id}
             onClick={() => nav(`/chat?prefill=${encodeURIComponent(`connect ${name}`)}`, "push")}
           >
             {t("connections.connect")}
@@ -123,7 +120,6 @@ export default function ConnectionsPage() {
   const connections = useConnections();
   const catalog = useConnectionCatalog();
   const [disconnecting, setDisconnecting] = useState<{ service: string; name: string } | null>(null);
-  const [connecting, _setConnecting] = useState<string | null>(null);
 
   const disconnect = useApiMutation(
     (service: string) => api(`/connections/${service}`, { method: "DELETE" }),
@@ -176,7 +172,6 @@ export default function ConnectionsPage() {
                           connection={activeMap.get(s.id)}
                           configured={configured}
                           onDisconnect={(service, name) => setDisconnecting({ service, name })}
-                          connecting={connecting}
                         />
                       ))}
                     </ul>
@@ -199,7 +194,6 @@ export default function ConnectionsPage() {
                           connection={undefined}
                           configured={configured}
                           onDisconnect={(service, name) => setDisconnecting({ service, name })}
-                          connecting={connecting}
                         />
                       ))}
                     </ul>

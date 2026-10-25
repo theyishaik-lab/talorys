@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, Component, type ReactNode, type ErrorInfo } from "react";
 import { Navigate, Route, Routes } from "react-router";
 import { useSession } from "./hooks/session";
 import { AppShell } from "./components/AppShell";
@@ -7,6 +7,29 @@ import { ChatPage } from "./pages/ChatPage";
 import { Spinner, ErrorNotice } from "./components/ui";
 import { Logo } from "./components/Logo";
 import { useT } from "./lib/i18n";
+
+interface ErrorBoundaryState { error: Error | null }
+class AppErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
+  state: ErrorBoundaryState = { error: null };
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState { return { error }; }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error("App render error", error, info); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex min-h-full flex-col items-center justify-center gap-6 p-6">
+          <Logo className="h-10 w-10" />
+          <div className="w-full max-w-sm">
+            <ErrorNotice
+              error={this.state.error}
+              onRetry={() => this.setState({ error: null })}
+            />
+          </div>
+        </div>
+      );
+    }
+    return this.state.error ? null : this.props.children;
+  }
+}
 
 const loaders = {
   memory: () => import("./pages/MemoryPage"),
@@ -67,6 +90,7 @@ export function App() {
   if (!session.authenticated) return <LoginPage configured={session.configured} />;
 
   return (
+    <AppErrorBoundary>
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="/chat" replace />} />
@@ -80,6 +104,7 @@ export function App() {
         <Route path="*" element={<Navigate to="/chat" replace />} />
       </Route>
     </Routes>
+    </AppErrorBoundary>
   );
 }
 

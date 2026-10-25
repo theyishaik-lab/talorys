@@ -152,6 +152,44 @@ chatRoutes.post("/chat", async (c) => {
   });
 });
 
+/**
+ * Non-streaming chat endpoint for mobile/embedded clients that cannot consume SSE.
+ * Runs a full chat turn and returns the final assistant text as JSON.
+ * Capped at 60 s; returns the partial text if the turn is still running at timeout.
+ */
+chatRoutes.post("/chat/sync", async (c) => {
+  const { message, context } = await body(
+    c,
+    z.object({ message: z.string().min(1).max(8192), context: z.string().max(500).optional() }),
+  );
+
+  const agent = c.env.agent;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60_000);
+
+  const fullMessage = context ? `[Context: ${context}]\n\n${message}` : message;
+  let replyText = "";
+  let conversationId: string | undefined;
+
+  try {
+    for await (const event of agent.runner().chat({
+      conversationId: undefined,
+      message: fullMessage,
+      signal: controller.signal,
+    })) {
+      if (event.type === "start") conversationId = event.conversation_id;
+      if (event.type === "delta") replyText += event.text ?? "";
+    }
+  } catch {
+    // Return whatever text was accumulated before the error/timeout.
+  } finally {
+    clearTimeout(timeout);
+    if (conversationId) agent.activeRuns.delete(conversationId);
+  }
+
+  return c.json({ reply: replyText, conversation_id: conversationId ?? null });
+});
+
 chatRoutes.post("/chat/cancel", async (c) => {
   const { conversation_id } = await body(c, z.object({ conversation_id: z.string().min(1).max(64) }));
   const controller = c.env.agent.activeRuns.get(conversation_id);

@@ -52,10 +52,14 @@ export async function rankCandidates(
     return candidates;
   }
 
+  // Cap to avoid unbounded context and token cost.
+  const batch = candidates.slice(0, 20);
+
   const prompt = RANKER_PROMPT_PREFIX + JSON.stringify(
-    candidates.map((c) => ({
+    batch.map((c) => ({
       signalHash: c.signalHash,
-      title: c.title,
+      // Strip newlines to reduce prompt-injection surface.
+      title: c.title.replace(/[\r\n]/g, " "),
       score: c.score,
       meta: c.meta,
     })),
@@ -65,7 +69,6 @@ export async function rankCandidates(
 
   let rawText = "";
   try {
-    usage.increment({ ai_requests: 1, scheduled_ai_runs: 1 });
     const result = await provider.generate({
       system: "You are a JSON-only response assistant. Return only valid JSON, no markdown.",
       messages: [{ role: "user", content: prompt }],
@@ -74,7 +77,8 @@ export async function rankCandidates(
       signal: AbortSignal.timeout(15_000),
     });
     rawText = result.text;
-    usage.increment({ input_tokens: result.usage.inputTokens, output_tokens: result.usage.outputTokens });
+    // Count after success so counters reflect actual completed calls.
+    usage.increment({ ai_requests: 1, scheduled_ai_runs: 1, input_tokens: result.usage.inputTokens, output_tokens: result.usage.outputTokens });
   } catch {
     usage.increment({ ai_errors: 1 });
     return candidates;
@@ -98,10 +102,12 @@ export async function rankCandidates(
 
   const resultMap = new Map(parsed.map((r) => [r.signalHash, r]));
 
-  const enriched: EnrichedCandidate[] = candidates.map((c) => {
+  const enriched: EnrichedCandidate[] = batch.map((c) => {
     const r = resultMap.get(c.signalHash);
     if (!r) return c;
-    const proposal = z.object({ task: z.literal(String(c.meta?.taskId ?? "")), due: z.iso.date() }).strict().safeParse(r.proposed_input);
+    // Guard: if we have no taskId there's no valid proposal to build.
+    if (!c.meta?.taskId) return { ...c, score: typeof r.score === "number" ? r.score : c.score };
+    const proposal = z.object({ task: z.literal(String(c.meta.taskId)), due: z.iso.date() }).strict().safeParse(r.proposed_input);
     const allowed = r.proposed_tool === "update_task" && !!c.meta?.taskId && proposal.success;
     return {
       ...c,
