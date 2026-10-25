@@ -6,7 +6,8 @@ import type { KeyProvider } from "../../ai/keys";
 import { checkOpenRouterKey } from "../../ai/openrouter";
 import { ENDPOINT_PRESETS, endpointKeyName } from "../../ai/openai-compatible";
 import { PROVIDER_NAMES } from "../../ai/provider";
-import { openConnectorClient } from "../../openconnector";
+import { openConnectorAdmin, openConnectorClient } from "../../openconnector";
+import { KNOWN_SERVICES } from "../../openconnector/services";
 import type { AppEnv } from "../app";
 import { AppError, NotFoundError } from "../errors";
 import { body } from "../middleware";
@@ -219,4 +220,22 @@ aiRoutes.get("/connections", async (c) => {
   } catch (error) {
     return c.json({ configured: true, connections: [], error: error instanceof Error ? error.message.slice(0, 200) : String(error) });
   }
+});
+
+/** The catalog of known services, for the Connections page. */
+aiRoutes.get("/connections/catalog", (c) => {
+  return c.json({
+    services: KNOWN_SERVICES.map((s) => ({ id: s.id, name: s.name })),
+    configured: !!openConnectorClient(c.env.env),
+  });
+});
+
+/** Disconnect a service by removing its credential from the connector. */
+aiRoutes.delete("/connections/:service", async (c) => {
+  const admin = openConnectorAdmin(c.env.env);
+  if (!admin) throw new AppError("CONFLICT", "OpenConnector admin is not configured.");
+  const service = c.req.param("service");
+  if (!/^[a-z0-9_]{2,60}$/i.test(service)) throw new NotFoundError("Unknown service.");
+  await admin.deleteConnection(service);
+  return c.json({ deleted: true });
 });

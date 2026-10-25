@@ -135,6 +135,14 @@ export function useNotifications() {
   });
 }
 
+export function useConnectionCatalog() {
+  return useQuery({
+    queryKey: ["connections", "catalog"],
+    queryFn: () => api<{ services: { id: string; name: string }[]; configured: boolean }>("/connections/catalog"),
+    staleTime: 5 * 60_000,
+  });
+}
+
 export function useSuggestions() {
   return useQuery({
     queryKey: keys.suggestions,

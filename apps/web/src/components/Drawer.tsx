@@ -2,7 +2,7 @@ import { memo, useEffect, useState } from "react";
 import { NavLink } from "react-router";
 import type { NavDirection } from "../lib/native";
 import type { Conversation } from "@talorys/shared";
-import { Brain, CalendarClock, CheckSquare, LogOut, MoreHorizontal, NotebookPen, Pencil, Search, Settings, SquarePen, Trash2, X } from "lucide-react";
+import { Brain, CalendarClock, CheckSquare, LogOut, MoreHorizontal, NotebookPen, Pencil, Plug, Search, Settings, SquarePen, Trash2, X } from "lucide-react";
 import { Button, ConfirmDialog, Dialog, Input, Spinner } from "./ui";
 import { keys, useApiMutation, useConversations, useSettings } from "../hooks/queries";
 import { useSession } from "../hooks/session";
@@ -21,6 +21,7 @@ export const PAGES: readonly { to: string; label: StringKey; icon: typeof Brain 
   { to: "/tasks", label: "nav.tasks", icon: CheckSquare },
   { to: "/notes", label: "nav.notes", icon: NotebookPen },
   { to: "/automations", label: "nav.automations", icon: CalendarClock },
+  { to: "/connections", label: "nav.connections", icon: Plug },
 ];
 
 export const Drawer = memo(function Drawer({ activeId, go, onClose }: { activeId?: string; go: (to: string, direction?: NavDirection) => void; onClose?: () => void }) {

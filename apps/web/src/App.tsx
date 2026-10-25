@@ -13,12 +13,14 @@ const loaders = {
   tasks: () => import("./pages/TasksPage"),
   notes: () => import("./pages/NotesPage"),
   automations: () => import("./pages/AutomationsPage"),
+  connections: () => import("./pages/ConnectionsPage"),
   settings: () => import("./pages/SettingsPage"),
 };
 const MemoryPage = lazy(loaders.memory);
 const TasksPage = lazy(loaders.tasks);
 const NotesPage = lazy(loaders.notes);
 const AutomationsPage = lazy(loaders.automations);
+const ConnectionsPage = lazy(loaders.connections);
 const SettingsPage = lazy(loaders.settings);
 
 /** Fetches the other screens' code once the chat is idle, so tapping a tab is instant (native feel). */
@@ -73,6 +75,7 @@ export function App() {
         <Route path="tasks" element={<Lazy><TasksPage /></Lazy>} />
         <Route path="notes/:noteId?" element={<Lazy><NotesPage /></Lazy>} />
         <Route path="automations" element={<Lazy><AutomationsPage /></Lazy>} />
+        <Route path="connections" element={<Lazy><ConnectionsPage /></Lazy>} />
         <Route path="settings" element={<Lazy><SettingsPage /></Lazy>} />
         <Route path="*" element={<Navigate to="/chat" replace />} />
       </Route>

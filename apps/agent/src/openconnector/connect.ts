@@ -134,6 +134,13 @@ export class OpenConnectorAdmin {
     if (status === 200 && body && typeof body === "object") return body as ConnectionProfile;
     throw new ToolError(`${describeError(body) || `OpenConnector answered ${status}`}`);
   }
+
+  /** Deletes the default connection for a service. */
+  async deleteConnection(service: string): Promise<void> {
+    const { status, body } = await this.request(`/api/connections/${encodeURIComponent(service)}`, { method: "DELETE" });
+    if (status === 200 || status === 204) return;
+    throw new ToolError(`${describeError(body) || `OpenConnector answered ${status}`}`);
+  }
 }
 
 function describeError(body: unknown): string {
