@@ -6,6 +6,7 @@ import { Brain, CalendarClock, CheckSquare, LogOut, MoreHorizontal, NotebookPen,
 import { Button, ConfirmDialog, Dialog, Input, Spinner } from "./ui";
 import { keys, useApiMutation, useConversations, useSettings } from "../hooks/queries";
 import { useSession } from "../hooks/session";
+import { useShell } from "./AppShell";
 import { api } from "../lib/api";
 import { cn } from "../lib/utils";
 import { type StringKey, useT } from "../lib/i18n";
@@ -15,6 +16,22 @@ import { type StringKey, useT } from "../lib/i18n";
  * (from the start edge, so from the right in Hebrew). Search, new chat, the pages, the chat
  * history grouped by day, and the account row at the bottom.
  */
+
+function SearchEverythingButton() {
+  const { openCommandPalette } = useShell();
+  const t = useT();
+  return (
+    <button
+      type="button"
+      onClick={openCommandPalette}
+      className="pressable flex h-9 w-full items-center gap-2.5 rounded-xl bg-subtle px-3 text-[13.5px] text-fg-muted hover:bg-muted hover:text-fg"
+    >
+      <Search className="h-[15px] w-[15px] shrink-0" />
+      <span className="flex-1 text-start">{t("command.hint")}</span>
+      <kbd className="hidden rounded border border-border px-1 py-0.5 text-[10px] sm:block">⌘K</kbd>
+    </button>
+  );
+}
 
 export const PAGES: readonly { to: string; label: StringKey; icon: typeof Brain }[] = [
   { to: "/memory", label: "nav.memory", icon: Brain },
@@ -52,7 +69,8 @@ export const Drawer = memo(function Drawer({ activeId, go, onClose }: { activeId
       </div>
 
       <div className="px-4">
-        <div className="relative">
+        <SearchEverythingButton />
+        <div className="relative mt-2">
           <Search className="pointer-events-none absolute start-3 top-1/2 h-[17px] w-[17px] -translate-y-1/2 text-fg-subtle" />
           <Input
             value={q}

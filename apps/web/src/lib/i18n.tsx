@@ -400,6 +400,15 @@ const baseEn = {
   "push.testOk": "Delivered — the push service accepted it ({status}). It should show on this device now.",
   "push.testQuiet": "Sent. The app was in the foreground, so no banner — look at the bell.",
   "push.diagnose": "Show details",
+  // Command palette
+  "command.placeholder": "Search tasks, notes, memories, pages…",
+  "command.empty": "No results for \"{q}\"",
+  "command.navigation": "Go to",
+  "command.tasks": "Tasks",
+  "command.notes": "Notes",
+  "command.memories": "Memories",
+  "command.chats": "Conversations",
+  "command.hint": "Search or jump anywhere",
 } as const;
 
 /** Strings kept in their own files (chain editor, pages) are merged in here. */
@@ -722,6 +731,14 @@ const baseHe: Record<keyof typeof baseEn, string> = {
   "push.testOk": "נמסרה — שירות ההתראות קיבל אותה ({status}). היא אמורה להופיע במכשיר עכשיו.",
   "push.testQuiet": "נשלחה. האפליקציה הייתה פתוחה בחזית, אז בלי באנר — תסתכל בפעמון.",
   "push.diagnose": "הצג פרטים",
+  "command.placeholder": "חיפוש משימות, פתקים, זיכרונות, דפים…",
+  "command.empty": "אין תוצאות עבור \"{q}\"",
+  "command.navigation": "ניווט",
+  "command.tasks": "משימות",
+  "command.notes": "פתקים",
+  "command.memories": "זיכרונות",
+  "command.chats": "שיחות",
+  "command.hint": "חיפוש או ניווט לכל מקום",
 };
 
 const he: Record<StringKey, string> = { ...baseHe, ...chainHe, ...pagesHe };

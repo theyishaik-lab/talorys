@@ -5,6 +5,7 @@ import { type NavDirection, useHistoryLayer, useMediaQuery, useNav } from "../li
 import { Bell, Menu } from "lucide-react";
 import { Drawer, PAGES } from "./Drawer";
 import { NotificationCenter } from "./NotificationCenter";
+import { CommandPalette } from "./CommandPalette";
 import { useNotifications } from "../hooks/queries";
 import { cn } from "../lib/utils";
 import { type StringKey, useLocale, useT } from "../lib/i18n";
@@ -12,6 +13,7 @@ import { type StringKey, useLocale, useT } from "../lib/i18n";
 interface ShellContextValue {
   openDrawer: () => void;
   openNotifications: () => void;
+  openCommandPalette: () => void;
   unread: number;
 }
 
@@ -73,6 +75,7 @@ export function AppShell() {
   const notifications = useNotifications();
   const [notifOpen, setNotifOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [cmdOpen, setCmdOpen] = useState(false);
   const location = useLocation();
   const wide = useMediaQuery(WIDE);
   const conversationId = useMatch("/chat/:conversationId")?.params.conversationId;
@@ -87,13 +90,24 @@ export function AppShell() {
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   // Android back closes the drawer instead of leaving the app.
   useHistoryLayer(drawerOpen && !wide, closeDrawer);
-  // Escape too.
+  // Escape closes drawer.
   useEffect(() => {
     if (!drawerOpen) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDrawerOpen(false);
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [drawerOpen]);
+  // Cmd+K / Ctrl+K opens command palette.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setCmdOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   useDrawerGesture({ panel: panelRef, scrim: scrimRef, open: drawerOpen, setOpen: setDrawerOpen, rtl: dir === "rtl", enabled: !wide });
 
   // A tap in the drawer: close it and move on. The drawer's own history entry is replaced by the
@@ -110,7 +124,7 @@ export function AppShell() {
     [nav],
   );
 
-  const ctx = useMemo<ShellContextValue>(() => ({ openDrawer: () => setDrawerOpen(true), openNotifications: () => setNotifOpen(true), unread }), [unread]);
+  const ctx = useMemo<ShellContextValue>(() => ({ openDrawer: () => setDrawerOpen(true), openNotifications: () => setNotifOpen(true), openCommandPalette: () => setCmdOpen(true), unread }), [unread]);
 
   return (
     <ShellContext.Provider value={ctx}>
@@ -151,6 +165,7 @@ export function AppShell() {
         </div>
 
         <NotificationCenter open={notifOpen} onClose={() => setNotifOpen(false)} />
+        <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
       </div>
     </ShellContext.Provider>
   );
