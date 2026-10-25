@@ -24,8 +24,22 @@ npx create-talorys@latest
 - **Memory history** — facts that change over time: when you say you sold your car, the old one is kept as a past fact instead of being treated as current, and unclear conflicts wait for your review. See [docs/memory-history.md](docs/memory-history.md).
 - **Tasks, notes and projects** — full CRUD in the UI, and from chat ("Add a task to review my project tomorrow").
 - **Automations** — one-time and recurring reminders, daily task digests and optional AI routines, delivered to an in-app notification center. They run on Durable Object alarms, so nothing has to stay online.
+- **Proactive engine** — a two-phase background scan. Phase 1 detects task signals (overdue, due today, stale) and surfaces suggestion cards with deduplication and TTL. Phase 2 uses one budgeted AI call to re-rank candidates and optionally attach a reschedule proposal. Falls back to rule-based ordering if the model is unavailable.
+- **Connections** — a dedicated page showing every service connected via OpenConnector, its account and auth type, and a one-click disconnect. Catalog lists all available services, connected or not.
+- **Command palette** — `Cmd+K` / `Ctrl+K` opens a global search across tasks, notes, memories, conversations and navigation.
 - **Single-user by design** — no signup, no accounts, no teams. The installer sets the owner password.
 - **Works without AI** — tasks, notes, memories and reminders keep working if Workers AI is unavailable or your free quota is used up.
+
+### Android companion (prototype)
+
+A separate repo — [`yishaik/talorys-keyboard`](https://github.com/yishaik/talorys-keyboard) — contains a Kotlin Android app that extends Talorys to the device level:
+
+- **IME keyboard** (`TalorysInputMethodService`) — a suggestion strip above any keyboard showing the top-2 proactive suggestions and an "Ask Talorys" button.
+- **Accessibility service** (`TalorysAccessibilityService`) — reads the current app name and focused field hint to give the agent context without transmitting raw text.
+- **Foreground companion service** (`CompanionService`) — keeps a poll loop to the agent running in the background.
+- **Device assistant** (`AssistActivity`) — registers as `ACTION_ASSIST` / `ACTION_VOICE_COMMAND`, appearing when the user holds the Home button or invokes their system assistant.
+
+The session token is stored encrypted (Android Keystore + AES-256-GCM via `EncryptedSharedPreferences`). This is prototype code; it has not been tested on a physical device or published to the Play Store.
 
 ### Screenshots
 
@@ -226,12 +240,30 @@ and transactionally on first request. Also available: `status` and `doctor`.
 
 ```
 apps/agent              Private Worker: Hono API, TalorysAgent, tools, SQLite repositories
+  ├─ api/routes/        Hono route handlers (chat, connections, suggestions, system …)
+  ├─ db/                SQLite repositories + append-only migrations (v1–v12)
+  ├─ proactive/         Proactive engine: engine.ts, ranker.ts, schedule.ts
+  └─ services/          Usage, settings, backup, time helpers
 apps/web                React + Vite app, Pages Function (functions/api/[[path]].ts)
+  ├─ components/        AppShell, CommandPalette, NotificationCenter, Drawer …
+  ├─ pages/             ChatPage, ConnectionsPage, TasksPage, MemoryPage …
+  └─ hooks/             TanStack Query hooks (queries.ts, session.ts)
 packages/shared         Zod schemas, types, recurrence/DST logic, password hashing
 packages/create-talorys The one-command installer (npm package)
 tests/e2e               Playwright UI tests
 tests/smoke             Optional real-account deployment test
 docs/                   Architecture, deployment, development, security, troubleshooting
+  └─ site/              Marketing + documentation site (HTML/CSS/JS, no framework)
+
+# Android companion (separate repo)
+# https://github.com/yishaik/talorys-keyboard
+app/src/main/kotlin/com/talorys/keyboard/
+  AgentClient.kt          OkHttp REST client (EncryptedSharedPreferences)
+  CompanionService.kt     Foreground service, 60s polling, StateFlow<List<Suggestion>>
+  TalorysInputMethodService.kt  IME with suggestion strip
+  TalorysAccessibilityService.kt  Screen context reader
+  AssistActivity.kt       System assistant entry point (ACTION_ASSIST)
+  SettingsActivity.kt     Configure agent URL + session token, test connection
 ```
 
 ## Credits
