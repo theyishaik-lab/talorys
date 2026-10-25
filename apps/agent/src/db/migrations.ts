@@ -319,28 +319,8 @@ export const MIGRATIONS: Migration[] = [
     statements: [
       // Add (status, expires_at) index so expireStale() avoids a full table scan.
       `CREATE INDEX IF NOT EXISTS tal_suggestions_expires ON tal_suggestions(status, expires_at)`,
-      // Recreate tal_pending_actions to add "expired" to the CHECK constraint.
-      // SQLite does not support ALTER COLUMN, so we use the recommended rename→create→copy→drop pattern.
-      `CREATE TABLE tal_pending_actions_v12 (
-        id TEXT PRIMARY KEY,
-        conversation_id TEXT NOT NULL REFERENCES tal_conversations(id) ON DELETE CASCADE,
-        tool TEXT NOT NULL,
-        target_id TEXT NOT NULL,
-        summary TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'pending'
-          CHECK (status IN ('pending','approved','cancelled','failed','expired')),
-        error TEXT,
-        created_at TEXT NOT NULL,
-        expires_at TEXT NOT NULL,
-        resolved_at TEXT,
-        card TEXT
-      )`,
-      `INSERT INTO tal_pending_actions_v12
-         SELECT id, conversation_id, tool, target_id, summary, status,
-                error, created_at, expires_at, resolved_at, card
-         FROM tal_pending_actions`,
-      `DROP TABLE tal_pending_actions`,
-      `ALTER TABLE tal_pending_actions_v12 RENAME TO tal_pending_actions`,
+      // "expired" is derived at read time (pending + expires_at <= now), never stored, so the
+      // pending-actions table keeps its CHECK constraint. Migrations never drop or rebuild tables.
     ],
   },
 ];

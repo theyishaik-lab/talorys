@@ -10,10 +10,10 @@ import { useT } from "./lib/i18n";
 
 interface ErrorBoundaryState { error: Error | null }
 class AppErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { error: null };
+  override state: ErrorBoundaryState = { error: null };
   static getDerivedStateFromError(error: Error): ErrorBoundaryState { return { error }; }
-  componentDidCatch(error: Error, info: ErrorInfo) { console.error("App render error", error, info); }
-  render() {
+  override componentDidCatch(error: Error, info: ErrorInfo) { console.error("App render error", error, info); }
+  override render() {
     if (this.state.error) {
       return (
         <div className="flex min-h-full flex-col items-center justify-center gap-6 p-6">

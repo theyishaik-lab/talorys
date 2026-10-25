@@ -178,7 +178,7 @@ chatRoutes.post("/chat/sync", async (c) => {
       signal: controller.signal,
     })) {
       if (event.type === "start") conversationId = event.conversation_id;
-      if (event.type === "delta") replyText += event.text ?? "";
+      if (event.type === "text") replyText += event.delta ?? "";
     }
   } catch {
     // Return whatever text was accumulated before the error/timeout.

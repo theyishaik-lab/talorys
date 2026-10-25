@@ -10,7 +10,7 @@ describe("audit regressions", () => {
   it("rejects cross-task and completion proposals and preserves the deterministic fallback", async () => {
     await inAgent(async (a) => {
       const candidates = [{ kind: "reminder", title: "Review", body: "Due", signalHash: "audit-rank", score: 100, meta: { taskId: "task-one" } }];
-      const provider = (value: unknown) => ({ id: "mock", generate: async () => ({ text: JSON.stringify(value), usage: { inputTokens: 1, outputTokens: 1 } }) }) as AIProvider;
+      const provider = (value: unknown) => ({ id: "mock", generate: async () => ({ text: JSON.stringify(value), usage: { inputTokens: 1, outputTokens: 1 } }) }) as unknown as AIProvider;
       const call = (value: unknown) => rankCandidates(candidates, provider(value), a.services.usage, a.services.settings.get().limits);
       expect((await call([{ signalHash: "audit-rank", score: 90, proposed_tool: "update_task", proposed_input: { task: "other", due: "2026-11-01" } }]))[0]?.proposedTool).toBeNull();
       expect((await call([{ signalHash: "audit-rank", score: 90, proposed_tool: "complete_task", proposed_input: { task: "task-one" } }]))[0]?.proposedTool).toBeNull();
