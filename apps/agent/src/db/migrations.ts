@@ -274,6 +274,30 @@ export const MIGRATIONS: Migration[] = [
     // on the way, as JSON (AiAttribution in packages/shared). NULL on older messages.
     statements: [`ALTER TABLE tal_messages ADD COLUMN ai TEXT`],
   },
+  {
+    version: 10,
+    name: "proactive suggestions",
+    // Suggestions surfaced by the proactive engine. `signal_hash` dedupes the same underlying
+    // signal across scans. `proposed_tool`/`proposed_input` stay null in v1 (info-only); they
+    // carry an approvable action in a later phase. Secrets never go in any column here.
+    statements: [
+      `CREATE TABLE IF NOT EXISTS tal_suggestions (
+        id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        signal_hash TEXT NOT NULL,
+        proposed_tool TEXT,
+        proposed_input TEXT,
+        status TEXT NOT NULL DEFAULT 'new',
+        score REAL NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS tal_suggestions_status ON tal_suggestions(status, created_at)`,
+      `CREATE INDEX IF NOT EXISTS tal_suggestions_hash ON tal_suggestions(signal_hash, status)`,
+    ],
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

@@ -1,6 +1,6 @@
 import type { AiAttempt, AiAttribution, AiFailureReason } from "./attribution";
 import { z } from "zod";
-import { AUTOMATION_KINDS, BACKUP_FORMAT, DEFAULT_MODEL, LIMIT_CEILINGS, MEMORY_CATEGORIES, PROJECT_STATUSES, TASK_PRIORITIES, TASK_STATUSES } from "./constants";
+import { AUTOMATION_KINDS, BACKUP_FORMAT, DEFAULT_MODEL, LIMIT_CEILINGS, MEMORY_CATEGORIES, PROJECT_STATUSES, SUGGESTION_KINDS, SUGGESTION_STATUSES, TASK_PRIORITIES, TASK_STATUSES } from "./constants";
 import { isValidTimeZone, scheduleSpecSchema } from "./recurrence";
 
 // ---------- Primitives ----------
@@ -482,6 +482,40 @@ export const fallbackUpdateSchema = z.object({
   chain: z.array(fallbackChainEntrySchema).max(MAX_FALLBACK_CHAIN).optional(),
 });
 
+/**
+ * Proactive engine (Talorys Proactive). Off by default. The engine scans the owner's
+ * context on a schedule and surfaces suggestions; it never commits a destructive action.
+ */
+export const proactiveSettingsSchema = z.object({
+  enabled: z.boolean().default(false),
+  scanEveryHours: z.number().int().min(1).max(24).default(3),
+  maxPerRun: z.number().int().min(1).max(10).default(3),
+  /** Quiet hours (owner-local): no scan fires when the local hour is in [quietStartHour, quietEndHour). */
+  quietStartHour: z.number().int().min(0).max(23).default(22),
+  quietEndHour: z.number().int().min(0).max(23).default(7),
+});
+export type ProactiveSettings = z.infer<typeof proactiveSettingsSchema>;
+
+export type SuggestionKind = (typeof SUGGESTION_KINDS)[number];
+export type SuggestionStatus = (typeof SUGGESTION_STATUSES)[number];
+
+/** A single proactive suggestion surfaced to the owner. Secrets never appear here. */
+export interface Suggestion {
+  id: string;
+  kind: SuggestionKind;
+  title: string;
+  body: string;
+  status: SuggestionStatus;
+  score: number;
+  created_at: string;
+  expires_at: string;
+}
+
+export const suggestionListQuerySchema = z.object({
+  status: z.enum(SUGGESTION_STATUSES).optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+});
+
 export const settingsSchema = z
   .object({
     agentName: shortText(60),
@@ -497,6 +531,7 @@ export const settingsSchema = z
     /** Documented demo mode: uses the deterministic mock provider instead of Workers AI. */
     demoMode: z.boolean(),
     memoryHistory: memoryHistorySettingsSchema,
+    proactive: proactiveSettingsSchema.default(proactiveSettingsSchema.parse({})),
   })
   .refine((v) => isModelIdFor(v.modelProvider, v.model), { path: ["model"], message: "Not a model id of the chosen provider" })
   .refine((v) => !v.fallback.enabled || modelRef.safeParse({ provider: v.fallback.provider, model: v.fallback.model }).success, {
@@ -516,6 +551,7 @@ export const settingsUpdateSchema = z.object({
   demoMode: z.boolean().optional(),
   limits: limitsSchema.partial().optional(),
   memoryHistory: memoryHistorySettingsSchema.partial().optional(),
+  proactive: proactiveSettingsSchema.partial().optional(),
 });
 
 /** A model as the Settings picker shows it. `tools` = function calling; `free` = no charge beyond the provider's free allowance. */

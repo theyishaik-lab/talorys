@@ -11,7 +11,11 @@ const KIND_META: Record<AutomationKind, { label: StringKey; icon: typeof Bell; h
   reminder: { label: "auto.kind.reminder", icon: Bell, hint: "auto.kind.reminderHint" },
   task_digest: { label: "auto.kind.task_digest", icon: ListChecks, hint: "auto.kind.task_digestHint" },
   agent_prompt: { label: "auto.kind.agent_prompt", icon: Bot, hint: "auto.kind.agent_promptHint" },
+  proactive_scan: { label: "auto.kind.proactive_scan", icon: CalendarClock, hint: "auto.kind.proactive_scanHint" },
 };
+
+/** Kinds the owner can create here. `proactive_scan` is managed by Settings → Proactive. */
+const CREATABLE_KINDS: AutomationKind[] = ["reminder", "task_digest", "agent_prompt"];
 
 const DAYS: StringKey[] = ["auto.day.0", "auto.day.1", "auto.day.2", "auto.day.3", "auto.day.4", "auto.day.5", "auto.day.6"];
 
@@ -293,7 +297,7 @@ function AutomationForm({ open, onClose, tz }: { open: boolean; onClose: () => v
     >
       <div className="space-y-4">
         <div className="grid grid-cols-3 gap-2">
-          {(Object.keys(KIND_META) as AutomationKind[]).map((k) => {
+          {CREATABLE_KINDS.map((k) => {
             const Icon = KIND_META[k].icon;
             return (
               <button type="button"

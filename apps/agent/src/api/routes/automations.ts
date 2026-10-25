@@ -1,7 +1,8 @@
-import { automationCreateSchema, automationUpdateSchema } from "@talorys/shared";
+import { automationCreateSchema, automationUpdateSchema, suggestionListQuerySchema } from "@talorys/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv } from "../app";
+import { NotFoundError } from "../errors";
 import { body, query } from "../middleware";
 
 export const automationRoutes = new Hono<AppEnv>();
@@ -50,4 +51,24 @@ automationRoutes.delete("/notifications/:id", (c) => {
   c.env.agent.services.notifications.delete(c.req.param("id"));
   c.env.agent.refreshUnread();
   return c.json({ deleted: true });
+});
+
+// ---------- Proactive suggestions ----------
+
+automationRoutes.get("/suggestions", (c) => {
+  const params = query(c, suggestionListQuerySchema);
+  const s = c.env.agent.services;
+  return c.json({ suggestions: s.suggestions.list(params), unseen: s.suggestions.unseenCount() });
+});
+
+automationRoutes.patch("/suggestions/:id", async (c) => {
+  const { status } = await body(c, z.object({ status: z.enum(["dismissed", "accepted", "seen"]) }));
+  const updated = c.env.agent.services.suggestions.setStatus(c.req.param("id"), status);
+  if (!updated) throw new NotFoundError("No suggestion with that id.");
+  return c.json({ suggestion: updated });
+});
+
+automationRoutes.post("/suggestions/seen", (c) => {
+  c.env.agent.services.suggestions.markSeen();
+  return c.json({ ok: true });
 });

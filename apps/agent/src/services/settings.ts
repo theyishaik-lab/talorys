@@ -15,6 +15,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autoMemory: true,
   demoMode: false,
   memoryHistory: { ...DEFAULT_MEMORY_HISTORY },
+  proactive: { enabled: false, scanEveryHours: 3, maxPerRun: 3, quietStartHour: 22, quietEndHour: 7 },
 };
 
 const SETTINGS_KEY = "app.settings";
@@ -36,6 +37,7 @@ export class SettingsService {
       limits: { ...DEFAULT_SETTINGS.limits, ...(stored.limits ?? {}) },
       memoryHistory: { ...DEFAULT_SETTINGS.memoryHistory, ...(stored.memoryHistory ?? {}) },
       fallback: { ...DEFAULT_SETTINGS.fallback, ...(stored.fallback ?? {}) },
+      proactive: { ...DEFAULT_SETTINGS.proactive, ...(stored.proactive ?? {}) },
     };
     const parsed = settingsSchema.safeParse(merged);
     if (parsed.success) return parsed.data;

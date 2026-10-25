@@ -76,4 +76,8 @@ export const TASK_STATUSES = ["todo", "in_progress", "done"] as const;
 export const TASK_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 export const MEMORY_CATEGORIES = ["preference", "fact", "goal", "project", "habit", "person", "other"] as const;
 export const PROJECT_STATUSES = ["active", "paused", "completed", "archived"] as const;
-export const AUTOMATION_KINDS = ["reminder", "task_digest", "agent_prompt"] as const;
+export const AUTOMATION_KINDS = ["reminder", "task_digest", "agent_prompt", "proactive_scan"] as const;
+
+/** Proactive engine: what a surfaced suggestion is, and its lifecycle. */
+export const SUGGESTION_KINDS = ["opportunity", "reminder", "digest", "action_proposal"] as const;
+export const SUGGESTION_STATUSES = ["new", "seen", "accepted", "dismissed", "expired"] as const;

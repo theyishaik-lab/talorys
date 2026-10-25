@@ -19,6 +19,7 @@ import { localDayBounds, formatLocal } from "../services/time";
 import { semanticExtensions } from "../semantic";
 import { toolsWithOpenConnector, withOpenConnector } from "../openconnector";
 import type { ToolDefinition } from "../tools";
+import { runProactiveScan } from "../proactive/engine";
 
 interface AgentState {
   /** Unread notifications, kept in agent state for cheap polling. */
@@ -204,6 +205,10 @@ export class TalorysAgent extends Agent<Env, AgentState> {
         const text = await this.runner().runScheduledPrompt(a.message);
         s.notifications.create({ title: a.name, body: text, automation_id: a.id });
         return { status: "success", result: text.slice(0, 300) };
+      }
+      case "proactive_scan": {
+        // Phase 1: no AI. The engine turns task signals into suggestions and notifies once.
+        return runProactiveScan(s, settings);
       }
     }
   }

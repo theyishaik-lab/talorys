@@ -11,6 +11,7 @@ import type {
   Project,
   SessionInfo,
   Settings,
+  Suggestion,
   Task,
   UsageReport,
 } from "@talorys/shared";
@@ -30,6 +31,7 @@ export const keys = {
   projects: ["projects"] as const,
   automations: ["automations"] as const,
   notifications: ["notifications"] as const,
+  suggestions: ["suggestions"] as const,
   usage: ["usage"] as const,
   sessions: ["sessions"] as const,
   system: ["system"] as const,
@@ -129,6 +131,15 @@ export function useNotifications() {
     queryKey: keys.notifications,
     queryFn: () => api<{ notifications: Notification[]; unread: number }>("/notifications"),
     refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
+  });
+}
+
+export function useSuggestions() {
+  return useQuery({
+    queryKey: keys.suggestions,
+    queryFn: () => api<{ suggestions: Suggestion[]; unseen: number }>("/suggestions"),
+    refetchInterval: 60_000,
     refetchIntervalInBackground: false,
   });
 }

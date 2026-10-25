@@ -6,6 +6,7 @@ import { NoteRepository, ProjectRepository } from "../db/repositories/notes";
 import { ConversationRepository } from "../db/repositories/conversations";
 import { AutomationRepository, NotificationRepository } from "../db/repositories/automations";
 import { PendingActionRepository } from "../db/repositories/pending-actions";
+import { SuggestionRepository } from "../db/repositories/suggestions";
 import { SettingsService } from "./settings";
 import { ActivityLog, UsageService } from "./usage";
 import { AuthService } from "../auth/auth-service";
@@ -31,6 +32,8 @@ export interface Services {
   automationsRepo: AutomationRepository;
   notifications: NotificationRepository;
   pendingActions: PendingActionRepository;
+  /** Proactive engine suggestions surfaced to the owner. */
+  suggestions: SuggestionRepository;
   settings: SettingsService;
   usage: UsageService;
   activity: ActivityLog;
@@ -88,6 +91,7 @@ export function createServices(storage: DurableObjectStorage, env: Env, schedule
     automationsRepo,
     notifications,
     pendingActions: new PendingActionRepository(db),
+    suggestions: new SuggestionRepository(db),
     settings,
     usage,
     activity,

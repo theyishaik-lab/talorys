@@ -9,12 +9,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { Limits, MemoryHistorySettings, Settings } from "@talorys/shared";
 import { LIMIT_CEILINGS, TALORYS_VERSION } from "@talorys/shared/constants";
 import { checkPasswordStrength } from "@talorys/shared/password-policy";
-import { ChevronLeft, ChevronRight, Cpu, Download, ExternalLink, Info, Languages, Lock, LogOut, Moon, Settings2, ShieldCheck, Smartphone, Sun, Upload } from "lucide-react";
+import { ChevronLeft, ChevronRight, Cpu, Download, ExternalLink, Info, Languages, Lightbulb, Lock, LogOut, Moon, Settings2, ShieldCheck, Smartphone, Sun, Upload } from "lucide-react";
 import { GitHubIcon } from "../components/SourceLinks";
 import { ANDROID_SOURCE_URL, DEPLOY_DOC_URL, REPO_URL, UPSTREAM_URL } from "../lib/links";
 import { Badge, Button, ConfirmDialog, ErrorNotice, Input, Label, Select, Spinner, Switch } from "../components/ui";
 import { SemanticRecallCard } from "../components/SemanticRecallCard";
 import { keys, useApiMutation, useSessions, useSettings, useSystemInfo, useUsage } from "../hooks/queries";
+import type { ProactiveSettings } from "@talorys/shared";
 import { useSession } from "../hooks/session";
 import { useToast, errorMessage } from "../hooks/toast";
 import { api, ApiError } from "../lib/api";
@@ -22,7 +23,7 @@ import { applyTheme, readThemePreference, type ThemePreference } from "../lib/th
 import { cn, relativeTime } from "../lib/utils";
 import { LOCALE_NAMES, LOCALES, type LocalePreference, type StringKey, useLocale } from "../lib/i18n";
 
-const TABS = ["General", "AI", "Privacy", "Security", "About"] as const;
+const TABS = ["General", "AI", "Privacy", "Security", "Proactive", "About"] as const;
 type Tab = (typeof TABS)[number];
 
 /** A settings row: label + hint on the start side, the control on the end side (stacked on phones). */
@@ -70,6 +71,7 @@ const TAB_LABELS: Record<Tab, Parameters<ReturnType<typeof useLocale>["t"]>[0]> 
   AI: "settings.tab.AI",
   Privacy: "settings.tab.Privacy",
   Security: "settings.tab.Security",
+  Proactive: "settings.tab.Proactive",
   About: "settings.tab.About",
 };
 
@@ -106,6 +108,7 @@ export default function SettingsPage() {
       </Section>
       <Section title={t("settings.account")} inset>
         <LinkRow icon={Settings2} label={t("settings.tab.General")} value={settings.agentName} onClick={() => setTab("General")} />
+        <LinkRow icon={Lightbulb} label={t("settings.tab.Proactive")} value={settings.proactive.enabled ? <span className="text-accent text-sm">{t("common.on")}</span> : undefined} onClick={() => setTab("Proactive")} />
         <LinkRow icon={ShieldCheck} label={t("settings.tab.Privacy")} onClick={() => setTab("Privacy")} />
         <LinkRow icon={Lock} label={t("settings.tab.Security")} onClick={() => setTab("Security")} />
         <LinkRow icon={Info} label={t("settings.tab.About")} value={<span dir="ltr">{info.data?.deployed_version ?? TALORYS_VERSION}</span>} onClick={() => setTab("About")} />
@@ -117,6 +120,7 @@ export default function SettingsPage() {
       {tab === "AI" && <AiTab settings={settings} />}
       {tab === "Privacy" && <PrivacyTab />}
       {tab === "Security" && <SecurityTab />}
+      {tab === "Proactive" && <ProactiveTab settings={settings} />}
       {tab === "About" && <AboutTab />}
     </div>
   );
@@ -211,7 +215,7 @@ function AppearanceSection() {
 function useSaveSettings() {
   const qc = useQueryClient();
   const { t } = useLocale();
-  type Patch = Partial<Omit<Settings, "limits" | "memoryHistory">> & { limits?: Partial<Limits>; memoryHistory?: Partial<MemoryHistorySettings> };
+  type Patch = Partial<Omit<Settings, "limits" | "memoryHistory" | "proactive">> & { limits?: Partial<Limits>; memoryHistory?: Partial<MemoryHistorySettings>; proactive?: Partial<ProactiveSettings> };
   return useApiMutation((patch: Patch) => api<{ settings: Settings }>("/settings", { method: "PATCH", body: patch }), {
     success: t("settings.saved"),
     onSuccess: (r) => {
@@ -390,6 +394,86 @@ function MemoryHistorySection({ settings }: { settings: Settings }) {
         </Row>
       )}
     </Section>
+  );
+}
+
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => ({
+  value: h,
+  label: `${h.toString().padStart(2, "0")}:00`,
+}));
+
+function ProactiveTab({ settings }: { settings: Settings }) {
+  const save = useSaveSettings();
+  const { t } = useLocale();
+  const p = settings.proactive;
+
+  const saveP = (patch: Partial<ProactiveSettings>) =>
+    save.mutate({ proactive: patch });
+
+  return (
+    <>
+      <Section title={t("proactive.title")}>
+        <div className="px-4 py-3 text-[13px] leading-5 text-fg-muted">{t("proactive.description")}</div>
+        <Row label={t("proactive.enable")} hint={t("proactive.enableHint")}>
+          <div className="flex justify-end">
+            <Switch checked={p.enabled} onChange={(v) => saveP({ enabled: v })} label={t("proactive.enable")} />
+          </div>
+        </Row>
+        {p.enabled && (
+          <>
+            <Row label={t("proactive.scanFreq")} hint={t("proactive.scanFreqHint")}>
+              <Select
+                value={p.scanEveryHours}
+                onChange={(e) => saveP({ scanEveryHours: Number(e.target.value) })}
+                aria-label={t("proactive.scanFreq")}
+              >
+                <option value={1}>{t("proactive.every_1_hour")}</option>
+                {[2, 3, 4, 6, 8, 12, 24].map((n) => (
+                  <option key={n} value={n}>{t("proactive.every_n_hours", { n })}</option>
+                ))}
+              </Select>
+            </Row>
+            <Row label={t("proactive.maxPerRun")} hint={t("proactive.maxPerRunHint")}>
+              <Input
+                type="number"
+                min={1}
+                max={10}
+                value={p.maxPerRun}
+                onChange={(e) => saveP({ maxPerRun: Number(e.target.value) })}
+                aria-label={t("proactive.maxPerRun")}
+              />
+            </Row>
+            <Row label={t("proactive.quietHours")} hint={t("proactive.quietHoursHint")}>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-fg-muted shrink-0">{t("proactive.from")}</label>
+                <Select
+                  value={p.quietStartHour}
+                  onChange={(e) => saveP({ quietStartHour: Number(e.target.value) })}
+                  aria-label={t("proactive.from")}
+                  className="flex-1"
+                >
+                  {HOUR_OPTIONS.map(({ value, label }) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </Select>
+                <label className="text-sm text-fg-muted shrink-0">{t("proactive.until")}</label>
+                <Select
+                  value={p.quietEndHour}
+                  onChange={(e) => saveP({ quietEndHour: Number(e.target.value) })}
+                  aria-label={t("proactive.until")}
+                  className="flex-1"
+                >
+                  {HOUR_OPTIONS.map(({ value, label }) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </Select>
+              </div>
+            </Row>
+          </>
+        )}
+      </Section>
+      <div className="px-2 text-[12px] leading-5 text-fg-subtle">{t("proactive.managedNote")}</div>
+    </>
   );
 }
 
