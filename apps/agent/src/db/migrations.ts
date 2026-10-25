@@ -298,6 +298,21 @@ export const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS tal_suggestions_hash ON tal_suggestions(signal_hash, status)`,
     ],
   },
+  {
+    version: 6,
+    name: "action_log",
+    statements: [
+      `CREATE TABLE IF NOT EXISTS tal_action_log (
+        id TEXT PRIMARY KEY,
+        suggestion_id TEXT,
+        tool TEXT NOT NULL,
+        input_json TEXT NOT NULL,
+        result_summary TEXT,
+        created_at TEXT NOT NULL
+      )`,
+      `CREATE INDEX IF NOT EXISTS tal_action_log_created ON tal_action_log(created_at)`,
+    ],
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

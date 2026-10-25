@@ -6,6 +6,7 @@ import { keys, useApiMutation, useNotifications, useSuggestions } from "../hooks
 import { api } from "../lib/api";
 import { cn, relativeTime } from "../lib/utils";
 import { useT } from "../lib/i18n";
+import { useNav } from "../lib/native";
 
 type Tab = "notifications" | "suggestions";
 
@@ -16,6 +17,7 @@ export function NotificationCenter({ open, onClose }: { open: boolean; onClose: 
   const { data: notifData, isLoading: notifLoading } = useNotifications();
   const { data: suggData, isLoading: suggLoading } = useSuggestions();
 
+  const nav = useNav();
   const markRead = useApiMutation((id?: string) => api("/notifications/read", { method: "POST", body: id ? { id } : {} }), {
     invalidate: [keys.notifications],
   });
@@ -106,6 +108,21 @@ export function NotificationCenter({ open, onClose }: { open: boolean; onClose: 
                   <time className="shrink-0 text-xs text-fg-subtle">{relativeTime(s.created_at)}</time>
                 </div>
                 <p className="mt-1 text-sm text-fg-muted" dir="auto">{s.body}</p>
+                {s.proposed_tool && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="mt-2"
+                    title={t("suggestions.approveHint")}
+                    onClick={() => {
+                      dismissSugg.mutate(s.id);
+                      onClose();
+                      nav(`/chat?prefill=${encodeURIComponent(s.body)}`, "push");
+                    }}
+                  >
+                    {t("suggestions.approve")}
+                  </Button>
+                )}
               </div>
               <button
                 type="button"

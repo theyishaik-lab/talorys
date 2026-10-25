@@ -38,8 +38,8 @@ describe("inQuietHours", () => {
 describe("proactive engine (Phase 1, no AI)", () => {
   it("is skipped when disabled", async () => {
     const run = freshAgent();
-    await run((agent) => {
-      const res = runProactiveScan(agent.services);
+    await run(async (agent) => {
+      const res = await runProactiveScan(agent.services);
       expect(res.status).toBe("skipped");
       expect(agent.services.suggestions.list()).toHaveLength(0);
     });
@@ -47,12 +47,12 @@ describe("proactive engine (Phase 1, no AI)", () => {
 
   it("surfaces suggestions for overdue and due-today tasks, and dedupes on re-scan", async () => {
     const run = freshAgent();
-    await run((agent) => {
+    await run(async (agent) => {
       enableProactive(agent);
       agent.services.tasks.create({ title: "Pay rent", due_at: daysFromNow(-2), priority: "high" });
       agent.services.tasks.create({ title: "Call dentist", due_at: daysFromNow(0), priority: "medium" });
 
-      const first = runProactiveScan(agent.services);
+      const first = await runProactiveScan(agent.services);
       expect(first.status).toBe("success");
       const items = agent.services.suggestions.list();
       expect(items.length).toBe(2);
@@ -63,7 +63,7 @@ describe("proactive engine (Phase 1, no AI)", () => {
       expect(agent.services.notifications.unreadCount()).toBeGreaterThan(0);
 
       // Re-scanning the same signals creates nothing new (dedupe by signal_hash).
-      const second = runProactiveScan(agent.services);
+      const second = await runProactiveScan(agent.services);
       expect(second.status).toBe("success");
       expect(agent.services.suggestions.list().length).toBe(2);
     });
@@ -71,21 +71,21 @@ describe("proactive engine (Phase 1, no AI)", () => {
 
   it("respects maxPerRun", async () => {
     const run = freshAgent();
-    await run((agent) => {
+    await run(async (agent) => {
       agent.services.settings.update({ proactive: { enabled: true, quietStartHour: 0, quietEndHour: 0, maxPerRun: 1 } });
       agent.services.tasks.create({ title: "A", due_at: daysFromNow(-1), priority: "urgent" });
       agent.services.tasks.create({ title: "B", due_at: daysFromNow(-1), priority: "low" });
-      runProactiveScan(agent.services);
+      await runProactiveScan(agent.services);
       expect(agent.services.suggestions.list().length).toBe(1);
     });
   });
 
   it("dismiss hides a suggestion from the open list", async () => {
     const run = freshAgent();
-    await run((agent) => {
+    await run(async (agent) => {
       enableProactive(agent);
       agent.services.tasks.create({ title: "Pay rent", due_at: daysFromNow(-2), priority: "high" });
-      runProactiveScan(agent.services);
+      await runProactiveScan(agent.services);
       const [first] = agent.services.suggestions.list();
       expect(first).toBeTruthy();
       agent.services.suggestions.setStatus(first!.id, "dismissed");

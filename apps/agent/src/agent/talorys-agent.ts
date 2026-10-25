@@ -207,8 +207,7 @@ export class TalorysAgent extends Agent<Env, AgentState> {
         return { status: "success", result: text.slice(0, 300) };
       }
       case "proactive_scan": {
-        // Phase 1: no AI. The engine turns task signals into suggestions and notifies once.
-        return runProactiveScan(s, settings);
+        return runProactiveScan(s, settings, this.aiProvider());
       }
     }
   }

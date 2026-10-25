@@ -29,6 +29,8 @@ function present(row: StoredSuggestion): Suggestion {
     score: row.score,
     created_at: row.created_at,
     expires_at: row.expires_at,
+    proposed_tool: row.proposed_tool,
+    proposed_input: row.proposed_input,
   };
 }
 
@@ -47,6 +49,8 @@ export class SuggestionRepository {
     signalHash: string;
     score?: number;
     ttlMs?: number;
+    proposedTool?: string | null;
+    proposedInput?: string | null;
   }): Suggestion | null {
     const active = this.db.one<{ id: string }>(
       `SELECT id FROM tal_suggestions
@@ -65,8 +69,8 @@ export class SuggestionRepository {
       title: input.title,
       body: input.body,
       signal_hash: input.signalHash,
-      proposed_tool: null,
-      proposed_input: null,
+      proposed_tool: input.proposedTool ?? null,
+      proposed_input: input.proposedInput ?? null,
       status: "new",
       score: input.score ?? 0,
       created_at: createdAt,

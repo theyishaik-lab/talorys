@@ -1,6 +1,8 @@
 import type { Settings, Task } from "@talorys/shared";
 import type { Services } from "../services/container";
+import type { AIProvider } from "../ai/provider";
 import { formatLocal, localDayBounds } from "../services/time";
+import { rankCandidates, type RankerCandidate } from "./ranker";
 
 export interface ScanResult {
   status: "success" | "skipped";
@@ -23,11 +25,14 @@ export function inQuietHours(hour: number, start: number, end: number): boolean 
 }
 
 /**
- * Phase 1 proactive scan: no AI. Turns task signals (overdue, due today) into suggestions
- * and surfaces a single summary notification. Scheduled runs only ever *propose*; nothing
- * here commits a destructive action.
+ * Proactive scan: Phase 1 (non-AI) + Phase 2 (AI ranking + proposals, optional).
+ * Scheduled runs only ever *propose*; nothing here commits a destructive action.
  */
-export function runProactiveScan(services: Services, settings: Settings = services.settings.get()): ScanResult {
+export async function runProactiveScan(
+  services: Services,
+  settings: Settings = services.settings.get(),
+  provider: AIProvider | null = null,
+): Promise<ScanResult> {
   const p = settings.proactive;
   if (!p.enabled) return { status: "skipped", result: "Proactive engine is off" };
 
@@ -45,32 +50,45 @@ export function runProactiveScan(services: Services, settings: Settings = servic
     .list({ view: "today", dayStart: bounds.start, dayEnd: bounds.end, limit: 50 })
     .filter((t) => !overdue.some((o) => o.id === t.id));
 
-  const candidates: { kind: "reminder"; title: string; body: string; signalHash: string; score: number }[] = [];
+  const rawCandidates: RankerCandidate[] = [];
   const due = (t: Task) => (t.due_at ? ` (due ${formatLocal(t.due_at, settings.timezone)})` : "");
   for (const t of overdue) {
-    candidates.push({
+    rawCandidates.push({
       kind: "reminder",
       title: `Overdue: ${t.title}`,
       body: `This task is overdue${due(t)}. Want to reschedule it or mark it done?`,
       signalHash: `task-overdue:${t.id}`,
       score: 100 + (PRIORITY_WEIGHT[t.priority] ?? 0),
+      meta: { taskId: t.id, taskTitle: t.title },
     });
   }
   for (const t of today) {
-    candidates.push({
+    rawCandidates.push({
       kind: "reminder",
       title: `Due today: ${t.title}`,
       body: `This task is due today${due(t)}.`,
       signalHash: `task-today:${t.id}:${t.due_at ?? ""}`,
       score: 50 + (PRIORITY_WEIGHT[t.priority] ?? 0),
+      meta: { taskId: t.id, taskTitle: t.title },
     });
   }
 
-  candidates.sort((a, b) => b.score - a.score);
+  rawCandidates.sort((a, b) => b.score - a.score);
+
+  // Phase 2: AI-powered ranking + action proposals (budgeted; falls back to Phase 1 ordering).
+  const candidates = await rankCandidates(rawCandidates, provider, services.usage, settings.limits);
 
   let created = 0;
   for (const c of candidates.slice(0, p.maxPerRun)) {
-    if (suggestions.create(c)) created++;
+    if (suggestions.create({
+      kind: "reminder" as const,
+      title: c.title,
+      body: c.body,
+      signalHash: c.signalHash,
+      score: c.score,
+      proposedTool: c.proposedTool,
+      proposedInput: c.proposedInput,
+    })) created++;
   }
 
   if (created > 0) {

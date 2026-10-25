@@ -509,6 +509,10 @@ export interface Suggestion {
   score: number;
   created_at: string;
   expires_at: string;
+  /** If set, the AI proposed a specific action the owner can approve with one tap. */
+  proposed_tool?: string | null;
+  /** JSON-encoded input for the proposed tool (as a string). */
+  proposed_input?: string | null;
 }
 
 export const suggestionListQuerySchema = z.object({
