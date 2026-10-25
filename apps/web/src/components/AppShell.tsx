@@ -1,14 +1,15 @@
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, lazy, Suspense, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Outlet, useLocation, useMatch } from "react-router";
 import { useDrawerGesture } from "../hooks/drawer-gesture";
 import { type NavDirection, useHistoryLayer, useMediaQuery, useNav } from "../lib/native";
 import { Bell, Menu } from "lucide-react";
 import { Drawer, PAGES } from "./Drawer";
-import { NotificationCenter } from "./NotificationCenter";
-import { CommandPalette } from "./CommandPalette";
 import { useNotifications } from "../hooks/queries";
 import { cn } from "../lib/utils";
 import { type StringKey, useLocale, useT } from "../lib/i18n";
+
+const CommandPalette = lazy(() => import("./CommandPalette").then((m) => ({ default: m.CommandPalette })));
+const NotificationCenter = lazy(() => import("./NotificationCenter").then((m) => ({ default: m.NotificationCenter })));
 
 interface ShellContextValue {
   openDrawer: () => void;
@@ -164,8 +165,8 @@ export function AppShell() {
           </main>
         </div>
 
-        <NotificationCenter open={notifOpen} onClose={() => setNotifOpen(false)} />
-        <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
+        {notifOpen && <Suspense fallback={null}><NotificationCenter open onClose={() => setNotifOpen(false)} /></Suspense>}
+        {cmdOpen && <Suspense fallback={null}><CommandPalette open onClose={() => setCmdOpen(false)} /></Suspense>}
       </div>
     </ShellContext.Provider>
   );

@@ -20,6 +20,7 @@ import { semanticExtensions } from "../semantic";
 import { toolsWithOpenConnector, withOpenConnector } from "../openconnector";
 import type { ToolDefinition } from "../tools";
 import { runProactiveScan } from "../proactive/engine";
+import { syncProactiveSchedule } from "../proactive/schedule";
 
 interface AgentState {
   /** Unread notifications, kept in agent state for cheap polling. */
@@ -64,6 +65,7 @@ export class TalorysAgent extends Agent<Env, AgentState> {
   override async onStart(): Promise<void> {
     const services = this.services;
     try {
+      await syncProactiveSchedule(services);
       const { repaired } = await services.automations.reconcile();
       if (repaired > 0) services.activity.record("automation.reconciled", `Recovered ${repaired} schedule(s) after restart`);
     } catch (error) {

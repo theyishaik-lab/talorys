@@ -517,7 +517,7 @@ export interface Suggestion {
 
 export const suggestionListQuerySchema = z.object({
   status: z.enum(SUGGESTION_STATUSES).optional(),
-  limit: z.number().int().min(1).max(50).optional(),
+  limit: z.coerce.number().int().min(1).max(50).optional(),
 });
 
 export const settingsSchema = z
@@ -555,7 +555,13 @@ export const settingsUpdateSchema = z.object({
   demoMode: z.boolean().optional(),
   limits: limitsSchema.partial().optional(),
   memoryHistory: memoryHistorySettingsSchema.partial().optional(),
-  proactive: proactiveSettingsSchema.partial().optional(),
+  proactive: z.object({
+    enabled: proactiveSettingsSchema.shape.enabled.removeDefault().optional(),
+    scanEveryHours: proactiveSettingsSchema.shape.scanEveryHours.removeDefault().optional(),
+    maxPerRun: proactiveSettingsSchema.shape.maxPerRun.removeDefault().optional(),
+    quietStartHour: proactiveSettingsSchema.shape.quietStartHour.removeDefault().optional(),
+    quietEndHour: proactiveSettingsSchema.shape.quietEndHour.removeDefault().optional(),
+  }).optional(),
 });
 
 /** A model as the Settings picker shows it. `tools` = function calling; `free` = no charge beyond the provider's free allowance. */

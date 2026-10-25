@@ -57,7 +57,7 @@ export async function runProactiveScan(
       kind: "reminder",
       title: `Overdue: ${t.title}`,
       body: `This task is overdue${due(t)}. Want to reschedule it or mark it done?`,
-      signalHash: `task-overdue:${t.id}`,
+      signalHash: `task-overdue:${t.id}:${t.due_at ?? ""}`,
       score: 100 + (PRIORITY_WEIGHT[t.priority] ?? 0),
       meta: { taskId: t.id, taskTitle: t.title },
     });
@@ -76,7 +76,8 @@ export async function runProactiveScan(
   rawCandidates.sort((a, b) => b.score - a.score);
 
   // Phase 2: AI-powered ranking + action proposals (budgeted; falls back to Phase 1 ordering).
-  const candidates = await rankCandidates(rawCandidates, provider, services.usage, settings.limits);
+  const unseen = rawCandidates.filter((candidate) => !suggestions.hasSignal(candidate.signalHash));
+  const candidates = await rankCandidates(unseen, provider, services.usage, settings.limits);
 
   let created = 0;
   for (const c of candidates.slice(0, p.maxPerRun)) {

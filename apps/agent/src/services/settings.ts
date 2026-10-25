@@ -56,6 +56,7 @@ export class SettingsService {
       limits: { ...current.limits, ...stripUndefined(parsedPatch.data.limits ?? {}) },
       memoryHistory: { ...current.memoryHistory, ...stripUndefined(parsedPatch.data.memoryHistory ?? {}) },
       fallback: { ...current.fallback, ...stripUndefined(parsedPatch.data.fallback ?? {}) },
+      proactive: { ...current.proactive, ...stripUndefined(parsedPatch.data.proactive ?? {}) },
     };
     const parsed = settingsSchema.safeParse(next);
     if (!parsed.success) throw ValidationError.fromZod(parsed.error);

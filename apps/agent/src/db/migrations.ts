@@ -299,7 +299,7 @@ export const MIGRATIONS: Migration[] = [
     ],
   },
   {
-    version: 6,
+    version: 11,
     name: "action_log",
     statements: [
       `CREATE TABLE IF NOT EXISTS tal_action_log (
@@ -322,6 +322,11 @@ export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;
  * together with the version bump, so a failure leaves the previous version intact.
  */
 export function migrate(db: Database, migrations: Migration[] = MIGRATIONS): number {
+  for (let i = 1; i < migrations.length; i++) {
+    if (migrations[i]!.version <= migrations[i - 1]!.version) {
+      throw new Error("Migrations must have unique, increasing versions");
+    }
+  }
   db.run(`CREATE TABLE IF NOT EXISTS tal_schema (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     version INTEGER NOT NULL,

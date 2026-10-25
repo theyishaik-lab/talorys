@@ -3,8 +3,9 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const dist = new URL("../dist/assets/", import.meta.url).pathname;
+const dist = fileURLToPath(new URL("../dist/assets/", import.meta.url));
 const BUDGET_KB = { initialJs: 200, css: 20, lazyChunk: 32 }; // lazyChunk: the recurrence chunk (Tasks/Automations) carries zod, ~25 KB
 const INITIAL = /^(index|queries|hooks|rolldown-runtime|Markdown)-/; // chunks loaded at startup (see dist/index.html + the chat page's imports)
 

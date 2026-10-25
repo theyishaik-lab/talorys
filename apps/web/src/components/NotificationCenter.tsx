@@ -115,12 +115,11 @@ export function NotificationCenter({ open, onClose }: { open: boolean; onClose: 
                     className="mt-2"
                     title={t("suggestions.approveHint")}
                     onClick={() => {
-                      dismissSugg.mutate(s.id);
                       onClose();
-                      nav(`/chat?prefill=${encodeURIComponent(s.body)}`, "push");
+                      nav(`/chat?prefill=${encodeURIComponent(`${s.title}\n${s.body}`)}`, "push");
                     }}
                   >
-                    {t("suggestions.approve")}
+                    {t("nav.chat")}
                   </Button>
                 )}
               </div>

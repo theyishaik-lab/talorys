@@ -5,6 +5,7 @@ import type { AppEnv } from "../app";
 import { body } from "../middleware";
 import { schemaVersion } from "../../db/migrations";
 import { exportData, importData } from "../../services/backup";
+import { syncProactiveSchedule } from "../../proactive/schedule";
 
 export const systemRoutes = new Hono<AppEnv>();
 
@@ -45,6 +46,7 @@ systemRoutes.patch("/settings", async (c) => {
   const s = c.env.agent.services;
   const before = s.settings.get();
   const settings = s.settings.update(patch);
+  if (patch.proactive) await syncProactiveSchedule(s);
   if (settings.timezone !== before.timezone) await s.automations.rearmAll();
   if (settings.demoMode !== before.demoMode) {
     s.activity.record("settings.demo_mode", settings.demoMode ? "Demo mode enabled (mock AI)" : "Demo mode disabled");
@@ -101,5 +103,6 @@ systemRoutes.get("/export", (c) => {
 systemRoutes.post("/import", async (c) => {
   const raw = await body(c, z.unknown(), 25 * 1024 * 1024);
   const summary = await importData(c.env.agent.services, raw);
+  await syncProactiveSchedule(c.env.agent.services);
   return c.json({ imported: summary });
 });

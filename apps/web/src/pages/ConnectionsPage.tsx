@@ -135,11 +135,14 @@ export default function ConnectionsPage() {
   );
 
   const isLoading = connections.isLoading || catalog.isLoading;
-  const error = connections.error ?? catalog.error;
+  const error = connections.error ?? catalog.error ?? (connections.data?.error ? new Error(connections.data.error) : null);
 
   const configured = connections.data?.configured ?? false;
   const activeMap = new Map<string, Connection>((connections.data?.connections ?? []).map((c) => [c.service, c]));
-  const services = catalog.data?.services ?? [];
+  const services = [...(catalog.data?.services ?? [])];
+  for (const service of activeMap.keys()) {
+    if (!services.some((item) => item.id === service)) services.push({ id: service, name: service });
+  }
 
   const connected = services.filter((s) => activeMap.has(s.id));
   const available = services.filter((s) => !activeMap.has(s.id));

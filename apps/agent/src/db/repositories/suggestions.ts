@@ -38,6 +38,14 @@ function present(row: StoredSuggestion): Suggestion {
 export class SuggestionRepository {
   constructor(private readonly db: Database) {}
 
+  hasSignal(signalHash: string): boolean {
+    return !!this.db.one<{ id: string }>(
+      `SELECT id FROM tal_suggestions WHERE signal_hash = ?
+       AND (status IN ('dismissed','accepted') OR (status IN ('new','seen') AND expires_at > ?)) LIMIT 1`,
+      signalHash, now(),
+    );
+  }
+
   /**
    * Create a suggestion unless one with the same `signal_hash` is already active
    * (not dismissed/accepted/expired). Returns the new row, or null when deduped.
@@ -52,14 +60,7 @@ export class SuggestionRepository {
     proposedTool?: string | null;
     proposedInput?: string | null;
   }): Suggestion | null {
-    const active = this.db.one<{ id: string }>(
-      `SELECT id FROM tal_suggestions
-       WHERE signal_hash = ? AND status IN ('new','seen') AND expires_at > ?
-       LIMIT 1`,
-      input.signalHash,
-      now(),
-    );
-    if (active) return null;
+    if (this.hasSignal(input.signalHash)) return null;
 
     const createdAt = now();
     const expiresAt = new Date(Date.now() + (input.ttlMs ?? SUGGESTION_TTL_MS)).toISOString();
@@ -98,12 +99,16 @@ export class SuggestionRepository {
     const limit = options.limit ?? 25;
     const rows = options.status
       ? this.db.all<StoredSuggestion>(
-          `SELECT * FROM tal_suggestions WHERE status = ? ORDER BY score DESC, created_at DESC LIMIT ?`,
+          `SELECT * FROM tal_suggestions WHERE status = ?
+           AND (status NOT IN ('new','seen') OR expires_at > ?)
+           ORDER BY score DESC, created_at DESC LIMIT ?`,
           options.status,
+          now(),
           limit,
         )
       : this.db.all<StoredSuggestion>(
-          `SELECT * FROM tal_suggestions WHERE status IN ('new','seen') ORDER BY score DESC, created_at DESC LIMIT ?`,
+          `SELECT * FROM tal_suggestions WHERE status IN ('new','seen') AND expires_at > ? ORDER BY score DESC, created_at DESC LIMIT ?`,
+          now(),
           limit,
         );
     return rows.map(present);

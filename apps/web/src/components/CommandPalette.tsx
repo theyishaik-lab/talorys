@@ -20,14 +20,20 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   const t = useT();
   const navigate = useNavigate();
   const [q, setQ] = useState("");
+  const [search, setSearch] = useState("");
   const dialogRef = useRef<HTMLDialogElement>(null);
   useHistoryLayer(open, onClose);
 
   // Fetch data lazily only when open.
   const tasks = useTasks();
-  const notes = useNotes(q || undefined);
-  const memories = useMemories(q || undefined);
-  const conversations = useConversations(q || undefined);
+  const notes = useNotes(search || undefined);
+  const memories = useMemories(search || undefined);
+  const conversations = useConversations(search || undefined);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSearch(q), 250);
+    return () => clearTimeout(timer);
+  }, [q]);
 
   useEffect(() => {
     const el = dialogRef.current;
@@ -58,6 +64,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
   return (
     <dialog
       ref={dialogRef}
+      aria-label={t("command.placeholder")}
       onClose={() => { if (open) onClose(); }}
       onCancel={(e) => { e.preventDefault(); onClose(); }}
       onClick={(e) => { if (e.target === dialogRef.current) onClose(); }}

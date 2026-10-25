@@ -1,5 +1,5 @@
 import { type KeyboardEvent, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import type { AiAttribution, ApiErrorCode, ChatMessage, Conversation, PendingAction, ToolActivity } from "@talorys/shared";
 import {
@@ -594,6 +594,16 @@ function Composer({ name, streaming, onSend, onStop, autoFocus }: { name: string
   const t = useT();
   const [value, setValue] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const prefill = searchParams.get("prefill");
+  useEffect(() => {
+    if (!prefill) return;
+    setValue(prefill.slice(0, 16000));
+    const next = new URLSearchParams(searchParams);
+    next.delete("prefill");
+    setSearchParams(next, { replace: true });
+    ref.current?.focus();
+  }, [prefill, searchParams, setSearchParams]);
   // Auto-height: CSS `field-sizing: content` where supported (no layout work per keystroke);
   // otherwise measure.
   useLayoutEffect(() => {

@@ -35,11 +35,12 @@ export function createApi() {
   app.route("/", semanticRoutes);
   app.route("/", systemRoutes);
   app.route("/auth", authRoutes);
+  // Static connector paths (e.g. /connections/catalog) precede :service.
+  app.route("/", aiRoutes);
   app.route("/", chatRoutes);
   app.route("/", dataRoutes);
   app.route("/", automationRoutes);
   app.route("/", pushRoutes);
-  app.route("/", aiRoutes);
 
   return app;
 }
