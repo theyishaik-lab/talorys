@@ -371,7 +371,8 @@ export class AgentRunner {
     }
     s.usage.increment({ tool_calls: executor.callCount });
     if (text.trim()) return text.trim();
-    if (results.length === 0) return "The scheduled run finished without a reply from the model.";
+    // Nothing ran and nothing was said: an empty result, which the caller does not deliver.
+    if (results.length === 0) return "";
 
     // Tools ran but no answer came back: one tool-free call writes it from the results.
     if (!signal?.aborted && s.usage.reserveAi(settings.limits)) {

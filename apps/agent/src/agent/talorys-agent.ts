@@ -205,6 +205,8 @@ export class TalorysAgent extends Agent<Env, AgentState> {
           return { status: "skipped", result: "Scheduled AI budget reached" };
         }
         const text = await this.runner().runScheduledPrompt(a.message);
+        // Never notify (or push) an empty result: a scheduled check with nothing to say stays quiet.
+        if (isEmptyAutomationOutput(text)) return { status: "skipped", result: "No output (nothing delivered)" };
         s.notifications.create({ title: a.name, body: text, automation_id: a.id });
         return { status: "success", result: text.slice(0, 300) };
       }
@@ -213,4 +215,10 @@ export class TalorysAgent extends Agent<Env, AgentState> {
       }
     }
   }
+}
+
+/** True for an automation result that carries nothing worth a notification. */
+export function isEmptyAutomationOutput(text: string | null | undefined): boolean {
+  const t = (text ?? "").trim();
+  return !t || /^\(?no output\)?\.?$/i.test(t);
 }

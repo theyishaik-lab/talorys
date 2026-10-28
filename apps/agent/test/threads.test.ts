@@ -147,3 +147,30 @@ describe("app-native connections", () => {
     expect((await c.call("/api/connections/bad!id/plan")).status).toBe(404);
   });
 });
+
+describe("empty automation output is never delivered", () => {
+  it("recognises empty and '(No output)' results", async () => {
+    const { isEmptyAutomationOutput } = await import("../src/agent/talorys-agent");
+    for (const t of ["", "  ", "(No output)", "no output", "(no output)."]) expect(isEmptyAutomationOutput(t)).toBe(true);
+    expect(isEmptyAutomationOutput("Queue is empty.")).toBe(false);
+  });
+
+  it("a silent run with no tool calls returns an empty result", async () => {
+    class Silent extends ToolsOnlyProvider {
+      override async *generateWithTools(): AsyncIterable<AgentEvent> {}
+    }
+    await inAgent(async (a) => {
+      expect(await new AgentRunner(a.services, new Silent()).runScheduledPrompt("check")).toBe("");
+    });
+  });
+
+  it("a '(No output)' notification is stored but not pushed or threaded", async () => {
+    await inAgent(async (a) => {
+      const s = a.services;
+      const before = s.conversations.get("updates-inbox")?.id ? s.conversations.messages("updates-inbox").length : 0;
+      s.notifications.create({ title: "talorys-queue-check", body: "(No output)" });
+      const after = s.conversations.get("updates-inbox") ? s.conversations.messages("updates-inbox").length : 0;
+      expect(after).toBe(before);
+    });
+  });
+});

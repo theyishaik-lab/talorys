@@ -76,6 +76,8 @@ export function createServices(storage: DurableObjectStorage, env: Env, schedule
   // so a tap on the notification opens that thread with the whole content and room to reply.
   const conversations = new ConversationRepository(db);
   notifications.onCreate = (n, kind) => {
+    // An empty result is never worth a push (a scheduled check that had nothing to say).
+    if (/^\s*\(?\s*no output\s*\)?\.?\s*$/i.test(n.body)) return;
     let url = "/chat?notifications=1";
     try {
       const threadId = notificationThreadId(n.automation_id);
