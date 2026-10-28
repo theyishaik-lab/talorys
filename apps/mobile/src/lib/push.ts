@@ -102,13 +102,5 @@ export async function sendTest(id: string): Promise<{ ok: boolean; results: { id
   return api("/push/devices/test", { method: "POST", body: { id } });
 }
 
-/** Where a notification tap should land: the chat (and action) named in the payload. */
-export function targetOf(data: Record<string, unknown> | undefined): { conversationId?: string; actionId?: string } {
-  if (!data) return {};
-  const url = typeof data.url === "string" ? data.url : "";
-  const m = url.match(/\/chat\/([A-Za-z0-9_-]+)/);
-  return {
-    conversationId: typeof data.conversation_id === "string" ? data.conversation_id : m?.[1],
-    actionId: typeof data.action_id === "string" ? data.action_id : undefined,
-  };
-}
+/** Where a notification tap should land (kept here for existing imports; the logic is pure and tested). */
+export { targetOf } from "./notificationRouting";

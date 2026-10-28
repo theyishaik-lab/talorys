@@ -58,8 +58,27 @@ between its messages (client-side), and the agent's digest describes the same no
 would put runs of assistant-only turns into the model's history (some providers reject or merge
 consecutive assistant turns) and grow `main`'s summary with automation output.
 
-**Push taps:** `conversation_id`/`url` `main` → the Chat tab; `project-<id>` → that project's
-screen; anything else (`updates-*`, an approval's chat) → the thread screen.
+**Push taps:** the thread id (`data.thread`; older agents: `conversation_id` or `url` `/chat/<id>`)
+`main` → the Chat tab; `project-<id>` → that project's screen; anything else (`updates-*`, an
+approval's chat) → the thread screen. Routing lives in `lib/notificationRouting.ts` (pure, tested in
+`tests/notification-routing.test.ts`) and `lib/useNotificationRouting.ts`.
+
+**The notification blink loop (0.2.3 / 0.3.0, fixed in 0.3.1).** Once pushes carried a thread id
+(agent 6e8a034), tapping one while the app was closed made it blink until force-closed. The tap was
+routed at mount, before the session was read. Every screen sits behind a `Stack.Protected` guard
+that is still false then, so the app's root Stack renders nothing and the only mounted navigator is
+expo-router's internal outer stack (`__root`, `+not-found`, `_sitemap`). `router.push("/chat/<id>")`
+diverged there and became `PUSH __root {screen: "chat/[id]"}` — a second copy of the whole root
+layout, which started not-ready again, got the same response from `getLastNotificationResponseAsync()`,
+pushed another `__root`, and so on. (A tap while the app was already open and signed in routed into
+the app's own stack and worked.) 0.3.1 collects taps at mount but navigates only when the session
+is ready and signed in **and** the app navigator is mounted (`appNavigatorMounted`), handles each
+notification once by request identifier (persisted, plus `clearLastNotificationResponse()`), uses
+`router.navigate` instead of `push`, and stops routing for good if taps ever produce more than 3
+navigations in 10 s. Server side, the agent's FCM payload no longer carries `conversation_id` or a
+`/chat/<id>` url (the thread is in `data.thread`, the url is `/chat?thread=<id>`), so an installed
+0.2.3/0.3.0 opens on its home screen instead of looping, and 0.3.1 still opens the thread.
+expo-router itself does nothing with notifications (no `+native-intent`, no handling of `data.url`).
 
 **Keyboard above the tab bar.** The Chat tab's column ends at the tab bar, which the keyboard
 covers, so the spacer is `keyboard − (tab bar + nav inset)` when open and 0 when closed

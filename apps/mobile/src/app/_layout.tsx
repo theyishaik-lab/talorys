@@ -1,6 +1,6 @@
 import { NavigationBar } from "expo-navigation-bar";
 import * as Notifications from "expo-notifications";
-import { Stack, router } from "expo-router";
+import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
@@ -11,9 +11,9 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary, GlobalErrorOverlay } from "../components/ErrorScreen";
 import { AuthProvider, useAuth } from "../lib/auth";
 import { AppProviders, useAppPreferences } from "../lib/providers";
-import { ensureChannels, targetOf } from "../lib/push";
+import { ensureChannels } from "../lib/push";
 import { palettes, useTheme } from "../lib/theme";
-import { MAIN_THREAD_ID } from "../lib/threads";
+import { useNotificationRouting } from "../lib/useNotificationRouting";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 SplashScreen.setOptions({ duration: 250, fade: true });
@@ -68,22 +68,12 @@ function Shell() {
     if (auth.ready) SplashScreen.hideAsync().catch(() => {});
   }, [auth.ready]);
 
-  // A tap on a notification opens the chat it is about.
   useEffect(() => {
     ensureChannels().catch(() => {});
-    const open = (response: Notifications.NotificationResponse) => {
-      const { conversationId } = targetOf(response.notification.request.content.data as Record<string, unknown>);
-      if (!conversationId) return;
-      // The main chat is a tab; a project's chat lives on its screen; anything else (an updates-*
-      // thread with the notification's full text, an approval's chat) opens as a thread.
-      if (conversationId === MAIN_THREAD_ID) router.navigate("/chat");
-      else if (conversationId.startsWith("project-")) router.push({ pathname: "/projects/[id]", params: { id: conversationId.slice("project-".length) } });
-      else router.push({ pathname: "/chat/[id]", params: { id: conversationId } });
-    };
-    const sub = Notifications.addNotificationResponseReceivedListener(open);
-    Notifications.getLastNotificationResponseAsync().then((r) => r && open(r)).catch(() => {});
-    return () => sub.remove();
   }, []);
+  // A tap on a notification opens the chat it is about — only once signed in and the app's
+  // navigator is mounted (routing earlier duplicated the whole app forever; see notificationRouting.ts).
+  useNotificationRouting(auth);
 
   return (
     <>
