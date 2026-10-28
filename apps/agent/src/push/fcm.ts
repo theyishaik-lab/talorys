@@ -93,10 +93,25 @@ export function channelFor(kind: PushMessage["kind"]): "approvals" | "updates" {
   return kind === "approval" ? "approvals" : "updates";
 }
 
+/**
+ * Where a native tap goes, in a shape the installed 0.2.3 / 0.3.0 apps cannot act on. Those builds
+ * route a tap at mount, before sign-in is known, and any thread id they find (`conversation_id`, or a
+ * `/chat/<id>` url) duplicated the whole app in a loop (docs/system/MOBILE.md "The notification blink
+ * loop"). So the thread rides in `thread` (read by 0.3.1+) and the url names it as `/chat?thread=<id>`,
+ * which the old url pattern does not match: old apps open on their home screen, new ones open the
+ * thread. Web Push (service.ts → apps/web/sw) keeps its `/chat/<id>` url; this is native only.
+ */
+export function nativeTapTarget(path: string): { thread?: string; path: string } {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  const m = p.match(/^\/chat\/([A-Za-z0-9_-]+)(?:\?[^#]*)?(#.*)?$/);
+  if (!m?.[1]) return { path: p };
+  return { thread: m[1], path: `/chat?thread=${m[1]}${m[2] ?? ""}` };
+}
+
 /** The FCM v1 message for a device token: a tray notification plus data the app reads on tap. */
 export function buildFcmMessage(token: string, message: PushMessage, deepLinkBase: string): Record<string, unknown> {
-  const url = `${deepLinkBase.replace(/\/+$/, "")}${message.url.startsWith("/") ? message.url : `/${message.url}`}`;
-  const conversation = message.url.match(/\/chat\/([A-Za-z0-9_-]+)/)?.[1];
+  const tap = nativeTapTarget(message.url);
+  const url = `${deepLinkBase.replace(/\/+$/, "")}${tap.path}`;
   return {
     message: {
       token,
@@ -105,7 +120,7 @@ export function buildFcmMessage(token: string, message: PushMessage, deepLinkBas
         kind: message.kind,
         url,
         tag: message.tag,
-        ...(conversation ? { conversation_id: conversation } : {}),
+        ...(tap.thread ? { thread: tap.thread } : {}),
         ...(message.actionId ? { action_id: message.actionId } : {}),
         ...(message.actions ? { actions: "1" } : {}),
       },

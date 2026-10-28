@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { inAgent, loggedIn } from "./helpers";
-import { buildFcmMessage, channelFor, fcmAccessToken, clearFcmTokenCache, parseFcmCredentials, sendFcm, signServiceAccountJwt, type FcmCredentials } from "../src/push/fcm";
+import { buildFcmMessage, channelFor, nativeTapTarget, fcmAccessToken, clearFcmTokenCache, parseFcmCredentials, sendFcm, signServiceAccountJwt, type FcmCredentials } from "../src/push/fcm";
 import type { FcmSendResult } from "../src/push/fcm";
 import { LATEST_SCHEMA_VERSION } from "../src/db/migrations";
 
@@ -74,12 +74,30 @@ describe("FCM v1 client", () => {
       message: {
         token: "tok",
         notification: { title: "Approval needed", body: "Delete task “x”" },
-        data: { kind: "approval", url: "https://talorys.example.pages.dev/chat/c1#action-p1", conversation_id: "c1", action_id: "p1", actions: "1" },
+        data: { kind: "approval", url: "https://talorys.example.pages.dev/chat?thread=c1#action-p1", thread: "c1", action_id: "p1", actions: "1" },
         android: { priority: "high", ttl: "1800s", notification: { channel_id: "approvals" } },
       },
     });
     expect(channelFor("reminder")).toBe("updates");
     expect(buildFcmMessage("tok", { kind: "reminder", title: "t", body: "b", tag: "n-1", url: "/chat?notifications=1" }, "https://x.test").message).toMatchObject({ android: { priority: "normal", notification: { channel_id: "updates" } } });
+  });
+
+  it("gives installed 0.2.3 / 0.3.0 apps nothing to route (their tap-at-mount loop), and 0.3.1 the thread", () => {
+    // The tap logic of the installed builds, verbatim (apps/mobile/src/lib/push.ts at 91bef96 / 2a027e5).
+    const oldTargetOf = (data: Record<string, unknown>) => {
+      const url = typeof data.url === "string" ? data.url : "";
+      const m = url.match(/\/chat\/([A-Za-z0-9_-]+)/);
+      return typeof data.conversation_id === "string" ? data.conversation_id : m?.[1];
+    };
+    for (const url of ["/chat/updates-inbox", "/chat/updates-a1b2", "/chat/c1#action-p1", "/chat/main", "/chat/project-p1"]) {
+      const data = (buildFcmMessage("tok", { kind: "reminder", title: "t", body: "b", tag: "n", url }, "https://talorys.example.pages.dev").message as { data: Record<string, string> }).data;
+      expect(oldTargetOf(data)).toBeUndefined();
+      expect(data.conversation_id).toBeUndefined();
+      expect(data.thread).toBe(url.slice("/chat/".length).split("#")[0]);
+    }
+    expect(nativeTapTarget("/chat/updates-inbox")).toEqual({ thread: "updates-inbox", path: "/chat?thread=updates-inbox" });
+    expect(nativeTapTarget("/chat?notifications=1")).toEqual({ path: "/chat?notifications=1" });
+    expect(nativeTapTarget("/settings")).toEqual({ path: "/settings" });
   });
 
   it("sends through messages:send with the bearer token and reads FCM's answer", async () => {
