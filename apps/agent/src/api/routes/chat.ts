@@ -6,6 +6,7 @@ import { body, query } from "../middleware";
 import { AppError, NotFoundError } from "../errors";
 import { runApprovedAction, ToolError } from "../../tools";
 import { connectionStatus, openConnectorAdmin, openConnectorClient, refreshConnectLink } from "../../openconnector";
+import { ensureFixedThread } from "../../agent/threads";
 
 export const chatRoutes = new Hono<AppEnv>();
 
@@ -19,8 +20,13 @@ chatRoutes.post("/conversations", async (c) => {
   return c.json({ conversation: c.env.agent.services.conversations.create(title || "New conversation") }, 201);
 });
 
+/**
+ * One conversation with its messages. The fixed threads (`main`, the native app's single chat, and
+ * `project-<id>`) are created on first read, so GET /conversations/main always answers.
+ */
 chatRoutes.get("/conversations/:id", (c) => {
   const s = c.env.agent.services;
+  ensureFixedThread(s, c.req.param("id"));
   const conversation = s.conversations.require(c.req.param("id"));
   const { summary: _s, summary_upto: _u, ...rest } = conversation;
   return c.json({

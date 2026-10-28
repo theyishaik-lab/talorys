@@ -20,6 +20,7 @@ import type { AppEnv } from "../app";
 import { body, query } from "../middleware";
 import { ValidationError } from "../errors";
 import { localDayBounds } from "../../services/time";
+import { projectThreadId } from "../../agent/threads";
 
 /** Tasks, memories, notes and projects. None of these routes need AI. */
 export const dataRoutes = new Hono<AppEnv>();
@@ -158,12 +159,28 @@ dataRoutes.post("/projects", async (c) => {
   return c.json({ project: c.env.agent.services.projects.create(input) }, 201);
 });
 
+/** One project with its tasks and notes (the native app's project screen). */
+dataRoutes.get("/projects/:id", (c) => {
+  const s = c.env.agent.services;
+  const project = s.projects.require(c.req.param("id"));
+  return c.json({
+    project,
+    tasks: s.tasks.list({ project_id: project.id, limit: 500 }),
+    notes: s.notes.list({ project_id: project.id, limit: 200 }),
+    thread_id: projectThreadId(project.id),
+  });
+});
+
 dataRoutes.patch("/projects/:id", async (c) => {
   const patch = await body(c, projectUpdateSchema);
   return c.json({ project: c.env.agent.services.projects.update(c.req.param("id"), patch) });
 });
 
 dataRoutes.delete("/projects/:id", (c) => {
-  c.env.agent.services.projects.delete(c.req.param("id"));
+  const s = c.env.agent.services;
+  s.projects.delete(c.req.param("id"));
+  // The project's own chat thread goes with it (its tasks and notes are kept, unassigned).
+  const thread = projectThreadId(c.req.param("id"));
+  if (s.conversations.get(thread)) s.conversations.delete(thread);
   return c.json({ deleted: true });
 });

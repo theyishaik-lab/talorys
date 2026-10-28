@@ -6,6 +6,7 @@ import { type AIProvider, classifyAiError, estimateTokens, type ProviderTool } f
 import { AppError, NotFoundError } from "../api/errors";
 import { ALL_TOOLS, ToolExecutor, type ToolDefinition } from "../tools";
 import { buildSystemPrompt } from "./prompt";
+import { ensureFixedThread, threadContext } from "./threads";
 import { SUMMARIZE_THRESHOLD, buildContextWindow, memoryTokenBudget, selectRelevantMemories, summarizationPrompt } from "./memory";
 import type { RunnerExtensions } from "../semantic/hooks";
 
@@ -100,7 +101,8 @@ export class AgentRunner {
     const settings = s.settings.get();
     const { limits } = settings;
 
-    // 1. Conversation and the owner's message.
+    // 1. Conversation and the owner's message. Fixed threads (main, project-<id>) are created on first use.
+    if (input.conversationId) ensureFixedThread(s, input.conversationId);
     let conversation = input.conversationId ? s.conversations.get(input.conversationId) : null;
     if (input.conversationId && !conversation) throw new NotFoundError("Conversation not found");
     let userMessage: ChatMessage;
@@ -155,6 +157,12 @@ export class AgentRunner {
         .map(withApprovalOutcomes);
       let summary = conversation.summary;
       let summaryUpto = conversation.summary_upto;
+      let liveContext: string | null = null;
+      try {
+        liveContext = threadContext(s, conversation.id, settings.timezone);
+      } catch (error) {
+        console.warn("thread context skipped", error);
+      }
       const baseSystem = buildSystemPrompt({
         agentName: settings.agentName,
         timezone: settings.timezone,
@@ -163,6 +171,7 @@ export class AgentRunner {
         memories,
         conversationSummary: summary,
         connectors: this.ext?.connectors,
+        threadContext: liveContext,
       });
       // The owner's context limit, cut to what the smallest model in the chain takes (model-caps.ts).
       const contextTokens = Math.min(limits.maxContextTokens, this.provider.promptBudget?.(limits.maxOutputTokens) ?? Number.POSITIVE_INFINITY);
@@ -200,6 +209,7 @@ export class AgentRunner {
             memories,
             conversationSummary: summary,
             connectors: this.ext?.connectors,
+            threadContext: liveContext,
           });
 
       // 3. Tools with per-turn limits.
