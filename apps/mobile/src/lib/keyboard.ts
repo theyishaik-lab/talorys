@@ -13,12 +13,18 @@
  * Keyboard closed → the composer clears the navigation bar; keyboard open → it sits flush on the
  * keyboard's top edge, no gap and no overlap.
  */
-export function composerBottomSpace(keyboardHeight: number, safeBottom: number): number {
+export function composerBottomSpace(keyboardHeight: number, safeBottom: number, offset = 0): number {
   "worklet";
-  const kb = keyboardHeight > 0 ? keyboardHeight : 0;
+  // `offset`: what already sits under the chat column (the bottom tab bar, inset included). The
+  // keyboard covers it, so only the part of the keyboard above it needs room.
+  const raw = keyboardHeight - (offset > 0 ? offset : 0);
+  const kb = raw > 0 ? raw : 0;
   const nav = safeBottom > 0 ? safeBottom : 0;
   return kb > nav ? kb : nav;
 }
+
+/** The bottom tab bar's height above the navigation-bar inset (the tab layout uses exactly this). */
+export const TAB_BAR_HEIGHT = 60;
 
 /** How close (dp) to the end of the chat counts as "reading the latest message" — keep it pinned. */
 export const STICK_TO_BOTTOM_DP = 96;

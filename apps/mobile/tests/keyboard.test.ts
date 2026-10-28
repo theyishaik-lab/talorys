@@ -65,6 +65,16 @@ describe("composer vs. keyboard (edge-to-edge layout)", () => {
     expect(five.list).toBe(one.list - 4 * 21);
   });
 
+  it("above the bottom tab bar: flush on the keyboard when open, nothing extra when closed", () => {
+    const bar = 60 + GESTURE_NAV;
+    // Closed: the tab bar already clears the navigation bar.
+    expect(composerBottomSpace(0, 0, bar)).toBe(0);
+    // Open: the column ends at the bar's top, so the spacer is the keyboard minus the bar.
+    expect(composerBottomSpace(GBOARD, 0, bar)).toBe(GBOARD - bar);
+    // While the keyboard is still lower than the bar, nothing moves.
+    expect(composerBottomSpace(bar - 10, 0, bar)).toBe(0);
+  });
+
   it("ignores negative insets (hide animation overshoot)", () => {
     expect(composerBottomSpace(-5, 24)).toBe(24);
     expect(composerBottomSpace(0, -1)).toBe(0);
@@ -90,7 +100,8 @@ describe("wiring (the parts a unit test cannot render)", () => {
   it("the chat screen no longer relies on React Native's KeyboardAvoidingView", () => {
     const chat = src("src/components/ChatScreen.tsx");
     expect(chat).not.toMatch(/import\s*{[^}]*KeyboardAvoidingView[^}]*}\s*from "react-native"/);
-    expect(chat).toContain("<KeyboardSpacer safeBottom={insets.bottom}");
+    // Above the tab bar the spacer only covers the part of the keyboard higher than the bar.
+    expect(chat).toContain("<KeyboardSpacer safeBottom={variant === \"tab\" ? 0 : insets.bottom} offset={tabOffset}");
     expect(chat).toMatch(/onLayout=\{onListLayout\}/);
   });
   it("the provider reports the full IME inset (translucent bars, edge-to-edge kept)", () => {

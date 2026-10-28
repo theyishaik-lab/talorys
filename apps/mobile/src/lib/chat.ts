@@ -29,6 +29,8 @@ export interface ChatState {
   /** Non-null while a reply is being generated. */
   streamingId: string | null;
   quotaExceeded: { message: string } | null;
+  /** The conversation's title, once loaded (thread headers show it). */
+  title?: string;
 }
 
 export const conversationsStore = createStore<Conversation[]>([]);
@@ -69,8 +71,8 @@ export async function refreshConversations(): Promise<void> {
 export async function loadConversation(stores: ChatStores, id: string): Promise<void> {
   stores.chat.set((s) => ({ ...s, loading: true, loadError: null }));
   try {
-    const { messages, streaming } = await api<{ conversation: Conversation; messages: ChatMessage[]; streaming?: boolean }>(`/conversations/${id}`);
-    stores.chat.set((s) => ({ ...s, conversationId: id, messages, loading: false }));
+    const { conversation, messages, streaming } = await api<{ conversation: Conversation; messages: ChatMessage[]; streaming?: boolean }>(`/conversations/${id}`);
+    stores.chat.set((s) => ({ ...s, conversationId: id, messages, loading: false, title: conversation?.title }));
     // A reply still being written (e.g. the app was closed mid-answer): show it when it lands.
     if (streaming && !isInFlight(stores)) void recoverReply(stores, id);
   } catch (error) {

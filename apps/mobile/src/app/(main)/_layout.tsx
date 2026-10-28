@@ -1,39 +1,44 @@
-import { Stack } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
-import { Drawer } from "react-native-drawer-layout";
-import { DrawerContent } from "../../components/DrawerContent";
-import { DrawerContext } from "../../lib/drawer";
+import { Tabs } from "expo-router";
+import { FolderKanban, House, MessageCircle } from "lucide-react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { unreadStore } from "../../lib/home";
 import { useI18n } from "../../lib/i18n";
-import { useTheme } from "../../lib/theme";
+import { TAB_BAR_HEIGHT } from "../../lib/keyboard";
+import { useStore } from "../../lib/store";
+import { fonts, useTheme } from "../../lib/theme";
 
 /**
- * The chat shell: a native gesture drawer (chat history + pages) around the chat stack.
- * It opens from the start edge, which is the right in Hebrew (the whole app is RTL then).
+ * The app shell: three bottom tabs, Home · Chat · Projects (like the Hark app). Settings is reached
+ * from Home's header. Pushed screens (threads, a project, settings) open over the tabs from the
+ * root stack, so Android Back returns to the tab they came from. In Hebrew the whole row mirrors.
  */
-export default function MainLayout() {
+export default function TabsLayout() {
   const { c } = useTheme();
-  const { rtl } = useI18n();
-  const [open, setOpen] = useState(false);
-  const api = useMemo(() => ({ open: () => setOpen(true), close: () => setOpen(false) }), []);
-  const render = useCallback(() => <DrawerContent onClose={api.close} />, [api]);
+  const { t, locale } = useI18n();
+  const insets = useSafeAreaInsets();
+  const unread = useStore(unreadStore);
   return (
-    <DrawerContext.Provider value={api}>
-      <Drawer
-        open={open}
-        onOpen={() => setOpen(true)}
-        onClose={() => setOpen(false)}
-        renderDrawerContent={render}
-        drawerPosition={rtl ? "right" : "left"}
-        drawerType="front"
-        drawerStyle={{ width: 300, backgroundColor: c.surface }}
-        overlayStyle={{ backgroundColor: c.scrim }}
-        swipeEdgeWidth={48}
-      >
-        <Stack screenOptions={{ headerShown: false, animation: "fade", animationDuration: 150, contentStyle: { backgroundColor: c.bg } }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="chat/[id]" />
-        </Stack>
-      </Drawer>
-    </DrawerContext.Provider>
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: c.fg,
+        tabBarInactiveTintColor: c.fgFaint,
+        tabBarStyle: { backgroundColor: c.bg, borderTopColor: c.border, height: TAB_BAR_HEIGHT + insets.bottom, paddingBottom: insets.bottom, paddingTop: 6 },
+        tabBarLabelStyle: { fontFamily: fonts[locale].medium, fontSize: 12 },
+        sceneStyle: { backgroundColor: c.bg },
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: t("tabs.home"),
+          tabBarIcon: ({ color, size }) => <House color={color} size={size - 2} strokeWidth={1.9} />,
+          tabBarBadge: unread > 0 ? (unread > 9 ? "9+" : unread) : undefined,
+          tabBarBadgeStyle: { backgroundColor: c.accent, color: c.accentFg, fontSize: 10 },
+        }}
+      />
+      <Tabs.Screen name="chat" options={{ title: t("tabs.chat"), tabBarIcon: ({ color, size }) => <MessageCircle color={color} size={size - 2} strokeWidth={1.9} /> }} />
+      <Tabs.Screen name="projects" options={{ title: t("tabs.projects"), tabBarIcon: ({ color, size }) => <FolderKanban color={color} size={size - 2} strokeWidth={1.9} /> }} />
+    </Tabs>
   );
 }

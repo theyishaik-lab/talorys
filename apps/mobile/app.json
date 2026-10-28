@@ -2,7 +2,7 @@
   "expo": {
     "name": "Talorys",
     "slug": "talorys",
-    "version": "0.2.3",
+    "version": "0.3.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "talorys",
@@ -11,7 +11,7 @@
     "android": {
       "package": "dev.talorys.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "backgroundColor": "#4C47E0",
         "foregroundImage": "./assets/images/adaptive-foreground.png",
@@ -82,7 +82,16 @@
           }
         }
       ],
-      "./plugins/withReleaseSigning.js"
+      "./plugins/withReleaseSigning.js",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Talorys uses your approximate location to show the weather on Home.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

@@ -1,7 +1,8 @@
 import { ArrowUp, Square } from "lucide-react-native";
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { StyleSheet, TextInput, View } from "react-native";
 import { useI18n } from "../lib/i18n";
+import { prefillStore, takePrefill } from "../lib/prefill";
 import { useTheme } from "../lib/theme";
 import { Icon, Press, useFont } from "./ui";
 
@@ -10,14 +11,25 @@ interface Props {
   busy: boolean;
   onSend: (text: string) => void;
   onStop: () => void;
+  /** Text queued for this conversation (a suggestion accepted on Home) lands in the field. */
+  conversationId?: string;
 }
 
 /** The pill composer from the mockups: grows with the text, send is the dark round button. */
-export const Composer = memo(function Composer({ agentName, busy, onSend, onStop }: Props) {
+export const Composer = memo(function Composer({ agentName, busy, onSend, onStop, conversationId }: Props) {
   const { c } = useTheme();
   const { t, rtl } = useI18n();
   const font = useFont();
   const [text, setText] = useState("");
+  useEffect(() => {
+    if (!conversationId) return;
+    const take = () => {
+      const queued = takePrefill(conversationId);
+      if (queued) setText(queued);
+    };
+    Promise.resolve().then(take);
+    return prefillStore.subscribe(take);
+  }, [conversationId]);
   const canSend = text.trim().length > 0 && !busy;
   const send = () => {
     if (!canSend) return;

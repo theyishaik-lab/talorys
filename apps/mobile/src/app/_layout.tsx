@@ -13,6 +13,7 @@ import { AuthProvider, useAuth } from "../lib/auth";
 import { AppProviders, useAppPreferences } from "../lib/providers";
 import { ensureChannels, targetOf } from "../lib/push";
 import { palettes, useTheme } from "../lib/theme";
+import { MAIN_THREAD_ID } from "../lib/threads";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 SplashScreen.setOptions({ duration: 250, fade: true });
@@ -72,7 +73,12 @@ function Shell() {
     ensureChannels().catch(() => {});
     const open = (response: Notifications.NotificationResponse) => {
       const { conversationId } = targetOf(response.notification.request.content.data as Record<string, unknown>);
-      if (conversationId) router.push({ pathname: "/chat/[id]", params: { id: conversationId } });
+      if (!conversationId) return;
+      // The main chat is a tab; a project's chat lives on its screen; anything else (an updates-*
+      // thread with the notification's full text, an approval's chat) opens as a thread.
+      if (conversationId === MAIN_THREAD_ID) router.navigate("/chat");
+      else if (conversationId.startsWith("project-")) router.push({ pathname: "/projects/[id]", params: { id: conversationId.slice("project-".length) } });
+      else router.push({ pathname: "/chat/[id]", params: { id: conversationId } });
     };
     const sub = Notifications.addNotificationResponseReceivedListener(open);
     Notifications.getLastNotificationResponseAsync().then((r) => r && open(r)).catch(() => {});
@@ -89,6 +95,8 @@ function Shell() {
         </Stack.Protected>
         <Stack.Protected guard={auth.ready && auth.authenticated}>
           <Stack.Screen name="(main)" options={{ animation: "fade" }} />
+          <Stack.Screen name="chat/[id]" />
+          <Stack.Screen name="projects/[id]" />
           <Stack.Screen name="settings/index" />
           <Stack.Screen name="settings/model" />
           <Stack.Screen name="settings/chain" />

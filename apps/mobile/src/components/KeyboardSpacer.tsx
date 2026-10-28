@@ -7,7 +7,7 @@ import { composerBottomSpace } from "../lib/keyboard";
  * driven by the IME inset animation), so the composer rides directly on top of the keyboard on
  * Android 15+ edge-to-edge, where the window no longer shrinks for the keyboard.
  */
-export function KeyboardSpacer({ safeBottom, color }: { safeBottom: number; color: string }) {
+export function KeyboardSpacer({ safeBottom, color, offset = 0 }: { safeBottom: number; color: string; offset?: number }) {
   const keyboard = useSharedValue(0);
   useKeyboardHandler(
     {
@@ -26,6 +26,6 @@ export function KeyboardSpacer({ safeBottom, color }: { safeBottom: number; colo
     },
     [],
   );
-  const style = useAnimatedStyle(() => ({ height: composerBottomSpace(keyboard.get(), safeBottom) }), [safeBottom]);
+  const style = useAnimatedStyle(() => ({ height: composerBottomSpace(keyboard.get(), safeBottom, offset) }), [safeBottom, offset]);
   return <Animated.View style={[{ backgroundColor: color }, style]} />;
 }
