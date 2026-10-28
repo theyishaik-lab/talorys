@@ -1,0 +1,150 @@
+# Builds the signed native Android APK (apps/mobile) and publishes it.
+#
+# Runs on any fork or org that has the secrets (nothing here names a repository owner):
+#   TALORYS_KEYSTORE_BASE64      base64 of the release keystore (.jks) — the SAME key as the installed
+#                                app, or the APK will not install over it
+#   TALORYS_KEYSTORE_PASSWORD    keystore password
+#   TALORYS_KEY_ALIAS            key alias (Yishai's: talorys)
+#   TALORYS_KEY_PASSWORD         key password (optional; defaults to the keystore password)
+#   GOOGLE_SERVICES_JSON_BASE64  base64 of the Firebase google-services.json (native push)
+#
+# Trigger: Actions → "Mobile APK" → Run workflow, or push a tag `native-v*` (that also creates a
+# GitHub prerelease with the APK attached). Toolchain matches docs/system/MOBILE.md.
+name: Mobile APK
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "native-v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mobile-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      # R8 (minify + resource shrinking) needs ~3 GB of heap; build-apk.sh writes it into gradle.properties.
+      TALORYS_GRADLE_XMX: 3072m
+      NDK_VERSION: 27.1.12297006
+    steps:
+      - name: Check secrets
+        env:
+          KS: ${{ secrets.TALORYS_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.TALORYS_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.TALORYS_KEY_ALIAS }}
+          GSJ: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          missing=()
+          [ -n "$KS" ] || missing+=("TALORYS_KEYSTORE_BASE64")
+          [ -n "$KS_PASS" ] || missing+=("TALORYS_KEYSTORE_PASSWORD")
+          [ -n "$KS_ALIAS" ] || missing+=("TALORYS_KEY_ALIAS")
+          [ -n "$GSJ" ] || missing+=("GOOGLE_SERVICES_JSON_BASE64")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error title=Missing secrets::The APK build needs these repository secrets: ${missing[*]}. Add them under Settings → Secrets and variables → Actions (see the header of .github/workflows/mobile-apk.yml). An unsigned or differently signed APK would not install over the app already on the phone, so the build stops here."
+            exit 1
+          fi
+          echo "All required secrets are present."
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Android SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;${NDK_VERSION}" "cmake;3.22.1" "platform-tools"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('apps/mobile/package-lock.json', 'apps/mobile/app.json') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          npm ci --ignore-scripts
+          cd apps/mobile && npm ci --legacy-peer-deps
+
+      - name: Typecheck, lint, test
+        working-directory: apps/mobile
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+
+      - name: Decode signing key and Firebase config
+        env:
+          KS: ${{ secrets.TALORYS_KEYSTORE_BASE64 }}
+          GSJ: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
+        run: |
+          ks="$RUNNER_TEMP/talorys-release.jks"
+          printf '%s' "$KS" | base64 --decode > "$ks"
+          printf '%s' "$GSJ" | base64 --decode > apps/mobile/google-services.json
+          [ -s "$ks" ] || { echo "::error::TALORYS_KEYSTORE_BASE64 did not decode to a file"; exit 1; }
+          node -e 'JSON.parse(require("fs").readFileSync("apps/mobile/google-services.json","utf8"))' || { echo "::error::GOOGLE_SERVICES_JSON_BASE64 is not valid JSON once decoded"; exit 1; }
+          echo "TALORYS_KEYSTORE_PATH=$ks" >> "$GITHUB_ENV"
+
+      - name: Build release APK
+        working-directory: apps/mobile
+        env:
+          TALORYS_KEYSTORE_PASSWORD: ${{ secrets.TALORYS_KEYSTORE_PASSWORD }}
+          TALORYS_KEY_ALIAS: ${{ secrets.TALORYS_KEY_ALIAS }}
+          TALORYS_KEY_PASSWORD: ${{ secrets.TALORYS_KEY_PASSWORD || secrets.TALORYS_KEYSTORE_PASSWORD }}
+        run: ./scripts/build-apk.sh
+
+      - name: Name and verify the APK
+        id: apk
+        run: |
+          version=$(node -p 'require("./apps/mobile/app.json").expo.version')
+          code=$(node -p 'require("./apps/mobile/app.json").expo.android.versionCode')
+          out="talorys-native-${version}-${code}.apk"
+          cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk "$out"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$out" | grep -E "Signer #1 certificate (DN|SHA-256)" || { echo "::error::The APK is not signed"; exit 1; }
+          ls -la "$out"
+          echo "file=$out" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Remove the decoded secrets
+        if: always()
+        run: rm -f "$RUNNER_TEMP/talorys-release.jks" apps/mobile/google-services.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.file }}
+          path: ${{ steps.apk.outputs.file }}
+          if-no-files-found: error
+
+      - name: GitHub release
+        if: startsWith(github.ref, 'refs/tags/native-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.apk.outputs.file }}
+          prerelease: true
+          name: Talorys native ${{ github.ref_name }} (${{ steps.apk.outputs.version }}, versionCode ${{ steps.apk.outputs.code }})
+          body: |
+            Native Android app ${{ steps.apk.outputs.version }} (versionCode ${{ steps.apk.outputs.code }}), built from ${{ github.sha }}.
+            Install over the previous version (same signing key). See docs/system/MOBILE.md.
