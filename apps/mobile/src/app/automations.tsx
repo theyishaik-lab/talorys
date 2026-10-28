@@ -1,8 +1,9 @@
 import type { Automation, ScheduleSpec } from "@talorys/shared";
 import { memo, useCallback } from "react";
-import { Switch, View } from "react-native";
+import { Trash2 } from "lucide-react-native";
+import { Alert, Switch, View } from "react-native";
 import { ListScreen } from "../components/ListScreen";
-import { Card, Chip, T } from "../components/ui";
+import { Card, Chip, IconButton, T } from "../components/ui";
 import { api } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { useTheme } from "../lib/theme";
@@ -34,6 +35,18 @@ const AutomationRow = memo(function AutomationRow({ item, reload }: { item: Auto
     await api(`/automations/${item.id}`, { method: "PATCH", body: { enabled } }).catch(() => {});
     reload();
   };
+  const remove = () =>
+    Alert.alert(t("m.deleteConfirm", { title: item.name }), undefined, [
+      { text: t("common.cancel"), style: "cancel" },
+      {
+        text: t("common.delete"),
+        style: "destructive",
+        onPress: async () => {
+          await api(`/automations/${item.id}`, { method: "DELETE" }).catch(() => {});
+          reload();
+        },
+      },
+    ]);
   return (
     <Card style={{ gap: 8 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
@@ -44,6 +57,7 @@ const AutomationRow = memo(function AutomationRow({ item, reload }: { item: Auto
           </T>
         </View>
         <Switch value={item.enabled} onValueChange={toggle} trackColor={{ true: c.accent, false: c.borderStrong }} thumbColor={c.bg} />
+        <IconButton icon={Trash2} onPress={remove} label={t("common.delete")} color={c.fgMuted} size={36} />
       </View>
       <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
         <Chip label={t(`m.auto.kind.${item.kind}` as "m.auto.kind.reminder")} />
