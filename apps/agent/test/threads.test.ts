@@ -1,9 +1,31 @@
 import { describe, expect, it } from "vitest";
 import { inAgent, loggedIn } from "./helpers";
-import { AgentRunner } from "../src/agent/runner";
+import { AgentRunner, formatToolResults } from "../src/agent/runner";
 import { MAIN_THREAD_ID, ensureFixedThread, projectIdOfThread, projectThreadId, threadContext } from "../src/agent/threads";
 import { buildSystemPrompt } from "../src/agent/prompt";
 import type { AgentEvent, AIProvider, GenerateRequest, ToolRequest } from "../src/ai/provider";
+
+/** A provider that only calls tools and never writes text (what talorys-queue-check hit). */
+class ToolsOnlyProvider implements AIProvider {
+  readonly id = "tools-only";
+  generateCalls = 0;
+  lastSystem = "";
+  constructor(private readonly summary = "Queue is empty.") {}
+  async generate(req: GenerateRequest) {
+    this.generateCalls++;
+    this.lastSystem = JSON.stringify(req.messages);
+    return { text: this.summary, usage: { inputTokens: 1, outputTokens: 1 } };
+  }
+  async *stream(req: GenerateRequest): AsyncIterable<AgentEvent> {
+    yield* this.generateWithTools({ ...req, tools: [], maxIterations: 1, toolBudgetExhausted: () => true });
+  }
+  async *generateWithTools(req: ToolRequest): AsyncIterable<AgentEvent> {
+    const tool = req.tools.find((t) => t.name === "list_tasks") ?? req.tools[0]!;
+    yield { type: "tool-start", id: "t1", name: tool.name, input: {} };
+    const output = await tool.execute({}, "t1").catch((e: unknown) => ({ error: String(e) }));
+    yield { type: "tool-end", id: "t1", name: tool.name, output };
+  }
+}
 
 /** Records the system prompt a chat turn was given. */
 class EchoProvider implements AIProvider {
@@ -80,5 +102,31 @@ describe("fixed threads", () => {
       expect(ctx).toContain("Meet on Sunday");
       expect(threadContext(s, "some-other-chat", "UTC")).toBeNull();
     });
+  });
+});
+
+describe("scheduled runs that only call tools", () => {
+  it("write the reply from the tool results instead of '(No output)'", async () => {
+    await inAgent(async (a) => {
+      const provider = new ToolsOnlyProvider();
+      const text = await new AgentRunner(a.services, provider).runScheduledPrompt("check the queue");
+      expect(text).toBe("Queue is empty.");
+      expect(provider.generateCalls).toBe(1);
+      expect(provider.lastSystem).toContain("Tool results");
+    });
+  });
+
+  it("fall back to a summary of the tool results when the follow-up is empty too", async () => {
+    await inAgent(async (a) => {
+      const text = await new AgentRunner(a.services, new ToolsOnlyProvider("")).runScheduledPrompt("check the queue");
+      expect(text).not.toBe("(No output)");
+      expect(text).toContain("here is what the tools returned");
+    });
+  });
+
+  it("formats tool results compactly and within bounds", () => {
+    const out = formatToolResults([{ name: "a", output: { x: "y".repeat(500) } }, { name: "b", output: null, error: "boom" }], 300);
+    expect(out.length).toBeLessThanOrEqual(300);
+    expect(out).toContain("- b: error: boom");
   });
 });
