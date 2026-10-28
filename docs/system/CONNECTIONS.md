@@ -148,3 +148,18 @@ him the task was created. Now, deterministically (`apps/agent/src/tools/registry
   that will appear" and never called `connect_service` — now the card is already there). A later
   `connect_service` for the same app in that reply reuses the card instead of adding a second one.
 - The prompt (`CONNECTOR_RULE`) repeats the rule. Tests: `apps/agent/test/not-connected.test.ts`.
+
+## Connecting from the app's Connections screen (since Oct 28, 2026)
+
+The native app (v0.3.0, `apps/mobile/src/app/settings/connections.tsx`) connects services without the
+chat. The owner tapping **Connect** on their own signed-in session is the approval, so these routes
+skip the pending-action card (the chat's `connect_service` still proposes, because there the model
+starts it). Both need `OPEN_CONNECTOR_ADMIN_TOKEN`; without it they answer `NOT_CONFIGURED`.
+
+| Route | What |
+| --- | --- |
+| `GET /api/connections/catalog` | Known services, now with `he` (Hebrew name) and `logo` (the site's icon via Google's public favicon service; OpenConnector's catalog has no images) |
+| `GET /api/connections/:service/plan` | `{ service, name, logo, method: "oauth" \| "api_key" \| "custom_credential", oauth_ready?, fields[] }` — same `planConnection` as the chat |
+| `POST /api/connections/:service/connect` | `{ values? }`. OAuth with a stored client → `{ method: "oauth", authorization_url }` (the app opens it in a browser tab, then polls `GET /api/connections/:service`). OAuth without a client → `CONFLICT` "needs a one-time setup". Key-based → every required field must be present → `PUT /api/connections/:service` on OpenConnector, which validates it → `{ connected: true, account }`; a rejected key is a `VALIDATION_ERROR` with the connector's reason. The values are never stored, logged or echoed. Activity log: `connections.oauth_started`, `connections.connected` (names only). |
+
+The web app's Connections page is unchanged (its Connect still prefills the chat).

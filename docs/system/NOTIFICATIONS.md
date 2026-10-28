@@ -186,3 +186,28 @@ and the client received that exact message (title, body, `data.url`) 0.3 s later
 the `PUBLIC_APP_URL` deploy carried the absolute URL. The test row was deleted afterwards. The
 first real phone is the owner's, with APK `native-v0.1.1` (versionCode 3, `google-services.json`
 baked in) — a notification shown in the Android tray has not been seen by Tab.
+
+## Notification threads and the main chat (Oct 28, 2026)
+
+Every notification is written, in full, to a chat thread: one per automation (`updates-<automation
+id>`) or the shared `updates-inbox` (commit 6e8a034); the push `url` is `/chat/<thread>`, so a tap
+opens that thread. The native app v0.3.0 has one continuous chat (thread `main`, see MOBILE.md):
+notifications are **shown inline** there (merged by time on the phone, last 7 days; a tap opens the
+`updates-*` thread) and **not copied** into `main`'s history. Instead each turn in `main` gets a digest
+of the last 3 days of notifications (plus failed automation runs, upcoming automations, tasks due,
+projects and open suggestions) in its system prompt (`apps/agent/src/agent/threads.ts`), so the agent
+knows what the owner sees there. A push whose `conversation_id` is `main` opens the Chat tab, and
+`project-<id>` opens that project.
+
+## Scheduled AI runs that ended in "(No output)" (fixed Oct 28, 2026)
+
+The `talorys-queue-check` automation (kind `agent_prompt`) delivered "(No output)". Cause (found in the code; the live run's tool trace was not available to inspect), in
+`AgentRunner.runScheduledPrompt`: the reply was only the text the model streamed; a run that ended
+right after a tool step produced none. That happens when the loop stops on the step cap (it was 3
+model steps for up to 4 tool calls, so a connector flow such as search_actions → action_guide →
+run_action used every step on tools) or on the daily budget (`reserveNextStep`), or when the model
+answers the tool results with an empty message. The fallback string `"(No output)"` then went to the
+bell. Now: the step cap is 5 (one more than the 4 tool calls allowed), tool results are collected,
+and a run that ends with tools but no text gets one tool-free follow-up call that writes the reply
+from those results (counted against the daily budget); if that is impossible or empty too, the
+notification lists what the tools returned instead. Tests: `apps/agent/test/threads.test.ts`.
