@@ -80,14 +80,19 @@ export class ConversationRepository {
     return c;
   }
 
-  create(title = "New conversation"): ConversationRecord {
+  create(title = "New conversation", id: string = newId()): ConversationRecord {
     const ts = now();
-    const c: ConversationRecord = { id: newId(), title, created_at: ts, updated_at: ts, summary: null, summary_upto: null };
+    const c: ConversationRecord = { id, title, created_at: ts, updated_at: ts, summary: null, summary_upto: null };
     this.db.run(
       `INSERT INTO tal_conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)`,
       c.id, c.title, c.created_at, c.updated_at,
     );
     return c;
+  }
+
+  /** The conversation with this id, created with `title` when it does not exist yet (fixed-id threads). */
+  ensure(id: string, title: string): ConversationRecord {
+    return this.get(id) ?? this.create(title, id);
   }
 
   rename(id: string, title: string): ConversationRecord {

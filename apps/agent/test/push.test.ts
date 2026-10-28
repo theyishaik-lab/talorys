@@ -147,8 +147,8 @@ describe("which approvals may be answered from the notification", () => {
 
   it("excerpt keeps a notification body to one phone-sized line", () => {
     expect(excerpt("  Hello\n\nworld  ")).toBe("Hello world");
-    expect(excerpt("a".repeat(300))).toHaveLength(180);
-    expect(excerpt("a".repeat(300)).endsWith("…")).toBe(true);
+    expect(excerpt("a".repeat(500))).toHaveLength(400);
+    expect(excerpt("a".repeat(500)).endsWith("…")).toBe(true);
   });
 });
 
@@ -253,7 +253,10 @@ describe("push subscriptions API", () => {
 
       // A bell notification from an automation is a "reminder" push; "Done" after an approval is a "result".
       s.notifications.create({ title: "Reminder", body: "Drink water\nnow", automation_id: null });
-      expect(sent[1]).toMatchObject({ kind: "reminder", title: "Reminder", body: "Drink water now" });
+      expect(sent[1]).toMatchObject({ kind: "reminder", title: "Reminder", body: "Drink water now", url: "/chat/updates-inbox" });
+      // The tap opens a real thread holding the full text.
+      expect(s.conversations.get("updates-inbox")?.title).toBe("Notifications");
+      expect(s.conversations.messages("updates-inbox").at(-1)).toMatchObject({ role: "assistant", content: "**Reminder**\n\nDrink water\nnow" });
       // A device that turned results off gets no result push (nothing queued → no interceptor consumed).
       s.push.setPrefs(subscription.id, { result: false });
       s.notifications.create({ title: "Done", body: "Sent", kind: "result" });

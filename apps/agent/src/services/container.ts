@@ -72,8 +72,20 @@ export function createServices(storage: DurableObjectStorage, env: Env, schedule
   const catalog = new ModelCatalogService(env.AI, providerKeys);
   push.native = new NativePushService(db, parseFcmCredentials(env.FCM_SERVICE_ACCOUNT), env.PUBLIC_APP_URL ?? "", (work) => deliver(work.catch((e) => console.error("native push delivery failed", e))));
   // Everything that lands in the bell also reaches the devices that asked for it.
+  // The full text also lands in a chat thread (one per automation, one shared inbox for the rest),
+  // so a tap on the notification opens that thread with the whole content and room to reply.
+  const conversations = new ConversationRepository(db);
   notifications.onCreate = (n, kind) => {
-    push.notify({ kind, title: n.title, body: excerpt(n.body), tag: `notification-${n.id}`, url: "/chat?notifications=1" });
+    let url = "/chat?notifications=1";
+    try {
+      const threadId = notificationThreadId(n.automation_id);
+      conversations.ensure(threadId, n.automation_id ? n.title : "Notifications");
+      conversations.addMessage({ conversation_id: threadId, role: "assistant", content: notificationMessage(n.title, n.body) });
+      url = `/chat/${threadId}`;
+    } catch (error) {
+      console.error("notification thread write failed", error);
+    }
+    push.notify({ kind, title: n.title, body: excerpt(n.body), tag: `notification-${n.id}`, url });
   };
   return {
     push,
@@ -87,7 +99,7 @@ export function createServices(storage: DurableObjectStorage, env: Env, schedule
     memories,
     notes: new NoteRepository(db),
     projects: new ProjectRepository(db),
-    conversations: new ConversationRepository(db),
+    conversations,
     automationsRepo,
     notifications,
     pendingActions: new PendingActionRepository(db),
@@ -103,4 +115,15 @@ export function createServices(storage: DurableObjectStorage, env: Env, schedule
     automations: new AutomationService(automationsRepo, settings, activity, scheduler),
     memoryHistory: new MemoryHistoryService(db, memories, settings, usage, activity, memoryHooks),
   };
+}
+
+/** The fixed id of the chat thread a notification is written to: per automation, or the shared inbox. */
+export function notificationThreadId(automationId: string | null): string {
+  return automationId ? `updates-${automationId.replace(/[^A-Za-z0-9_-]/g, "")}` : "updates-inbox";
+}
+
+/** A notification as a chat message: its title as a heading, then the full body. */
+export function notificationMessage(title: string, body: string): string {
+  const text = body.trim();
+  return text && text !== title.trim() ? `**${title.trim()}**\n\n${text}` : `**${title.trim()}**`;
 }

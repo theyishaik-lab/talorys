@@ -49,7 +49,7 @@ interface Row {
 
 const MAX_FAILURES = 8;
 const MAX_SUBSCRIPTIONS = 20;
-const MAX_BODY = 180;
+const MAX_BODY = 400;
 
 /** A stored prefs JSON column, every kind on unless explicitly turned off (Web Push and native devices). */
 export function parsePrefs(json: string): PushPrefs {

@@ -56,16 +56,18 @@ export function buildContextWindow(history: ChatMessage[], maxTokens: number, su
     kept.unshift(m);
     used += cost;
   }
-  // Models expect the conversation to start with a user turn.
-  while (kept.length > 1 && kept[0]!.role !== "user") kept.shift();
+  // Models expect the conversation to start with a user turn. A thread that opens with notifications
+  // (assistant messages written by automations) keeps them, behind a short user turn that frames them.
+  const firstUser = history.findIndex((m) => m.role === "user");
+  const leadsWithNotices = kept.length > 0 && kept[0]!.role !== "user" && (firstUser === -1 || history.indexOf(kept[0]!) < firstUser);
+  if (!leadsWithNotices) while (kept.length > 1 && kept[0]!.role !== "user") kept.shift();
   const overflow = eligible.slice(0, eligible.length - kept.length);
-  return {
-    messages: kept.map((m) => ({
-      role: m.role,
-      content: m.role === "assistant" ? m.content : m.content.slice(0, 16_000),
-    })),
-    overflow,
-  };
+  const messages = kept.map((m) => ({
+    role: m.role,
+    content: m.role === "assistant" ? m.content : m.content.slice(0, 16_000),
+  }));
+  if (leadsWithNotices) messages.unshift({ role: "user", content: "(The messages that follow are notifications you sent me earlier.)" });
+  return { messages, overflow };
 }
 
 /** Summarize only once enough history has overflowed, to avoid an AI call on every turn. */
