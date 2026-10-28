@@ -130,3 +130,20 @@ describe("scheduled runs that only call tools", () => {
     expect(out).toContain("- b: error: boom");
   });
 });
+
+describe("app-native connections", () => {
+  it("the catalog carries Hebrew names and logos", async () => {
+    const c = await loggedIn();
+    const { services } = await c.json("/api/connections/catalog");
+    const gmail = services.find((s: { id: string }) => s.id === "gmail");
+    expect(gmail.he).toBeTruthy();
+    expect(gmail.logo).toMatch(/^https:\/\//);
+  });
+
+  it("plan and connect refuse without the connector admin, and reject odd ids", async () => {
+    const c = await loggedIn();
+    expect((await c.call("/api/connections/gmail/plan")).status).not.toBe(200);
+    expect((await c.call("/api/connections/gmail/connect", { method: "POST", body: {} })).status).not.toBe(200);
+    expect((await c.call("/api/connections/bad!id/plan")).status).toBe(404);
+  });
+});

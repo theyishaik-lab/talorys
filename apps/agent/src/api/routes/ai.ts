@@ -7,7 +7,10 @@ import { checkOpenRouterKey } from "../../ai/openrouter";
 import { ENDPOINT_PRESETS, endpointKeyName } from "../../ai/openai-compatible";
 import { PROVIDER_NAMES } from "../../ai/provider";
 import { openConnectorAdmin, openConnectorClient } from "../../openconnector";
-import { KNOWN_SERVICES } from "../../openconnector/services";
+import { KNOWN_SERVICES, serviceDisplayName, serviceLogo } from "../../openconnector/services";
+import { planConnection } from "../../openconnector/connect";
+import { ToolError } from "../../tools";
+import { z } from "zod";
 import type { AppEnv } from "../app";
 import { AppError, NotFoundError } from "../errors";
 import { body } from "../middleware";
@@ -225,7 +228,7 @@ aiRoutes.get("/connections", async (c) => {
 /** The catalog of known services, for the Connections page. */
 aiRoutes.get("/connections/catalog", (c) => {
   return c.json({
-    services: KNOWN_SERVICES.map((s) => ({ id: s.id, name: s.name })),
+    services: KNOWN_SERVICES.map((s) => ({ id: s.id, name: s.name, he: s.he, logo: serviceLogo(s.id) })),
     configured: !!openConnectorClient(c.env.env),
   });
 });
@@ -238,4 +241,71 @@ aiRoutes.delete("/connections/:service", async (c) => {
   if (!/^[a-z0-9_]{2,60}$/i.test(service)) throw new NotFoundError("Unknown service.");
   await admin.deleteConnection(service);
   return c.json({ deleted: true });
+});
+
+const SERVICE_ID = /^[a-z0-9_]{2,60}$/i;
+
+/** How a service can be connected from the app: OAuth (a browser sign-in) or the fields to type. */
+aiRoutes.get("/connections/:service/plan", async (c) => {
+  const service = c.req.param("service");
+  if (!SERVICE_ID.test(service)) throw new NotFoundError("Unknown service.");
+  const admin = openConnectorAdmin(c.env.env);
+  if (!admin) throw new AppError("NOT_CONFIGURED", "OpenConnector admin is not configured.");
+  try {
+    const provider = await admin.provider(service);
+    if (!provider) throw new NotFoundError("Unknown service.");
+    const plan = await planConnection(admin, provider);
+    return c.json({
+      service,
+      name: provider.displayName ?? serviceDisplayName(service),
+      logo: serviceLogo(service),
+      method: plan.method,
+      oauth_ready: plan.method === "oauth" ? !!plan.oauthReady : undefined,
+      fields: plan.fields ?? [],
+    });
+  } catch (error) {
+    if (error instanceof ToolError) throw new AppError("CONFLICT", error.message);
+    throw error;
+  }
+});
+
+/**
+ * Connects a service straight from the app's Connections screen. The owner is signed in and tapped
+ * Connect themselves, so this is the approval (the chat's connect card needs one because the model
+ * proposes it). OAuth → a fresh consent link the app opens in the browser; key-based → the typed
+ * values go to OpenConnector, which validates them. Values are never stored, logged or echoed here.
+ */
+const connectSchema = z.object({ values: z.record(z.string().max(100), z.string().max(4096)).optional() });
+aiRoutes.post("/connections/:service/connect", async (c) => {
+  const service = c.req.param("service");
+  if (!SERVICE_ID.test(service)) throw new NotFoundError("Unknown service.");
+  const admin = openConnectorAdmin(c.env.env);
+  if (!admin) throw new AppError("NOT_CONFIGURED", "OpenConnector admin is not configured.");
+  const { values } = await body(c, connectSchema, 32 * 1024);
+  const s = c.env.agent.services;
+  try {
+    const provider = await admin.provider(service);
+    if (!provider) throw new NotFoundError("Unknown service.");
+    const name = provider.displayName ?? serviceDisplayName(service);
+    const plan = await planConnection(admin, provider);
+    if (plan.method === "oauth") {
+      if (!plan.oauthReady) throw new AppError("CONFLICT", `${name} needs a one-time setup in the OpenConnector console (its OAuth app) before it can be connected.`);
+      const url = await admin.startOAuth(service);
+      s.activity.record("connections.oauth_started", `Sign-in started for ${name}`);
+      return c.json({ method: "oauth", authorization_url: url });
+    }
+    const fields = plan.fields ?? [];
+    const submitted: Record<string, string> = {};
+    for (const f of fields) {
+      const v = values?.[f.key]?.trim();
+      if (v) submitted[f.key] = v;
+      else if (f.required !== false) throw new AppError("VALIDATION_ERROR", `${f.label} is required.`);
+    }
+    const profile = await admin.storeCredential(service, plan.method, submitted);
+    s.activity.record("connections.connected", `Connected ${name}`);
+    return c.json({ method: plan.method, connected: true, account: profile.profile?.displayName ?? profile.profile?.accountId ?? null });
+  } catch (error) {
+    if (error instanceof ToolError) throw new AppError("VALIDATION_ERROR", error.message);
+    throw error;
+  }
 });

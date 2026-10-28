@@ -96,3 +96,25 @@ export function searchKnownServices(query: string | undefined, limit = 12): Know
 export function serviceDisplayName(service: string): string {
   return KNOWN_SERVICES.find((s) => s.id === service)?.name ?? service;
 }
+
+/**
+ * The web domain of each known service, for its logo. The catalog the Worker can read has no
+ * images, so the logo is the site's own icon through Google's public favicon service (no key).
+ */
+const SERVICE_DOMAINS: Record<string, string> = {
+  gmail: "mail.google.com", googlecalendar: "calendar.google.com", googledrive: "drive.google.com", googledocs: "docs.google.com",
+  googlesheets: "sheets.google.com", googletasks: "tasks.google.com", googleforms: "forms.google.com", googlephotos: "photos.google.com",
+  youtube: "youtube.com", github: "github.com", notion: "notion.so", slack: "slack.com", todoist: "todoist.com", linear: "linear.app",
+  trello: "trello.com", asana: "asana.com", clickup: "clickup.com", monday: "monday.com", jira: "atlassian.com", confluence: "atlassian.com",
+  airtable: "airtable.com", dropbox: "dropbox.com", outlook: "outlook.com", discord: "discord.com", telegram: "telegram.org",
+  whatsapp: "whatsapp.com", spotify: "spotify.com", zoom: "zoom.us", calendly: "calendly.com", hubspot: "hubspot.com", figma: "figma.com",
+  canva: "canva.com", twitter: "x.com", linkedin: "linkedin.com", reddit: "reddit.com", gitlab: "gitlab.com", bitbucket: "bitbucket.org",
+  vercel: "vercel.com", stripe: "stripe.com", openai: "openai.com", anthropic: "anthropic.com", strava: "strava.com", ticktick: "ticktick.com",
+  readwise: "readwise.io", mailchimp: "mailchimp.com", zendesk: "zendesk.com", intercom: "intercom.com",
+};
+
+/** A logo URL for a service id, or null when its domain is unknown. */
+export function serviceLogo(service: string): string | null {
+  const domain = SERVICE_DOMAINS[service];
+  return domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=128` : null;
+}
