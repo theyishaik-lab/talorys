@@ -107,3 +107,18 @@ No KV/D1/R2/Vectorize/Workflows. One Durable Object holds everything. Static
 assets are served without invoking Functions (Pages routes only `/api/*` to the
 function). Reminders and digests are deterministic. Chat context is bounded and
 summarized only after enough history overflows.
+
+## Context management (long-lived chats)
+
+`apps/agent/src/agent/context.ts` holds every budget (`CONTEXT_BUDGETS`). A turn sends the newest
+messages verbatim within the token budget (the owner's context limit, cut to the smallest model in
+the fallback chain). Messages that fall out are folded, oldest batch first, into a per-thread running
+summary (`tal_conversations.summary` / `summary_upto`, counters in `tal_thread_state`, migration 14),
+rewritten incrementally by one model call. Until then they are shown abridged, and anything beyond
+that is named with a count, so nothing is dropped silently. A provider "context too long" error
+compacts harder and retries once. The main chat's digest is compact (what is new since the model last
+saw it, marked) and the details come from tools: `list_notifications`, `automation_runs`,
+`project_overview`, `search_threads` (FTS5 trigram index over every thread's messages, guarded
+setup in `src/db/message-search.ts`, LIKE fallback) and `read_thread`. Durable memory is the existing
+memory system (`remember` / `search_memories` / `update_memory` / `forget_memory`, a relevant slice
+injected each turn).

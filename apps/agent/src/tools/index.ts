@@ -5,6 +5,7 @@ import { memoryTools } from "./memories";
 import { reminderTools } from "./reminders";
 import { searchTools } from "./search";
 import { proactiveTools } from "./proactive";
+import { contextTools } from "./context";
 
 /**
  * Every tool available to the agent. To add a capability, create a module with
@@ -20,6 +21,7 @@ export const ALL_TOOLS: ToolDefinition[] = [
   ...reminderTools,
   ...searchTools,
   ...proactiveTools,
+  ...contextTools,
 ] as ToolDefinition[];
 
 const names = new Set<string>();

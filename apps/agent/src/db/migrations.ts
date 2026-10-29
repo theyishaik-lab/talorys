@@ -336,6 +336,25 @@ export const MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    version: 14,
+    name: "context_management",
+    statements: [
+      // Per-thread context state (src/agent/context.ts, threads.ts): how many messages the running
+      // summary covers, when it was last rewritten, and when the model last saw the live digest (so
+      // the next digest says what is new). The summary text and its cutoff stay in
+      // tal_conversations.summary / summary_upto (since version 1). A side table rather than ALTER
+      // TABLE so the migration can be re-applied safely.
+      `CREATE TABLE IF NOT EXISTS tal_thread_state (
+        conversation_id TEXT PRIMARY KEY,
+        summary_messages INTEGER NOT NULL DEFAULT 0,
+        summary_updated_at TEXT,
+        digest_at TEXT
+      )`,
+      // Cross-thread recall reads messages newest first per thread.
+      `CREATE INDEX IF NOT EXISTS tal_messages_created ON tal_messages(created_at)`,
+    ],
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

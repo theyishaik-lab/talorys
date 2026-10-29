@@ -7,7 +7,8 @@ import { AppError, NotFoundError } from "../api/errors";
 import { ALL_TOOLS, ToolExecutor, type ToolDefinition } from "../tools";
 import { buildSystemPrompt } from "./prompt";
 import { ensureFixedThread, threadContext } from "./threads";
-import { SUMMARIZE_THRESHOLD, buildContextWindow, memoryTokenBudget, selectRelevantMemories, summarizationPrompt } from "./memory";
+import { buildContextWindow, memoryTokenBudget, selectRelevantMemories } from "./memory";
+import { CONTEXT_BUDGETS, abridgedSection, cleanSummary, compactionBatch, compactionPrompt, isContextOverflow, shouldCompact, toolsNote } from "./context";
 import type { RunnerExtensions } from "../semantic/hooks";
 
 /**
@@ -81,9 +82,14 @@ const APPROVAL_OUTCOME: Record<PendingAction["status"], string> = {
   failed: "approved but failed",
 };
 
-/** Lets the model see what happened to actions it proposed in earlier turns. */
-function withApprovalOutcomes(m: ChatMessage): ChatMessage {
+/**
+ * Lets the model see what happened in earlier turns beyond the text: the outcome of actions it
+ * proposed, and which tools it used (their results are not kept, so it knows to look again).
+ */
+function withTurnNotes(m: ChatMessage): ChatMessage {
   const notes = m.tools.flatMap((t) => (t.approval ? [`[${t.approval.summary}: ${APPROVAL_OUTCOME[t.approval.status]}]`] : []));
+  const used = m.role === "assistant" ? toolsNote(m) : null;
+  if (used) notes.push(used);
   return notes.length ? { ...m, content: `${m.content}\n\n${notes.join("\n")}`.trim() } : m;
 }
 
@@ -148,69 +154,89 @@ export class AgentRunner {
       }
       if (!s.usage.canUseAi(limits)) throw aiLimitReached(limits.maxAiRequestsPerDay);
 
-      // 2. Context: relevant memories, summary, recent history within the token budget.
+      // 2. Context: relevant memories, the running summary, recent history within the token budget.
       const selected = this.ext ? await this.ext.selectMemories(userMessage.content) : selectRelevantMemories(s.memories, userMessage.content);
       const memories = s.memoryHistory.promptMemories(selected, memoryTokenBudget(limits));
-      const history = s.pendingActions
-        .withCurrentStatus(s.conversations.messages(conversation.id, { limit: 200 }))
-        .filter((m) => m.role === "user" || m.status === "complete")
-        .map(withApprovalOutcomes);
+      const B = CONTEXT_BUDGETS;
       let summary = conversation.summary;
       let summaryUpto = conversation.summary_upto;
+      // Everything newer than the summary (bounded); older unsummarized messages are counted, not lost.
+      const loaded = s.conversations.unsummarized(conversation.id, summaryUpto, B.historyLoadLimit);
+      const history = s.pendingActions
+        .withCurrentStatus(loaded.messages)
+        .filter((m) => m.role === "user" || m.status === "complete")
+        .map(withTurnNotes);
       let liveContext: string | null = null;
       try {
-        liveContext = threadContext(s, conversation.id, settings.timezone);
+        liveContext = threadContext(s, conversation.id, settings.timezone, new Date(), conversation.digest_at ?? null);
       } catch (error) {
         console.warn("thread context skipped", error);
       }
-      const baseSystem = buildSystemPrompt({
-        agentName: settings.agentName,
-        timezone: settings.timezone,
-        now: new Date(),
-        autoMemory: settings.autoMemory,
-        memories,
-        conversationSummary: summary,
-        connectors: this.ext?.connectors,
-        threadContext: liveContext,
-      });
+      const systemFor = (abridgedHistory: string | null) =>
+        buildSystemPrompt({
+          agentName: settings.agentName,
+          timezone: settings.timezone,
+          now: new Date(),
+          autoMemory: settings.autoMemory,
+          memories,
+          conversationSummary: summary,
+          abridgedHistory,
+          connectors: this.ext?.connectors,
+          threadContext: liveContext,
+        });
       // The owner's context limit, cut to what the smallest model in the chain takes (model-caps.ts).
       const contextTokens = Math.min(limits.maxContextTokens, this.provider.promptBudget?.(limits.maxOutputTokens) ?? Number.POSITIVE_INFINITY);
-      const historyBudget = Math.max(500, contextTokens - estimateTokens(baseSystem) - 600);
-      let window = buildContextWindow(history, historyBudget, summaryUpto);
+      const budgetFor = (system: string) => Math.max(B.minHistoryTokens, contextTokens - estimateTokens(system) - B.promptReserveTokens);
+      const provider = this.provider;
 
-      // Summarizing is an extra model call: only when the budget leaves room for the reply too.
-      if (window.overflow.length >= SUMMARIZE_THRESHOLD && s.usage.remainingAi(limits) >= 2) {
+      /**
+       * Folds the oldest messages that fell out of the window into the running summary (one model
+       * call). Only when the daily budget leaves room for the reply too. Returns true when it ran.
+       */
+      const compact = async (overflow: ChatMessage[]): Promise<boolean> => {
+        if (overflow.length === 0 || s.usage.remainingAi(limits) < 2) return false;
+        const batch = compactionBatch(overflow);
         try {
           s.usage.increment({ ai_requests: 1 });
-          const result = await this.provider.generate({
-            system: "You write compact, factual conversation summaries.",
-            messages: summarizationPrompt(summary, window.overflow),
-            maxOutputTokens: 300,
+          const result = await provider.generate({
+            system: "You maintain compact, faithful long-term summaries of conversations.",
+            messages: compactionPrompt(summary, batch, settings.timezone),
+            maxOutputTokens: B.summaryOutputTokens,
             temperature: 0.2,
             signal: input.signal,
           });
-          summary = result.text.trim().slice(0, 2000);
-          summaryUpto = window.overflow.at(-1)!.created_at;
-          s.conversations.setSummary(conversation.id, summary, summaryUpto);
           s.usage.increment({ input_tokens: result.usage.inputTokens, output_tokens: result.usage.outputTokens });
-          window = buildContextWindow(history, historyBudget, summaryUpto);
+          const next = cleanSummary(result.text);
+          if (!next) return false;
+          summary = next;
+          summaryUpto = batch.at(-1)!.created_at;
+          s.conversations.setSummary(conversation!.id, summary, summaryUpto, batch.length);
+          return true;
         } catch (error) {
-          console.warn("Summarization skipped", error);
+          console.warn("Compaction skipped", error);
+          return false;
         }
-      }
+      };
 
-      const system = summary === conversation.summary
-        ? baseSystem
-        : buildSystemPrompt({
-            agentName: settings.agentName,
-            timezone: settings.timezone,
-            now: new Date(),
-            autoMemory: settings.autoMemory,
-            memories,
-            conversationSummary: summary,
-            connectors: this.ext?.connectors,
-            threadContext: liveContext,
-          });
+      /** The window, the abridged view of what fell out, and the system prompt, for a history budget. */
+      const assemble = async (historyBudget: number, compactions: number, force: boolean) => {
+        let window = buildContextWindow(history, historyBudget, summaryUpto);
+        for (let i = 0; i < compactions && (force ? window.overflow.length > 0 : shouldCompact(window.overflow)); i++) {
+          if (!(await compact(window.overflow))) break;
+          window = buildContextWindow(history, historyBudget, summaryUpto);
+        }
+        let abridged: string | null = null;
+        if (window.overflow.length > 0 || loaded.omitted > 0) {
+          // Make room for the abridged lines inside the same budget, then fill them from what fell out.
+          const room = Math.min(B.abridgedMaxTokens, Math.floor(historyBudget / 4));
+          window = buildContextWindow(history, Math.max(B.minHistoryTokens, historyBudget - room), summaryUpto);
+          abridged = abridgedSection(window.overflow, loaded.omitted, settings.timezone, room);
+        }
+        return { window, system: systemFor(abridged) };
+      };
+
+      let historyBudget = budgetFor(systemFor(null));
+      let { window, system } = await assemble(historyBudget, B.maxCompactionsPerTurn, false);
 
       // 3. Tools with per-turn limits.
       const executor = new ToolExecutor(
@@ -225,50 +251,65 @@ export class AgentRunner {
         execute: (toolInput, callId) => executor.execute(t.name, toolInput, callId),
       }));
 
-      // Memory selection and summarizing may have spent budget since the first check.
+      // Memory selection and compaction may have spent budget since the first check.
       if (!s.usage.reserveAi(limits)) throw aiLimitReached(limits.maxAiRequestsPerDay);
       // The runtime's own wall: each model step and each tool call may be one subrequest.
       const subrequests = new SubrequestGuard(this.subrequestLimit);
       let usageRecorded = false;
-      for await (const event of this.provider.generateWithTools({
-        system,
-        messages: window.messages,
-        tools: providerTools,
-        maxIterations: limits.maxAgentIterations,
-        maxOutputTokens: limits.maxOutputTokens,
-        temperature: settings.temperature,
-        toolBudgetExhausted: () => executor.budgetExhausted() || subrequests.mustAnswer(executor.callCount),
-        reserveNextStep: () => subrequests.nextStep(executor.callCount) && s.usage.reserveAi(limits),
-        signal: input.signal,
-      })) {
-        if (event.type === "text") {
-          text += event.delta;
-          yield { type: "text", delta: event.delta };
-        } else if (event.type === "tool-start") {
-          const activity: ToolActivity = {
-            id: event.id,
-            name: event.name,
-            label: toolLabel(executor.find(event.name), event.name, event.input),
-            status: "running",
-          };
-          tools.push(activity);
-          yield { type: "tool", tool: { ...activity } };
-        } else if (event.type === "tool-end") {
-          const activity = tools.find((t) => t.id === event.id);
-          if (activity) {
-            activity.status = event.error ? "error" : "success";
-            if (event.error) activity.error = event.error.slice(0, 300);
-            const approval = executor.approvalFor(event.id);
-            if (approval) activity.approval = approval;
-            yield { type: "tool", tool: { ...activity } };
+      let overflowRetried = false;
+      for (;;) {
+        try {
+          for await (const event of provider.generateWithTools({
+            system,
+            messages: window.messages,
+            tools: providerTools,
+            maxIterations: limits.maxAgentIterations,
+            maxOutputTokens: limits.maxOutputTokens,
+            temperature: settings.temperature,
+            toolBudgetExhausted: () => executor.budgetExhausted() || subrequests.mustAnswer(executor.callCount),
+            reserveNextStep: () => subrequests.nextStep(executor.callCount) && s.usage.reserveAi(limits),
+            signal: input.signal,
+          })) {
+            if (event.type === "text") {
+              text += event.delta;
+              yield { type: "text", delta: event.delta };
+            } else if (event.type === "tool-start") {
+              const activity: ToolActivity = {
+                id: event.id,
+                name: event.name,
+                label: toolLabel(executor.find(event.name), event.name, event.input),
+                status: "running",
+              };
+              tools.push(activity);
+              yield { type: "tool", tool: { ...activity } };
+            } else if (event.type === "tool-end") {
+              const activity = tools.find((t) => t.id === event.id);
+              if (activity) {
+                activity.status = event.error ? "error" : "success";
+                if (event.error) activity.error = event.error.slice(0, 300);
+                const approval = executor.approvalFor(event.id);
+                if (approval) activity.approval = approval;
+                yield { type: "tool", tool: { ...activity } };
+              }
+            } else if (event.type === "usage") {
+              usageRecorded = true;
+              s.usage.increment({ input_tokens: event.usage.inputTokens, output_tokens: event.usage.outputTokens });
+            } else if (event.type === "provider") {
+              s.activity.record("ai.fallback", `Answered with the backup model ${event.model} (${event.provider})`);
+              ai = { provider: String(event.provider), model: event.model, fallback: true, attempts: event.attempts ?? [] };
+              yield { type: "model", provider: ai.provider, model: ai.model, fallback: true, attempts: ai.attempts };
+            }
           }
-        } else if (event.type === "usage") {
-          usageRecorded = true;
-          s.usage.increment({ input_tokens: event.usage.inputTokens, output_tokens: event.usage.outputTokens });
-        } else if (event.type === "provider") {
-          s.activity.record("ai.fallback", `Answered with the backup model ${event.model} (${event.provider})`);
-          ai = { provider: String(event.provider), model: event.model, fallback: true, attempts: event.attempts ?? [] };
-          yield { type: "model", provider: ai.provider, model: ai.model, fallback: true, attempts: ai.attempts };
+          break;
+        } catch (error) {
+          // The prompt did not fit the model after all (the estimate is chars/4): compact harder and
+          // retry once, but only while nothing has reached the owner.
+          if (overflowRetried || input.signal.aborted || text || tools.length > 0 || !isContextOverflow(error)) throw error;
+          overflowRetried = true;
+          s.activity.record("ai.context_overflow", "The model's context window was exceeded; compacted the chat and retried");
+          historyBudget = Math.max(B.minHistoryTokens, Math.floor(historyBudget * B.overflowRetryShare));
+          ({ window, system } = await assemble(historyBudget, 1, true));
+          if (!s.usage.reserveAi(limits)) throw aiLimitReached(limits.maxAiRequestsPerDay);
         }
       }
       if (!usageRecorded) {
@@ -283,6 +324,13 @@ export class AgentRunner {
       }
       if (!text.trim()) {
         text = tools.some((t) => t.status === "success") ? "Done." : "I wasn't able to produce a response. Please try rephrasing.";
+      }
+      if (liveContext) {
+        try {
+          s.conversations.setDigestAt(conversation.id);
+        } catch (error) {
+          console.warn("digest cursor not saved", error);
+        }
       }
       yield { type: "done", message: finish("complete", null) };
     } catch (error) {

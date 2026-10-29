@@ -64,6 +64,8 @@ export function nextUtcMidnight(now: number): number {
  */
 export function cooldownFor(error: unknown, now: number, strikes = 1): { ms: number; scope: "model" | "provider"; window?: "day" | "minute" } | null {
   const d = detailsOf(error);
+  // A prompt too long for the window says nothing about the model's health.
+  if ((d as { context_overflow?: unknown }).context_overflow === true) return null;
   const reason = reasonOf(error);
   const hint = typeof d.retry_after_s === "number" && d.retry_after_s > 0 ? d.retry_after_s * 1000 : null;
   const scope = d.scope === "provider" ? "provider" : "model";

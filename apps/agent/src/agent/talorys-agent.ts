@@ -2,6 +2,7 @@ import { Agent } from "agents";
 import type { Automation } from "@talorys/shared";
 import type { Env } from "../env";
 import { migrate } from "../db/migrations";
+import { ensureMessageSearch } from "../db/message-search";
 import { createServices, type Services } from "../services/container";
 import type { Scheduler } from "./scheduling";
 import { AgentRunner, subrequestLimitFrom } from "./runner";
@@ -58,6 +59,8 @@ export class TalorysAgent extends Agent<Env, AgentState> {
       };
       this._services = createServices(this.ctx.storage, this.env, scheduler, { provider: () => this.aiProvider() }, (work) => this.ctx.waitUntil(work));
       migrate(this._services.db);
+      // Cross-thread message search (guarded: a missing SQLite feature only means LIKE search).
+      ensureMessageSearch(this._services.db);
     }
     return this._services;
   }

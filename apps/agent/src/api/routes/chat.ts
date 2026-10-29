@@ -7,6 +7,7 @@ import { AppError, NotFoundError } from "../errors";
 import { runApprovedAction, ToolError } from "../../tools";
 import { connectionStatus, openConnectorAdmin, openConnectorClient, refreshConnectLink } from "../../openconnector";
 import { ensureFixedThread } from "../../agent/threads";
+import { publicConversation } from "../../db/repositories/conversations";
 
 export const chatRoutes = new Hono<AppEnv>();
 
@@ -17,7 +18,7 @@ chatRoutes.get("/conversations", (c) => {
 
 chatRoutes.post("/conversations", async (c) => {
   const { title } = await body(c, conversationCreateSchema);
-  return c.json({ conversation: c.env.agent.services.conversations.create(title || "New conversation") }, 201);
+  return c.json({ conversation: publicConversation(c.env.agent.services.conversations.create(title || "New conversation")) }, 201);
 });
 
 /**
@@ -28,9 +29,8 @@ chatRoutes.get("/conversations/:id", (c) => {
   const s = c.env.agent.services;
   ensureFixedThread(s, c.req.param("id"));
   const conversation = s.conversations.require(c.req.param("id"));
-  const { summary: _s, summary_upto: _u, ...rest } = conversation;
   return c.json({
-    conversation: rest,
+    conversation: publicConversation(conversation),
     messages: s.pendingActions.withCurrentStatus(s.conversations.messages(conversation.id)),
     streaming: conversationBusy(c.env.agent.activeRuns, conversation.id),
   });
@@ -38,8 +38,7 @@ chatRoutes.get("/conversations/:id", (c) => {
 
 chatRoutes.patch("/conversations/:id", async (c) => {
   const { title } = await body(c, conversationUpdateSchema);
-  const { summary: _s, summary_upto: _u, ...rest } = c.env.agent.services.conversations.rename(c.req.param("id"), title);
-  return c.json({ conversation: rest });
+  return c.json({ conversation: publicConversation(c.env.agent.services.conversations.rename(c.req.param("id"), title)) });
 });
 
 chatRoutes.delete("/conversations/:id", (c) => {

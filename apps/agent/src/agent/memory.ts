@@ -2,6 +2,7 @@ import type { ChatMessage, Limits, Memory } from "@talorys/shared";
 import type { MemoryRepository } from "../db/repositories/memories";
 import { estimateTokens, type ModelMessage } from "../ai/provider";
 import { hasHistoricalIntent } from "../memory/intent";
+import { CONTEXT_BUDGETS, type ContextBudgets } from "./context";
 
 const MAX_RELEVANT_MEMORIES = 8;
 const ALWAYS_INCLUDE_PREFERENCES = 4;
@@ -37,48 +38,47 @@ export function memoryTokenBudget(limits: Limits): number {
 
 export interface ContextWindow {
   messages: ModelMessage[];
-  /** Messages that no longer fit and are not yet covered by the summary. */
+  /** Messages that no longer fit and are not yet covered by the summary, oldest first. */
   overflow: ChatMessage[];
 }
 
 /**
- * Fits the most recent messages into `maxTokens`, oldest dropped first.
- * Messages already covered by the conversation summary are never resent.
+ * Fits the most recent messages into `maxTokens`, oldest dropped first (they become `overflow`,
+ * which compaction folds into the summary; see context.ts). Messages already covered by the
+ * conversation summary are never resent. One huge message is clipped instead of pushing everything
+ * else out, and the newest `recentMinMessages` always stay, each clipped to share the budget.
  */
-export function buildContextWindow(history: ChatMessage[], maxTokens: number, summaryUpto: string | null): ContextWindow {
+export function buildContextWindow(history: ChatMessage[], maxTokens: number, summaryUpto: string | null, b: ContextBudgets = CONTEXT_BUDGETS): ContextWindow {
   const eligible = history.filter((m) => m.content.trim().length > 0 && (!summaryUpto || m.created_at > summaryUpto));
-  const kept: ChatMessage[] = [];
+  const perMessage = Math.min(b.messageMaxTokens, Math.max(64, Math.floor(maxTokens / Math.max(1, Math.min(b.recentMinMessages, eligible.length)))));
+  const clipTo = (m: ChatMessage, tokens: number) => (estimateTokens(m.content) > tokens ? `${m.content.slice(0, tokens * 4)}\n…[clipped]` : m.content);
+  const kept: { m: ChatMessage; content: string }[] = [];
   let used = 0;
   for (let i = eligible.length - 1; i >= 0; i--) {
     const m = eligible[i]!;
-    const cost = estimateTokens(m.content) + 4;
-    if (kept.length > 0 && used + cost > maxTokens) break;
-    kept.unshift(m);
+    let content = clipTo(m, b.messageMaxTokens);
+    let cost = estimateTokens(content) + 4;
+    if (kept.length === 0 && cost > maxTokens) {
+      // The newest message alone is over budget: keep it, clipped, with room left for a little context.
+      content = clipTo(m, Math.max(perMessage, Math.floor(maxTokens * 0.5)));
+      cost = estimateTokens(content) + 4;
+    } else if (kept.length > 0 && used + cost > maxTokens) {
+      if (kept.length >= b.recentMinMessages) break;
+      // One of the newest few: keep it, clipped to its share.
+      content = clipTo(m, perMessage);
+      cost = estimateTokens(content) + 4;
+      if (used + cost > maxTokens * 1.25) break;
+    }
+    kept.unshift({ m, content });
     used += cost;
   }
   // Models expect the conversation to start with a user turn. A thread that opens with notifications
   // (assistant messages written by automations) keeps them, behind a short user turn that frames them.
   const firstUser = history.findIndex((m) => m.role === "user");
-  const leadsWithNotices = kept.length > 0 && kept[0]!.role !== "user" && (firstUser === -1 || history.indexOf(kept[0]!) < firstUser);
-  if (!leadsWithNotices) while (kept.length > 1 && kept[0]!.role !== "user") kept.shift();
+  const leadsWithNotices = kept.length > 0 && kept[0]!.m.role !== "user" && (firstUser === -1 || history.indexOf(kept[0]!.m) < firstUser);
+  if (!leadsWithNotices) while (kept.length > 1 && kept[0]!.m.role !== "user") kept.shift();
   const overflow = eligible.slice(0, eligible.length - kept.length);
-  const messages = kept.map((m) => ({
-    role: m.role,
-    content: m.role === "assistant" ? m.content : m.content.slice(0, 16_000),
-  }));
+  const messages: ModelMessage[] = kept.map(({ m, content }) => ({ role: m.role, content }));
   if (leadsWithNotices) messages.unshift({ role: "user", content: "(The messages that follow are notifications you sent me earlier.)" });
   return { messages, overflow };
-}
-
-/** Summarize only once enough history has overflowed, to avoid an AI call on every turn. */
-export const SUMMARIZE_THRESHOLD = 8;
-
-export function summarizationPrompt(previousSummary: string | null, overflow: ChatMessage[]): ModelMessage[] {
-  const transcript = overflow.map((m) => `${m.role === "user" ? "Owner" : "Assistant"}: ${m.content.slice(0, 1500)}`).join("\n");
-  return [
-    {
-      role: "user",
-      content: `Update the running summary of a conversation between the owner and their assistant. Keep facts, decisions, open questions and commitments. Max 150 words.\n\nPrevious summary:\n${previousSummary ?? "(none)"}\n\nNew messages:\n${transcript}`,
-    },
-  ];
 }

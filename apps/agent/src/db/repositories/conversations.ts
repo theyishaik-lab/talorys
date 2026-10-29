@@ -17,8 +17,21 @@ interface MessageRow {
 }
 
 export interface ConversationRecord extends Conversation {
+  /** Running summary of the messages compaction folded away (src/agent/context.ts). */
   summary: string | null;
+  /** created_at of the newest message the summary covers. */
   summary_upto: string | null;
+  /** How many messages the summary covers. */
+  summary_messages?: number;
+  summary_updated_at?: string | null;
+  /** When this thread's model last saw the live digest (main chat). */
+  digest_at?: string | null;
+}
+
+/** A conversation as the API shows it: internal context fields left out, the compaction state named. */
+export function publicConversation(c: ConversationRecord): Conversation & { summarized_messages: number; summarized_upto: string | null } {
+  const { summary: _s, summary_upto, summary_messages, summary_updated_at: _su, digest_at: _d, ...rest } = c;
+  return { ...rest, summarized_messages: summary_messages ?? 0, summarized_upto: summary_upto ?? null };
 }
 
 /** Decodes stored tool activity, dropping malformed entries (e.g. from an imported backup). */
@@ -71,7 +84,11 @@ export class ConversationRepository {
   }
 
   get(id: string): ConversationRecord | null {
-    return this.db.one<ConversationRecord>(`SELECT * FROM tal_conversations WHERE id = ?`, id);
+    return this.db.one<ConversationRecord>(
+      `SELECT c.*, COALESCE(t.summary_messages, 0) AS summary_messages, t.summary_updated_at AS summary_updated_at, t.digest_at AS digest_at
+       FROM tal_conversations c LEFT JOIN tal_thread_state t ON t.conversation_id = c.id WHERE c.id = ?`,
+      id,
+    );
   }
 
   require(id: string): ConversationRecord {
@@ -82,7 +99,7 @@ export class ConversationRepository {
 
   create(title = "New conversation", id: string = newId()): ConversationRecord {
     const ts = now();
-    const c: ConversationRecord = { id, title, created_at: ts, updated_at: ts, summary: null, summary_upto: null };
+    const c: ConversationRecord = { id, title, created_at: ts, updated_at: ts, summary: null, summary_upto: null, summary_messages: 0, summary_updated_at: null, digest_at: null };
     this.db.run(
       `INSERT INTO tal_conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)`,
       c.id, c.title, c.created_at, c.updated_at,
@@ -105,14 +122,50 @@ export class ConversationRepository {
     this.db.run(`UPDATE tal_conversations SET updated_at = ? WHERE id = ?`, now(), id);
   }
 
-  setSummary(id: string, summary: string, upto: string): void {
-    this.db.run(`UPDATE tal_conversations SET summary = ?, summary_upto = ? WHERE id = ?`, summary, upto, id);
+  /** Stores the running summary; `addedMessages` more messages are now covered by it. */
+  setSummary(id: string, summary: string, upto: string, addedMessages = 0): void {
+    this.db.transaction(() => {
+      this.db.run(`UPDATE tal_conversations SET summary = ?, summary_upto = ? WHERE id = ?`, summary, upto, id);
+      this.db.run(
+        `INSERT INTO tal_thread_state (conversation_id, summary_messages, summary_updated_at) VALUES (?, ?, ?)
+         ON CONFLICT(conversation_id) DO UPDATE SET summary_messages = summary_messages + excluded.summary_messages, summary_updated_at = excluded.summary_updated_at`,
+        id, addedMessages, now(),
+      );
+    });
+  }
+
+  /** Records that the model was given the live digest now (the next digest lists what is newer). */
+  setDigestAt(id: string, at: string = now()): void {
+    this.db.run(
+      `INSERT INTO tal_thread_state (conversation_id, digest_at) VALUES (?, ?)
+       ON CONFLICT(conversation_id) DO UPDATE SET digest_at = excluded.digest_at`,
+      id, at,
+    );
+  }
+
+  /**
+   * The messages a turn may still need verbatim: those newer than the summary (all, when there is
+   * none), at most `limit` of the newest, plus how many older unsummarized ones were left out.
+   */
+  unsummarized(conversationId: string, summaryUpto: string | null, limit: number): { messages: ChatMessage[]; omitted: number } {
+    const total = this.db.one<{ n: number }>(
+      `SELECT count(*) AS n FROM tal_messages WHERE conversation_id = ?${summaryUpto ? " AND created_at > ?" : ""}`,
+      ...(summaryUpto ? [conversationId, summaryUpto] : [conversationId]),
+    )?.n ?? 0;
+    const rows = this.db.all<MessageRow>(
+      `SELECT * FROM (SELECT *, rowid AS rid FROM tal_messages WHERE conversation_id = ?${summaryUpto ? " AND created_at > ?" : ""}
+         ORDER BY created_at DESC, rowid DESC LIMIT ?)
+       ORDER BY created_at ASC, rid ASC`,
+      ...(summaryUpto ? [conversationId, summaryUpto, limit] : [conversationId, limit]),
+    );
+    return { messages: rows.map(toMessage), omitted: Math.max(0, total - rows.length) };
   }
 
   delete(id: string): void {
     this.require(id);
     this.db.transaction(() => {
       this.db.run(`DELETE FROM tal_messages WHERE conversation_id = ?`, id);
+      this.db.run(`DELETE FROM tal_thread_state WHERE conversation_id = ?`, id);
       this.db.run(`DELETE FROM tal_conversations WHERE id = ?`, id);
     });
   }
@@ -120,6 +173,7 @@ export class ConversationRepository {
   deleteAll(): number {
     return this.db.transaction(() => {
       this.db.run(`DELETE FROM tal_messages`);
+      this.db.run(`DELETE FROM tal_thread_state`);
       return this.db.run(`DELETE FROM tal_conversations`).changes;
     });
   }

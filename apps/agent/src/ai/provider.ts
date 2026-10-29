@@ -1,3 +1,4 @@
+import { looksLikeContextOverflow } from "./overflow";
 import type { AiAttempt, AiFailureReason, AiProviderId } from "@talorys/shared";
 import type { z } from "zod";
 import { AppError } from "../api/errors";
@@ -94,6 +95,11 @@ export function classifyAiError(error: unknown, provider: AiProviderId = "worker
   const details = why("error");
   if (lower.includes("abort")) {
     return new AppError("AI_UNAVAILABLE", "The response was cancelled.", details);
+  }
+  // The prompt is larger than this model's window: no pause for the model (it is healthy), and the
+  // runner compacts the thread and retries once (src/agent/context.ts).
+  if (looksLikeContextOverflow(rawErrorText(error), status)) {
+    return new AppError("AI_UNAVAILABLE", `${name}: the conversation is longer than this model's context window.`, { ...details, context_overflow: true });
   }
   if (provider === "workers-ai") {
     if (lower.includes("4006") || lower.includes("free allocation") || lower.includes("neurons")) {
