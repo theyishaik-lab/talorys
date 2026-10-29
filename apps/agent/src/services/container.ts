@@ -20,6 +20,7 @@ import { ModelCatalogService } from "../ai/catalog";
 import { ModelCooldowns } from "../ai/cooldown";
 import { EndpointStore } from "../ai/openai-compatible";
 import { QuotaObservations } from "../ai/quota";
+import { KeyboardDictionaryStore } from "../keyboard/dictionary";
 
 /** All data services for the single owner, bound to one Durable Object's storage. */
 export interface Services {
@@ -51,6 +52,8 @@ export interface Services {
   endpoints: EndpointStore;
   /** The last rate-limit headers each model's provider sent (Settings → Model shows what is left). */
   quotas: QuotaObservations;
+  /** Talorys Keyboard learned-dictionary backup (one JSON document). */
+  keyboardDictionary: KeyboardDictionaryStore;
 }
 
 /** Runs a background promise; the Durable Object passes `ctx.waitUntil`. Errors never surface to the request. */
@@ -96,6 +99,7 @@ export function createServices(storage: DurableObjectStorage, env: Env, schedule
     cooldowns: new ModelCooldowns(settings),
     endpoints: new EndpointStore(settings),
     quotas: new QuotaObservations(settings),
+    keyboardDictionary: new KeyboardDictionaryStore(db),
     db,
     tasks: new TaskRepository(db),
     memories,

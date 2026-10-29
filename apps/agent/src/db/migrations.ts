@@ -323,6 +323,19 @@ export const MIGRATIONS: Migration[] = [
       // pending-actions table keeps its CHECK constraint. Migrations never drop or rebuild tables.
     ],
   },
+  {
+    version: 13,
+    name: "keyboard_dictionary",
+    statements: [
+      // The Talorys Keyboard's learned dictionary, one JSON document for the owner, split into
+      // ordered chunks so no single row nears the Durable Object SQLite 2 MB value limit.
+      `CREATE TABLE IF NOT EXISTS tal_keyboard_dictionary (
+        seq INTEGER PRIMARY KEY,
+        data TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )`,
+    ],
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

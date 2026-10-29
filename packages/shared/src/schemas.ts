@@ -658,6 +658,7 @@ export type ApiErrorCode =
   | "AI_LIMIT_REACHED"
   | "CONFLICT"
   | "NOT_CONFIGURED"
+  | "PAYLOAD_TOO_LARGE"
   | "INTERNAL_ERROR";
 
 export interface ApiErrorBody {
