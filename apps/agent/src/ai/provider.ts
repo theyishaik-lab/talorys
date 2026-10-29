@@ -112,6 +112,16 @@ export function classifyAiError(error: unknown, provider: AiProviderId = "worker
     if (lower.includes("3040") || lower.includes("capacity") || lower.includes("429") || lower.includes("rate limit") || lower.includes("too many")) {
       return new AppError("AI_UNAVAILABLE", "Workers AI is busy right now. Please try again in a moment.", why("overloaded"));
     }
+    // 5035: a model only the Workers Paid plan may call. Seen Oct 29, 2026 on every Workers AI model in
+    // the chain (deepseek-v4.1-flash, kimi-k2.7-code, glm-5.3, glm-5.3-flash, kimi-k2.6): it used to
+    // fall through as a generic error with a one-minute pause, so each turn retried all five first.
+    if (lower.includes("5035") || lower.includes("not available on the workers free plan")) {
+      return new AppError(
+        "AI_UNAVAILABLE",
+        `${model ?? "This Workers AI model"} needs the Cloudflare Workers Paid plan. Remove it from the model chain in Settings → Model, or upgrade the account.`,
+        why("no_model"),
+      );
+    }
     if (lower.includes("5007") || lower.includes("no such model") || lower.includes("model not found")) {
       return new AppError("AI_UNAVAILABLE", "The configured AI model is not available. Choose another model in Settings.", why("no_model"));
     }
@@ -129,7 +139,9 @@ export function classifyAiError(error: unknown, provider: AiProviderId = "worker
       return new AppError("AI_UNAVAILABLE", `${name} is having trouble right now. Please try again in a moment.`, why("overloaded"));
     }
   }
-  console.error(`${name} error`, message);
+  // The response body says why a bare "Bad Request" happened (Cohere 400s, Oct 26-28, 2026 were unreadable without it).
+  const raw = rawErrorText(error);
+  console.error(`${name} error`, message, raw.length > message.length ? raw.slice(message.length, message.length + 600).trim() : "");
   return new AppError("AI_UNAVAILABLE", "The AI model could not respond. Please try again.", details);
 }
 

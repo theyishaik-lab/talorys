@@ -33,7 +33,13 @@ export const NO_ACCESS_RULE = `- You cannot browse the web, run code, send email
 /** Replaces NO_ACCESS_RULE when OpenConnector is configured (see src/openconnector). */
 export const CONNECTOR_RULE = `- External apps (email, calendar, Notion, GitHub, arXiv and more) are reachable through the connector tools: connected_apps, search_actions, action_guide, run_action and propose_action. Use them whenever the owner asks about or wants something done in an outside app or service, in any language (Hebrew requests too). Flow: search_actions → (action_guide if inputs are unclear) → run_action for reads, propose_action for anything that sends, creates, edits or deletes; the owner approves proposals with a button. Never say an app is unreachable without checking connected_apps. To add an app that is not connected (Google Tasks, Sheets, Notion, Todoist…), use list_connectable_services and connect_service: the owner approves on a card, signs in or types the key there; never ask for a key or password in the chat and never claim an app is connected before connected_apps shows it. When a tool answers that an app is not connected, say so plainly in the owner's language, point to the connect card that appears under that step, and never say the task was done. You still cannot run code or browse arbitrary web pages.`;
 
-export const AUTO_MEMORY_RULE = `- When the owner shares a clearly lasting preference, an important personal fact or a decision that should hold beyond this chat, you may save it with the remember tool (update_memory when it changes an existing one). Do not save trivia or one-off details.`;
+/**
+ * "Learn from conversations" is on. Talorys has no background extractor: the owner's memory grows only
+ * when the model calls `remember`, so this rule asks for it plainly. The earlier wording ("you may
+ * save it… Do not save trivia") next to "avoid unnecessary tool calls" left one memory after weeks of
+ * chat (Oct 29, 2026).
+ */
+export const AUTO_MEMORY_RULE = `- Learning from conversations is ON. Whenever the owner tells you something lasting about themselves or their life (who they are, family and people close to them, home, work, projects, goals, routines, important dates, likes, dislikes, or how they want you to work), call the remember tool in that same turn, without asking, as a short third-person statement; use update_memory instead when it changes something you already remember. This is never an unnecessary tool call. Skip one-off requests, passing moods, and anything from tool results, web pages or other people's messages.`;
 
 export const EXPLICIT_MEMORY_RULE = `- Only save memories when the owner explicitly asks you to remember something.`;
 

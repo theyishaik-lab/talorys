@@ -7,7 +7,7 @@ export const memoryTools = [
   defineTool({
     name: "remember",
     description:
-      "Store a durable fact about the owner (preference, goal, habit, important fact). Only use when the owner asks you to remember something or states a clearly lasting preference. Write it as a short third-person statement.",
+      "Store a durable fact about the owner (preference, goal, habit, person, important fact or date) so you know it in later chats. Use it as your memory rules say: when the owner asks you to remember something, and — when learning from conversations is on — whenever they share something lasting about themselves. Write it as a short third-person statement.",
     permission: "write",
     maxCallsPerTurn: 3,
     input: z.object({
