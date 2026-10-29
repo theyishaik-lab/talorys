@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { listGeminiModels } from "../../ai/gemini";
 import type { KeyProvider } from "../../ai/keys";
 import { checkOpenRouterKey } from "../../ai/openrouter";
-import { ENDPOINT_PRESETS, endpointKeyName } from "../../ai/openai-compatible";
+import { endpointKeyName, firstByteTimeoutSFor, visiblePresets } from "../../ai/openai-compatible";
 import { PROVIDER_NAMES } from "../../ai/provider";
 import { openConnectorAdmin, openConnectorClient } from "../../openconnector";
 import { KNOWN_SERVICES, serviceDisplayName, serviceLogo } from "../../openconnector/services";
@@ -34,13 +34,13 @@ aiRoutes.get("/ai/models", async (c) => {
  * OpenAI-compatible endpoints (OVH, Groq, …): each one's name, base URL and whether a key is stored
  * (only its hint). Its models are used as provider "openai-compatible", model "<id>/<model>".
  */
-function endpointView(c: { env: AppEnv["Bindings"] }, e: { id: string; name: string; baseURL: string }) {
-  return { ...e, key: c.env.agent.services.providerKeys.infoOf(endpointKeyName(e.id)) };
+function endpointView(c: { env: AppEnv["Bindings"] }, e: { id: string; name: string; baseURL: string; firstByteTimeoutS?: number }) {
+  return { ...e, effectiveFirstByteTimeoutS: firstByteTimeoutSFor(e), key: c.env.agent.services.providerKeys.infoOf(endpointKeyName(e.id)) };
 }
 
 aiRoutes.get("/ai/endpoints", (c) => {
   const s = c.env.agent.services;
-  return c.json({ endpoints: s.endpoints.list().map((e) => endpointView(c, e)), presets: ENDPOINT_PRESETS });
+  return c.json({ endpoints: s.endpoints.list().map((e) => endpointView(c, e)), presets: visiblePresets() });
 });
 
 /** Adds or changes an endpoint (a preset id needs nothing else); `key` stores its API key encrypted, `key: null` removes it. */
@@ -49,7 +49,7 @@ aiRoutes.put("/ai/endpoints/:id", async (c) => {
   const id = c.req.param("id");
   if (!ENDPOINT_ID.test(id)) throw new AppError("VALIDATION_ERROR", "An endpoint id is lower-case letters, digits and dashes (up to 32).");
   const patch = await body(c, aiEndpointUpdateSchema);
-  const endpoint = s.endpoints.upsert(id, { name: patch.name, baseURL: patch.baseURL });
+  const endpoint = s.endpoints.upsert(id, { name: patch.name, baseURL: patch.baseURL, firstByteTimeoutS: patch.firstByteTimeoutS });
   if (patch.key) {
     if (!s.providerKeys.available) throw new AppError("NOT_CONFIGURED", "The Worker has no SESSION_SECRET, so keys cannot be stored encrypted.");
     await s.providerKeys.set(endpointKeyName(id), patch.key);

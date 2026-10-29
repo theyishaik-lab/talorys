@@ -12,9 +12,34 @@ import type { AiProviderId } from "@talorys/shared";
 export interface ModelCaps {
   context: number;
   maxOutput: number;
+  /** Function calling, when the model card says (informational). */
+  tools?: boolean;
+  /**
+   * Thinking, when the model card says (informational): "always" cannot be turned off; "default"
+   * is on unless the request disables it. Reasoning tokens count as output.
+   */
+  reasoning?: "always" | "default";
 }
 
+/**
+ * Thinking models served by free/cheap hosts (NVIDIA build: DeepSeek V4.1 Flash and GLM-5.3 Flash only; OpenRouter). Read Oct 29, 2026:
+ *  - DeepSeek V4.1 Flash: 1,048,576 combined context (build.nvidia.com/deepseek-ai/deepseek-v4.1-flash
+ *    model card), 393,216 max output (Alibaba Model Studio / DeepSeek: 384K), tool calls, thinking on
+ *    by default (api-docs.deepseek.com/guides/thinking_mode).
+ *  - GLM-5.3 Flash: 1,048,576 context (build.nvidia.com/z-ai/glm-5-3-flash model card), 128K max
+ *    output (docs.z.ai/guides/vlm/glm-5.3-flash), tool calls, thinking cannot be disabled.
+ *  - Kimi K2.6 (NOT on NVIDIA build as of Oct 29, 2026; OpenRouter / Moonshot / other hosts): 262,144
+ *    context (platform.kimi.ai/docs/guide/kimi-k2-6-quickstart); Moonshot gives no output maximum, only max_tokens default 32,768, used as the cap;
+ *    tool calls (tool_choice "required" is rejected in thinking mode), thinking on by default.
+ */
+const THINKING_HOSTED: [RegExp, ModelCaps][] = [
+  [/deepseek-v4\.1-flash/, { context: 1_048_576, maxOutput: 393_216, tools: true, reasoning: "default" }],
+  [/glm-5\.3-flash/, { context: 1_048_576, maxOutput: 131_072, tools: true, reasoning: "always" }],
+  [/kimi-k2\.6/, { context: 262_144, maxOutput: 32_768, tools: true, reasoning: "default" }],
+];
+
 const OPENROUTER: [RegExp, ModelCaps][] = [
+  ...THINKING_HOSTED,
   [/nemotron-3-ultra/, { context: 1_000_000, maxOutput: 65_536 }],
   [/nemotron-3-super/, { context: 262_144, maxOutput: 65_536 }],
   [/nemotron-3\.5-lightning/, { context: 1_000_000, maxOutput: 65_536 }],
@@ -33,6 +58,7 @@ const WORKERS_AI: [RegExp, ModelCaps][] = [
 
 /** Models on OpenAI-compatible endpoints (OVH's /v1/models lists context = max completion). */
 const ENDPOINT_MODELS: [RegExp, ModelCaps][] = [
+  ...THINKING_HOSTED,
   [/qwen3\.5-397b|qwen3\.[5-9]-|qwen3-/, { context: 262_144, maxOutput: 32_768 }],
   [/gpt-oss-(120|20)b/, { context: 131_072, maxOutput: 32_768 }],
   [/llama-3[._]3-70b|mistral-small|mistral-nemo/, { context: 131_072, maxOutput: 16_384 }],

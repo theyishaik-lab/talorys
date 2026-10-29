@@ -93,6 +93,13 @@ export function classifyAiError(error: unknown, provider: AiProviderId = "worker
   // Which model failed and why, for the UI's "Gemini 3.5 Flash (Google): overloaded 503" line.
   const why = (reason: AiFailureReason) => ({ provider, model, status, reason, ...hints });
   const details = why("error");
+  // An endpoint that sent nothing within its first-byte timeout (openai-compatible.ts): a fallback
+  // reason with a short pause, never "cancelled" (the turn itself was not).
+  const cut = firstByteTimeoutOf(error);
+  if (cut !== null) {
+    const s = Math.round(cut / 1000);
+    return new AppError("AI_UNAVAILABLE", `No answer from ${model ?? name} within ${s} s; switched to the next model.`, { ...why("timeout"), timeout_s: s, timeout_kind: "first_byte" });
+  }
   if (lower.includes("abort")) {
     return new AppError("AI_UNAVAILABLE", "The response was cancelled.", details);
   }
@@ -192,6 +199,19 @@ function durationSeconds(s: string): number {
   const m = Number(s.match(/(\d+)m(?!s)/)?.[1] ?? 0);
   const sec = Number(s.match(/([\d.]+)s/)?.[1] ?? 0);
   return Math.ceil(h * 3600 + m * 60 + sec);
+}
+
+/** The timeout (ms) when the error, or one it wraps, is a first-byte timeout; else null. */
+function firstByteTimeoutOf(error: unknown): number | null {
+  let e: unknown = error;
+  for (let i = 0; i < 5 && e && typeof e === "object"; i++) {
+    if ((e as { name?: unknown }).name === "FirstByteTimeoutError") {
+      const ms = (e as { timeoutMs?: unknown }).timeoutMs;
+      return typeof ms === "number" ? ms : 0;
+    }
+    e = (e as { cause?: unknown }).cause;
+  }
+  return null;
 }
 
 /** The error's message chain plus any response body it carries. */

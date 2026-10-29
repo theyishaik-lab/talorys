@@ -8,6 +8,8 @@ export interface AiErrorDetails {
   status?: number | null;
   reason?: AiFailureReason;
   timeout_s?: number;
+  /** "first_byte" when the endpoint's own first-byte timeout cut the request (a short pause follows). */
+  timeout_kind?: "first_byte" | "watchdog";
   attempts?: AiAttempt[];
   /** The provider's own "try again in" hint, in seconds (Retry-After, X-RateLimit-Reset, Gemini's "retry in 4h26m"). */
   retry_after_s?: number;

@@ -429,13 +429,20 @@ export const aiEndpointSchema = z.object({
     .url()
     .max(300)
     .refine((v) => v.startsWith("https://"), "The endpoint must be https"),
+  /**
+   * Seconds a request may wait for the endpoint's first byte before it is cut off and the chain
+   * moves on (0 = no limit). Unset: the host's default (20 s for NVIDIA build, none elsewhere).
+   */
+  firstByteTimeoutS: z.number().int().min(0).max(300).optional(),
 });
 export type AiEndpoint = z.infer<typeof aiEndpointSchema> & { id: string };
-/** PUT /api/ai/endpoints/:id — every field optional for a preset id (ovh, groq, …); `key: null` removes a stored key. */
+/** PUT /api/ai/endpoints/:id — every field optional for a preset id (ovh, groq, nvidia, …); `key: null` removes a stored key. */
 export const aiEndpointUpdateSchema = z.object({
   name: z.string().trim().min(1).max(60).optional(),
   baseURL: aiEndpointSchema.shape.baseURL.optional(),
   key: z.string().trim().min(8).max(500).nullable().optional(),
+  /** `null` returns to the host's default. */
+  firstByteTimeoutS: z.number().int().min(0).max(300).nullable().optional(),
 });
 
 /** Any provider's model id: no spaces, no URL (a model is chosen by id, never fetched from an address). */

@@ -13,6 +13,8 @@ import { detailsOf, reasonOf } from "./attribution";
  *  - overloaded (5xx / "high demand"), no answer within the watchdog, or an unknown error: a short
  *    pause that doubles with each consecutive failure (overload 1 → 2 → 4 … min, silence 5 → 10 …
  *    min), capped at 30 min, and reset by the model's next success;
+ *  - an endpoint's own first-byte timeout (NVIDIA build hangs, openai-compatible.ts): 1 → 2 → 4 …
+ *    min, capped at 10 min — such hangs are per request, so the free model is soon tried again;
  *  - the provider does not offer the model: 6 h; a rejected key 1 h; no key 10 min.
  * OpenRouter's free allowance and Workers AI's neurons are the account's, so those pauses cover
  * every model of that provider. When every model in the chain is paused, the turn tries them all
@@ -42,6 +44,7 @@ export const COOLDOWNS_KEY = "ai_cooldowns";
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const MAX_BACKOFF = 30 * MINUTE;
+const MAX_FIRST_BYTE_BACKOFF = 10 * MINUTE;
 const MAX_DAILY = 24 * HOUR;
 /** How long after a pause ends its strikes still count. */
 const STRIKE_MEMORY = 6 * HOUR;
@@ -77,6 +80,7 @@ export function cooldownFor(error: unknown, now: number, strikes = 1): { ms: num
     case "overloaded":
       return { ms: doubling(MINUTE), scope: "model" };
     case "timeout":
+      if ((d as { timeout_kind?: unknown }).timeout_kind === "first_byte") return { ms: Math.min(MAX_FIRST_BYTE_BACKOFF, doubling(MINUTE)), scope: "model" };
       return { ms: doubling(5 * MINUTE), scope: "model" };
     case "no_model":
       return { ms: 6 * HOUR, scope: "model" };
