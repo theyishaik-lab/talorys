@@ -9,4 +9,4 @@ export { formatAttempts, modelDisplayName, modelLabel } from "../../../../packag
 export { endpointIdFromName, moveItem, settingsPatchForChain } from "../../../../packages/shared/src/chain";
 
 /** Mirrors `MAX_FALLBACK_CHAIN` in packages/shared/src/schemas.ts (that file needs zod); the test checks they match. */
-export const MAX_FALLBACK_CHAIN = 16;
+export const MAX_FALLBACK_CHAIN = 48;
