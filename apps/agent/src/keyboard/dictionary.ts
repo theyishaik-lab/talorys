@@ -11,6 +11,8 @@ import { now } from "../db/database";
 
 export const KEYBOARD_MAX_WORDS = 200_000;
 export const KEYBOARD_MAX_BIGRAMS = 500_000;
+/** Words the keyboard learned from what was on screen (only sent when the owner turned that backup on). */
+export const KEYBOARD_MAX_SCREEN_WORDS = 20_000;
 /** Largest PUT body accepted (bytes). */
 export const KEYBOARD_MAX_BODY_BYTES = 5 * 1024 * 1024;
 
@@ -27,6 +29,12 @@ export const keyboardDictionarySchema = z.object({
   updatedAt: time,
   words: z.array(learnedWordSchema),
   bigrams: z.array(learnedBigramSchema),
+  /**
+   * Keyboard 1.4.1+: words learned from text on screen, kept apart from typed words. Optional: the
+   * keyboard sends it only when the owner turned on "include screen words in the backup"; a backup
+   * without it keeps whatever screen words were stored before (count = sightings).
+   */
+  screenWords: z.array(learnedWordSchema).max(KEYBOARD_MAX_SCREEN_WORDS).optional(),
 });
 
 export type LearnedWord = z.infer<typeof learnedWordSchema>;
@@ -76,7 +84,17 @@ export function mergeDictionaries(stored: KeyboardDictionary | null, incoming: K
     bigrams.set(k, prev ? mergeBigram(prev, b) : normalize(b));
   }
   const updatedAt = Math.max(nowMs, incoming.updatedAt, stored?.updatedAt ?? 0);
-  return { schema: 1, updatedAt, words: [...words.values()], bigrams: [...bigrams.values()] };
+  const out: KeyboardDictionary = { schema: 1, updatedAt, words: [...words.values()], bigrams: [...bigrams.values()] };
+  if (stored?.screenWords || incoming.screenWords) {
+    const screen = new Map<string, LearnedWord>();
+    for (const w of [...(stored?.screenWords ?? []), ...(incoming.screenWords ?? [])]) {
+      const k = wordKey(w);
+      const prev = screen.get(k);
+      screen.set(k, prev ? mergeWord(prev, w) : normalize(w));
+    }
+    out.screenWords = [...screen.values()];
+  }
+  return out;
 }
 
 /** Rows hold at most this many UTF-16 units (<= 1.5 MB of UTF-8), under the 2 MB SQLite value cap. */

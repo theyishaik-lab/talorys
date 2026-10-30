@@ -23,7 +23,7 @@
   "vars": {
     "OPEN_CONNECTOR_URL": "https://open-connector.yishai-kaminsky.workers.dev",
     "TALORYS_INSTALLATION_ID": "lxl5w9o0",
-    "TALORYS_DEPLOYED_VERSION": "0.1.16-chain",
+    "TALORYS_DEPLOYED_VERSION": "0.1.17-sync",
     "TALORYS_DEFAULT_TIMEZONE": "UTC",
     "TALORYS_AGENT_NAME": "Talorys",
     "PUBLIC_APP_URL": "https://talorys-lxl5w9o0-web.pages.dev"

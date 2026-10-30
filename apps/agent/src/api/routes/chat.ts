@@ -1,4 +1,4 @@
-import { type ChatStreamEvent, chatRequestSchema, conversationCreateSchema, conversationUpdateSchema } from "@talorys/shared";
+import { type ChatStreamEvent, chatRequestSchema, formatAttempts, conversationCreateSchema, conversationUpdateSchema } from "@talorys/shared";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv } from "../app";
@@ -157,42 +157,93 @@ chatRoutes.post("/chat", async (c) => {
   });
 });
 
+/** How long POST /chat/sync waits for a turn before it answers with what it has. */
+export const SYNC_TIMEOUT_MS = 60_000;
+
 /**
- * Non-streaming chat endpoint for mobile/embedded clients that cannot consume SSE.
- * Runs a full chat turn and returns the final assistant text as JSON.
- * Capped at 60 s; returns the partial text if the turn is still running at timeout.
+ * Non-streaming chat endpoint for mobile/embedded clients that cannot consume SSE (the Android
+ * keyboard's Ask sheet). Runs a full chat turn and returns the final assistant text as JSON.
+ *
+ * Oct 30, 2026: a turn that failed (every model in the chain refused) used to come back as
+ * `200 {"reply":""}`, so the keyboard could only say "empty reply" and never why. A failed turn
+ * with no text is now an error response with the agent's error envelope (503 for model failures,
+ * 429 for the daily limit), whose details carry the models tried and why each failed. A follow-up
+ * may pass the `conversation_id` it got back to continue the same conversation instead of
+ * starting a new one per message.
+ *
+ * Capped at [SYNC_TIMEOUT_MS]; returns the partial text if the turn is still running at timeout.
  */
 chatRoutes.post("/chat/sync", async (c) => {
-  const { message, context } = await body(
+  const input = await body(
     c,
-    z.object({ message: z.string().min(1).max(8192), context: z.string().max(500).optional() }),
+    z.object({
+      message: z.string().min(1).max(8192),
+      context: z.string().max(500).optional(),
+      conversation_id: z.string().min(1).max(64).optional(),
+    }),
   );
 
   const agent = c.env.agent;
+  if (input.conversation_id && conversationBusy(agent.activeRuns, input.conversation_id)) {
+    throw new AppError("CONFLICT", "A response is already being generated in this conversation.");
+  }
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60_000);
+  markProgress(controller);
+  if (input.conversation_id) agent.activeRuns.set(input.conversation_id, controller);
+  const timeout = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
 
-  const fullMessage = context ? `[Context: ${context}]\n\n${message}` : message;
+  const fullMessage = input.context ? `[Context: ${input.context}]\n\n${input.message}` : input.message;
   let replyText = "";
-  let conversationId: string | undefined;
+  let finalText = "";
+  let conversationId: string | undefined = input.conversation_id;
+  let failure: Extract<ChatStreamEvent, { type: "error" }> | null = null;
+  let model: string | null = null;
 
   try {
     for await (const event of agent.runner().chat({
-      conversationId: undefined,
+      conversationId: input.conversation_id,
       message: fullMessage,
       signal: controller.signal,
     })) {
-      if (event.type === "start") conversationId = event.conversation_id;
-      if (event.type === "text") replyText += event.delta ?? "";
+      markProgress(controller);
+      if (event.type === "start") {
+        conversationId = event.conversation_id;
+        agent.activeRuns.set(conversationId, controller);
+      } else if (event.type === "text") replyText += event.delta ?? "";
+      else if (event.type === "error") failure = event;
+      else if (event.type === "model") model = event.model;
+      else if (event.type === "done") finalText = event.message.content ?? "";
     }
-  } catch {
-    // Return whatever text was accumulated before the error/timeout.
+  } catch (error) {
+    // Thrown before the turn started (e.g. an unknown conversation_id): the normal error response.
+    if (error instanceof AppError) throw error;
+    console.error("chat/sync turn failed", error);
+    failure = { type: "error", code: "INTERNAL_ERROR", message: "Something went wrong." };
   } finally {
     clearTimeout(timeout);
-    if (conversationId) agent.activeRuns.delete(conversationId);
+    if (conversationId && agent.activeRuns.get(conversationId) === controller) agent.activeRuns.delete(conversationId);
   }
 
-  return c.json({ reply: replyText, conversation_id: conversationId ?? null });
+  const reply = replyText.trim() ? replyText : failure ? "" : finalText;
+  if (!reply.trim()) {
+    const timedOut = controller.signal.aborted;
+    const code = failure?.code ?? (timedOut ? "AI_UNAVAILABLE" : "INTERNAL_ERROR");
+    const message = failure?.message ?? (timedOut ? `No answer within ${SYNC_TIMEOUT_MS / 1000} s. Please try again.` : "The agent returned no answer.");
+    const attempts = failure?.attempts ?? [];
+    throw new AppError(code, message, {
+      conversation_id: conversationId ?? null,
+      ...(attempts.length ? { attempts, attempts_text: formatAttempts(attempts) } : {}),
+      ...(failure?.provider ? { provider: failure.provider, model: failure.model, status: failure.status ?? null, reason: failure.reason } : {}),
+      ...(timedOut && !failure ? { timeout_s: SYNC_TIMEOUT_MS / 1000 } : {}),
+    });
+  }
+  return c.json({
+    reply,
+    conversation_id: conversationId ?? null,
+    ...(model ? { model } : {}),
+    // Text arrived, then the turn failed: the partial answer plus why it stopped.
+    ...(failure ? { error: { code: failure.code, message: failure.message } } : {}),
+  });
 });
 
 chatRoutes.post("/chat/cancel", async (c) => {

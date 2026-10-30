@@ -30,6 +30,17 @@ describe("keyboard dictionary merge", () => {
     expect(out.updatedAt).toBe(1000);
   });
 
+  it("keeps screen words apart from typed words, and keeps stored ones when a backup omits them", () => {
+    const first = mergeDictionaries(null, dict({ screenWords: [{ w: "talorys", lang: "en", count: 3, lastUsed: 5 }] }), 50);
+    expect(first.screenWords).toEqual([{ w: "talorys", lang: "en", count: 3, lastUsed: 5 }]);
+    expect(first.words).toEqual([]);
+    const without = mergeDictionaries(first, dict({ words: [{ w: "hi", lang: "en", count: 1, lastUsed: 6 }] }), 60);
+    expect(without.screenWords).toEqual(first.screenWords);
+    const merged = mergeDictionaries(without, dict({ screenWords: [{ w: "talorys", lang: "en", count: 4, lastUsed: 7 }] }), 70);
+    expect(merged.screenWords).toEqual([{ w: "talorys", lang: "en", count: 4, lastUsed: 7 }]);
+    expect(mergeDictionaries(null, dict(), 1).screenWords).toBeUndefined();
+  });
+
   it("deleted wins when its lastUsed is >= the other side's, loses otherwise", () => {
     const tie = mergeDictionaries(dict({ words: [{ w: "a", lang: "en", count: 4, lastUsed: 10 }] }), dict({ words: [{ w: "a", lang: "en", count: 1, lastUsed: 10, deleted: true }] }));
     expect(tie.words[0]).toEqual({ w: "a", lang: "en", count: 4, lastUsed: 10, deleted: true });
