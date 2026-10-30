@@ -2,7 +2,7 @@
   "expo": {
     "name": "Talorys",
     "slug": "talorys",
-    "version": "0.3.1",
+    "version": "0.3.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "talorys",
@@ -11,7 +11,7 @@
     "android": {
       "package": "dev.talorys.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 7,
+      "versionCode": 8,
       "adaptiveIcon": {
         "backgroundColor": "#4C47E0",
         "foregroundImage": "./assets/images/adaptive-foreground.png",
