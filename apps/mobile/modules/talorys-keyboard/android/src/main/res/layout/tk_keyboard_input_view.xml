@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Gboard-style input view: toolbar / suggestion strip over the key board. The Talorys panel
+     (Ask + agent suggestions) and the clipboard panel open in place of the keys. A transparent
+     overlay on top draws key-press previews and long-press popups, which may rise into the strip. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/kb_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?attr/kbBackground">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Toolbar when idle (clipboard, emoji, Ask, one-handed, settings, Talorys panel, mic);
+             three suggestion slots while typing. Drawn as one view: updates never re-lay-out. -->
+        <com.talorys.keyboard.keyboard.SuggestionStripView
+            android:id="@+id/strip"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/tk_kb_strip_height"
+            android:layoutDirection="ltr" />
+
+        <!-- BoardFrame: the keyboard (first child) sets the height; the panel is forced to it. -->
+        <com.talorys.keyboard.keyboard.BoardFrame
+            android:id="@+id/board_frame"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <com.talorys.keyboard.keyboard.KeyboardView
+                android:id="@+id/keyboard"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layoutDirection="ltr"
+                android:paddingHorizontal="2dp"
+                android:paddingBottom="4dp" />
+
+            <ScrollView
+                android:id="@+id/talorys_panel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fillViewport="true"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="12dp"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="8dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_ask"
+                        style="@style/Widget.Material3.Button.TonalButton.Icon"
+                        android:layout_width="match_parent"
+                        android:layout_height="56dp"
+                        android:contentDescription="@string/tk_strip_ask_desc"
+                        android:text="@string/tk_panel_ask"
+                        android:textSize="16sp"
+                        app:icon="@drawable/tk_ic_sparkle"
+                        app:iconGravity="textStart"
+                        app:iconSize="20dp" />
+
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chip_setup"
+                        style="@style/Widget.Material3.Chip.Assist"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/tk_strip_setup"
+                        android:visibility="gone"
+                        app:chipIcon="@drawable/tk_ic_settings"
+                        app:chipIconVisible="true" />
+
+                    <TextView
+                        android:id="@+id/panel_suggestions_title"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/tk_panel_suggestions"
+                        android:textAppearance="?attr/textAppearanceLabelLarge"
+                        android:textColor="?attr/kbKeyHint" />
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/panel_chips"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp" />
+
+                    <TextView
+                        android:id="@+id/panel_empty"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text="@string/tk_panel_no_suggestions"
+                        android:textAppearance="?attr/textAppearanceBodyMedium"
+                        android:textColor="?attr/kbKeyHint" />
+
+                    <Space
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp"
+                        android:layout_weight="1"
+                        android:minHeight="8dp" />
+
+                    <!-- Panel actions: every one carries a visible text label (not a bare icon). -->
+                    <LinearLayout
+                        android:id="@+id/panel_actions"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_settings"
+                            style="@style/Talorys.PanelAction"
+                            android:contentDescription="@string/tk_strip_settings"
+                            android:text="@string/tk_panel_action_settings"
+                            app:icon="@drawable/tk_ic_settings" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_hide"
+                            style="@style/Talorys.PanelAction"
+                            android:contentDescription="@string/tk_strip_hide_keyboard"
+                            android:text="@string/tk_panel_action_hide"
+                            app:icon="@drawable/tk_ic_keyboard_hide" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_back"
+                            style="@style/Talorys.PanelAction"
+                            android:contentDescription="@string/tk_panel_back"
+                            android:text="@string/tk_panel_action_back"
+                            app:icon="@drawable/tk_ic_keyboard" />
+                    </LinearLayout>
+                </LinearLayout>
+            </ScrollView>
+
+            <!-- Clipboard history: pinned first, newest first; tap = paste. -->
+            <LinearLayout
+                android:id="@+id/clip_panel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="4dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/tk_clip_title"
+                        android:textAppearance="?attr/textAppearanceTitleSmall"
+                        android:textColor="?attr/kbKeyText" />
+
+                    <ImageButton
+                        android:id="@+id/clip_clear"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/tk_clip_clear"
+                        android:src="@drawable/tk_ic_clear_all" />
+
+                    <ImageButton
+                        android:id="@+id/clip_close"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:contentDescription="@string/tk_panel_back"
+                        android:src="@drawable/tk_ic_keyboard" />
+                </LinearLayout>
+
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:fillViewport="true">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:paddingHorizontal="8dp"
+                        android:paddingBottom="8dp">
+
+                        <TextView
+                            android:id="@+id/clip_empty"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:padding="16dp"
+                            android:gravity="center"
+                            android:text="@string/tk_clip_empty"
+                            android:textAppearance="?attr/textAppearanceBodyMedium"
+                            android:textColor="?attr/kbKeyHint" />
+
+                        <LinearLayout
+                            android:id="@+id/clip_list"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical" />
+                    </LinearLayout>
+                </ScrollView>
+            </LinearLayout>
+        </com.talorys.keyboard.keyboard.BoardFrame>
+    </LinearLayout>
+
+    <com.talorys.keyboard.keyboard.KeyPreviewView
+        android:id="@+id/key_preview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clickable="false"
+        android:focusable="false"
+        android:importantForAccessibility="no" />
+</FrameLayout>

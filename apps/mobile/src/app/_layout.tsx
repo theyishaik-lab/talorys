@@ -94,6 +94,9 @@ function Shell() {
           <Stack.Screen name="settings/connections" />
           <Stack.Screen name="settings/account" />
           <Stack.Screen name="settings/about" />
+          <Stack.Screen name="settings/keyboard" />
+          <Stack.Screen name="settings/keyboard-clipboard" />
+          <Stack.Screen name="settings/keyboard-words" />
           <Stack.Screen name="memory" />
           <Stack.Screen name="tasks" />
           <Stack.Screen name="notes" />

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tk_ime_name">Talorys Keyboard</string>
+    <string name="tk_accessibility_service_label">Talorys Screen Access</string>
+    <string name="tk_accessibility_service_description">Reads on-screen context (current app, focused field hint) to give Talorys relevant suggestions. No text you type is read or sent without your approval.</string>
+
+    <!-- Settings -->
+
+
+
+    <!-- Keyboard -->
+    <string name="tk_strip_ask_desc">Ask Talorys</string>
+    <string name="tk_strip_setup">Sign in to Talorys</string>
+    <string name="tk_strip_settings">Talorys settings</string>
+    <string name="tk_strip_hide_keyboard">Hide keyboard</string>
+    <string name="tk_strip_suggestion_hint">Tap to insert, long-press to dismiss</string>
+    <string name="tk_key_shift">Shift</string>
+    <string name="tk_key_caps_lock">Caps lock</string>
+    <string name="tk_key_delete">Delete</string>
+    <string name="tk_key_space">Space</string>
+    <string name="tk_key_enter">Enter</string>
+    <string name="tk_key_language">Switch language. Long-press to choose another keyboard</string>
+    <string name="tk_key_symbols">Symbols</string>
+    <string name="tk_key_letters">Letters</string>
+    <string name="tk_key_label_go">Go</string>
+    <string name="tk_key_label_next">Next</string>
+    <string name="tk_key_label_prev">Prev</string>
+    <string name="tk_key_label_done">Done</string>
+    <string name="tk_key_label_send">Send</string>
+    <string name="tk_lang_en_short" translatable="false">EN</string>
+    <string name="tk_lang_he_short" translatable="false">עב</string>
+    <string name="tk_lang_en_space" translatable="false">English</string>
+    <string name="tk_lang_he_space" translatable="false">עברית</string>
+
+    <!-- Chat -->
+    <string name="tk_chat_title">Talorys</string>
+    <string name="tk_chat_hint">Ask Talorys…</string>
+    <string name="tk_chat_send">Send</string>
+    <string name="tk_chat_close">Close</string>
+    <string name="tk_chat_copy">Copy</string>
+    <string name="tk_chat_insert">Insert into field</string>
+    <string name="tk_chat_copied">Copied</string>
+    <string name="tk_chat_insert_ready">Will be inserted when the text field is focused again</string>
+    <string name="tk_chat_thinking">Talorys is thinking…</string>
+    <string name="tk_chat_empty_title">How can I help?</string>
+    <string name="tk_chat_empty_body">Your message is sent only when you tap Send. Follow-up questions continue the same conversation until you close this sheet.</string>
+    <string name="tk_chat_context_chip">Context: %1$s</string>
+    <string name="tk_chat_context_removed">Context won\'t be sent</string>
+    <string name="tk_chat_not_configured">You\'re not signed in. Open the Talorys app and sign in; the keyboard uses the same session.</string>
+    <string name="tk_chat_open_settings">Open Talorys</string>
+    <string name="tk_chat_empty_reply">The agent didn\'t return a reply (it may have timed out). Try again.</string>
+    <string name="tk_chat_error">Couldn\'t get a reply: %1$s</string>
+    <string name="tk_chat_error_auth">Your Talorys session expired or was revoked (HTTP 401). Open the Talorys app and sign in again; the keyboard uses the same session.</string>
+    <string name="tk_chat_error_forbidden">The agent refused the request (HTTP 403): %1$s</string>
+    <string name="tk_chat_error_not_found">Chat endpoint not found (HTTP 404). Check the agent URL (it should end in /api), or update the agent.</string>
+    <string name="tk_chat_error_busy">A reply is still being generated in this conversation (HTTP 409). Wait a moment, then retry.</string>
+    <string name="tk_chat_error_limit">Limit reached (HTTP 429): %1$s</string>
+    <string name="tk_chat_error_models">No AI model answered (HTTP %1$d): %2$s</string>
+    <string name="tk_chat_error_attempts">Models tried: %1$s</string>
+    <string name="tk_chat_error_http">Agent error: %1$s</string>
+    <string name="tk_chat_error_empty">The agent answered with an empty reply (HTTP 200). Agents before 0.1.17 hide the reason this way; open the conversation in Talorys to see it.</string>
+    <string name="tk_chat_error_timeout">No response from the agent in time (%1$s). Check your connection and retry.</string>
+    <string name="tk_chat_error_network">Couldn\'t reach the agent: %1$s</string>
+    <string name="tk_chat_error_bad_response">Unexpected response from the agent: %1$s</string>
+    <string name="tk_chat_retry">Retry</string>
+    <string name="tk_chat_you">You</string>
+
+    <!-- Notification -->
+    <string name="tk_notif_channel_name">Talorys connection</string>
+    <string name="tk_notif_channel_desc">Keeps Talorys suggestions available in the keyboard</string>
+    <string name="tk_notif_title">Talorys</string>
+    <string name="tk_notif_text">Connected to your agent</string>
+    <string name="tk_strip_voice">Voice typing</string>
+    <string name="tk_strip_panel">Talorys and more</string>
+    <string name="tk_strip_no_voice">No voice typing keyboard is enabled. Pick one, or enable Google voice typing in system settings.</string>
+    <string name="tk_panel_ask">Ask Talorys</string>
+    <string name="tk_panel_suggestions">Suggestions from Talorys</string>
+    <string name="tk_panel_no_suggestions">No suggestions right now.</string>
+    <string name="tk_panel_back">Back to keyboard</string>
+    <string name="tk_panel_action_settings">Settings</string>
+    <string name="tk_panel_action_hide">Hide keyboard</string>
+    <string name="tk_panel_action_back">Back to keys</string>
+    <string name="tk_key_emoji_prev">Previous emoji page</string>
+    <string name="tk_key_emoji_next">Next emoji page</string>
+    <string name="tk_strip_word_forgotten">Forgot “%1$s”</string>
+    <string name="tk_strip_word_builtin">“%1$s” is a built-in word</string>
+    <!-- 1.4.0 -->
+    <string name="tk_strip_toolbar">Show toolbar</string>
+    <string name="tk_toolbar_clipboard">Clipboard</string>
+    <string name="tk_toolbar_emoji">Emoji</string>
+    <string name="tk_toolbar_one_handed">One-handed mode</string>
+    <string name="tk_key_one_hand_switch">Move keyboard to the other side</string>
+    <string name="tk_key_one_hand_exit">Full-width keyboard</string>
+    <string name="tk_clip_title">Clipboard</string>
+    <string name="tk_clip_clear">Clear unpinned items</string>
+    <string name="tk_clip_empty">Text you copy will appear here. Tap to paste, pin to keep.</string>
+    <string name="tk_clip_disabled">Clipboard history is off (Talorys Keyboard settings).</string>
+    <string name="tk_clip_paste_desc">Paste: %1$s</string>
+    <string name="tk_clip_pin">Pin</string>
+    <string name="tk_clip_unpin">Unpin</string>
+    <string name="tk_clip_delete">Delete</string>
+</resources>

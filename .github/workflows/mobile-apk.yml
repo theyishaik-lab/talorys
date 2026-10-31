@@ -115,6 +115,10 @@ jobs:
           TALORYS_KEY_PASSWORD: ${{ secrets.TALORYS_KEY_PASSWORD || secrets.TALORYS_KEYSTORE_PASSWORD }}
         run: ./scripts/build-apk.sh
 
+      - name: Keyboard unit tests (modules/talorys-keyboard, JUnit + Robolectric)
+        working-directory: apps/mobile/android
+        run: ./gradlew :talorys-keyboard:testDebugUnitTest --no-daemon --console=plain
+
       - name: Name and verify the APK
         id: apk
         run: |

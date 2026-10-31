@@ -38,9 +38,10 @@ yarn-error.*
 
 example
 
-# generated native folders
+# generated native folders (prebuild). Anchored to this folder: local Expo modules under
+# modules/*/android are source and must stay tracked.
 /ios
 /android
-android/
-ios/
+modules/*/android/build/
+modules/*/android/.cxx/
 google-services.json

@@ -1,11 +1,12 @@
 import Constants from "expo-constants";
 import { router } from "expo-router";
-import { Bell, Cpu, Info, Languages, Link2, UserRound } from "lucide-react-native";
+import { Bell, Cpu, Info, Keyboard, Languages, Link2, UserRound } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { Screen } from "../../components/Screen";
 import { Group, RadioRow, Row } from "../../components/SettingsList";
 import { T } from "../../components/ui";
+import { isKeyboardAvailable } from "../../../modules/talorys-keyboard";
 import { api } from "../../lib/api";
 import { LOCALE_NAMES, type LocalePreference, deviceLocale, useI18n } from "../../lib/i18n";
 import { type ThemeMode, useTheme } from "../../lib/theme";
@@ -55,6 +56,7 @@ export default function SettingsScreen() {
         ))}
       </Group>
       <Group>
+        {isKeyboardAvailable() ? <Row icon={Keyboard} title={t("kb.title")} subtitle={t("kb.hint")} chevron onPress={() => router.push("/settings/keyboard")} /> : null}
         <Row icon={Bell} title={t("m.notifications")} subtitle={t("m.notifications.hint")} chevron onPress={() => router.push("/settings/notifications")} />
         <Row icon={Cpu} title={t("settings.model")} subtitle={t("m.model.hint")} value={model.split("/").pop()} chevron onPress={() => router.push("/settings/model")} />
         <Row icon={Link2} title={t("settings.connections")} subtitle={t("m.connections.hint")} chevron onPress={() => router.push("/settings/connections")} />

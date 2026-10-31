@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="tk_ime_name">מקלדת Talorys</string>
+    <string name="tk_accessibility_service_label">גישה למסך של Talorys</string>
+    <string name="tk_accessibility_service_description">קוראת הקשר מהמסך (האפליקציה הנוכחית ורמז השדה) כדי ש-Talorys יציע הצעות רלוונטיות. מה שאת/ה מקליד/ה לא נקרא ולא נשלח בלי אישור.</string>
+
+
+
+    <string name="tk_strip_ask_desc">לשאול את Talorys</string>
+    <string name="tk_strip_setup">התחברות ל-Talorys</string>
+    <string name="tk_strip_settings">הגדרות Talorys</string>
+    <string name="tk_strip_hide_keyboard">הסתרת המקלדת</string>
+    <string name="tk_strip_suggestion_hint">הקשה להוספה, לחיצה ארוכה לביטול</string>
+    <string name="tk_key_shift">Shift</string>
+    <string name="tk_key_caps_lock">אותיות גדולות קבוע</string>
+    <string name="tk_key_delete">מחיקה</string>
+    <string name="tk_key_space">רווח</string>
+    <string name="tk_key_enter">אנטר</string>
+    <string name="tk_key_language">החלפת שפה. לחיצה ארוכה לבחירת מקלדת אחרת</string>
+    <string name="tk_key_symbols">סימנים</string>
+    <string name="tk_key_letters">אותיות</string>
+    <string name="tk_key_label_go">מעבר</string>
+    <string name="tk_key_label_next">הבא</string>
+    <string name="tk_key_label_prev">הקודם</string>
+    <string name="tk_key_label_done">סיום</string>
+    <string name="tk_key_label_send">שליחה</string>
+
+    <string name="tk_chat_title">Talorys</string>
+    <string name="tk_chat_hint">לשאול את Talorys…</string>
+    <string name="tk_chat_send">שליחה</string>
+    <string name="tk_chat_close">סגירה</string>
+    <string name="tk_chat_copy">העתקה</string>
+    <string name="tk_chat_insert">הוספה לשדה</string>
+    <string name="tk_chat_copied">הועתק</string>
+    <string name="tk_chat_insert_ready">הטקסט יתווסף כשהשדה יקבל שוב פוקוס</string>
+    <string name="tk_chat_thinking">Talorys חושב…</string>
+    <string name="tk_chat_empty_title">איך אפשר לעזור?</string>
+    <string name="tk_chat_empty_body">ההודעה נשלחת רק כשלוחצים על שליחה. שאלות המשך ממשיכות את אותה שיחה עד שסוגרים את החלון.</string>
+    <string name="tk_chat_context_chip">הקשר: %1$s</string>
+    <string name="tk_chat_context_removed">ההקשר לא יישלח</string>
+    <string name="tk_chat_not_configured">לא התחברת. יש לפתוח את אפליקציית Talorys ולהתחבר; המקלדת משתמשת באותה התחברות.</string>
+    <string name="tk_chat_open_settings">פתיחת Talorys</string>
+    <string name="tk_chat_empty_reply">הסוכן לא החזיר תשובה (ייתכן שפג הזמן). נסו שוב.</string>
+    <string name="tk_chat_error">לא התקבלה תשובה: %1$s</string>
+    <string name="tk_chat_error_auth">פג תוקף ההתחברות ל-Talorys או שהיא בוטלה (HTTP 401). יש לפתוח את אפליקציית Talorys ולהתחבר שוב; המקלדת משתמשת באותה התחברות.</string>
+    <string name="tk_chat_error_forbidden">הסוכן דחה את הבקשה (HTTP 403): %1$s</string>
+    <string name="tk_chat_error_not_found">נקודת הצ\'אט לא נמצאה (HTTP 404). יש לבדוק את כתובת הסוכן (צריכה להסתיים ב-/api) או לעדכן את הסוכן.</string>
+    <string name="tk_chat_error_busy">תשובה עדיין נכתבת בשיחה הזו (HTTP 409). כדאי לחכות רגע ולנסות שוב.</string>
+    <string name="tk_chat_error_limit">הגעת למגבלה (HTTP 429): %1$s</string>
+    <string name="tk_chat_error_models">אף מודל AI לא ענה (HTTP %1$d): %2$s</string>
+    <string name="tk_chat_error_attempts">מודלים שנוסו: %1$s</string>
+    <string name="tk_chat_error_http">שגיאת סוכן: %1$s</string>
+    <string name="tk_chat_error_empty">הסוכן החזיר תשובה ריקה (HTTP 200). סוכנים לפני 0.1.17 מסתירים כך את הסיבה; אפשר לפתוח את השיחה ב-Talorys כדי לראות אותה.</string>
+    <string name="tk_chat_error_timeout">הסוכן לא ענה בזמן (%1$s). יש לבדוק את החיבור ולנסות שוב.</string>
+    <string name="tk_chat_error_network">אין גישה לסוכן: %1$s</string>
+    <string name="tk_chat_error_bad_response">תשובה לא צפויה מהסוכן: %1$s</string>
+    <string name="tk_chat_retry">ניסיון חוזר</string>
+    <string name="tk_chat_you">את/ה</string>
+
+    <string name="tk_notif_channel_name">חיבור Talorys</string>
+    <string name="tk_notif_channel_desc">שומר על הצעות Talorys זמינות במקלדת</string>
+    <string name="tk_notif_title">Talorys</string>
+    <string name="tk_notif_text">מחובר לסוכן שלך</string>
+    <string name="tk_strip_voice">הקלדה קולית</string>
+    <string name="tk_strip_panel">Talorys ועוד</string>
+    <string name="tk_strip_no_voice">לא מופעלת מקלדת להקלדה קולית. אפשר לבחור מקלדת אחרת או להפעיל הקלדה קולית של Google בהגדרות המערכת.</string>
+    <string name="tk_panel_ask">לשאול את Talorys</string>
+    <string name="tk_panel_suggestions">הצעות מ-Talorys</string>
+    <string name="tk_panel_no_suggestions">אין הצעות כרגע.</string>
+    <string name="tk_panel_back">חזרה למקלדת</string>
+    <string name="tk_panel_action_settings">הגדרות</string>
+    <string name="tk_panel_action_hide">הסתרת מקלדת</string>
+    <string name="tk_panel_action_back">חזרה למקשים</string>
+    <string name="tk_key_emoji_prev">עמוד אמוג\'י קודם</string>
+    <string name="tk_key_emoji_next">עמוד אמוג\'י הבא</string>
+    <string name="tk_strip_word_forgotten">„%1$s” נשכחה</string>
+    <string name="tk_strip_word_builtin">„%1$s” היא מילה מובנית</string>
+    <!-- 1.4.0 -->
+    <string name="tk_strip_toolbar">הצגת סרגל הכלים</string>
+    <string name="tk_toolbar_clipboard">לוח העתקה</string>
+    <string name="tk_toolbar_emoji">אמוג׳י</string>
+    <string name="tk_toolbar_one_handed">מצב יד אחת</string>
+    <string name="tk_key_one_hand_switch">העברת המקלדת לצד השני</string>
+    <string name="tk_key_one_hand_exit">מקלדת ברוחב מלא</string>
+    <string name="tk_clip_title">לוח העתקה</string>
+    <string name="tk_clip_clear">מחיקת הפריטים שלא נעוצים</string>
+    <string name="tk_clip_empty">טקסט שתעתיקו יופיע כאן. הקשה מדביקה, נעיצה שומרת.</string>
+    <string name="tk_clip_disabled">היסטוריית לוח ההעתקה כבויה (בהגדרות המקלדת).</string>
+    <string name="tk_clip_paste_desc">הדבקה: %1$s</string>
+    <string name="tk_clip_pin">נעיצה</string>
+    <string name="tk_clip_unpin">ביטול נעיצה</string>
+    <string name="tk_clip_delete">מחיקה</string>
+</resources>

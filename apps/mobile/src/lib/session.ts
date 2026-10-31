@@ -14,6 +14,26 @@ const DEFAULT_SERVER: string = (Constants.expoConfig?.extra as { defaultServer?:
 let token: string | null = null;
 let server: string = DEFAULT_SERVER;
 const unauthorizedListeners = new Set<() => void>();
+const sessionListeners = new Set<(s: { token: string | null; server: string }) => void>();
+
+/**
+ * Called with the current session after it is loaded at start-up and after every change (sign-in,
+ * sign-out, a 401). The Android keyboard subscribes so it always holds the app's own session.
+ * A listener that throws never breaks the session itself.
+ */
+export function onSessionChange(fn: (s: { token: string | null; server: string }) => void): () => void {
+  sessionListeners.add(fn);
+  return () => sessionListeners.delete(fn);
+}
+function emitSession(): void {
+  for (const fn of sessionListeners) {
+    try {
+      fn({ token, server });
+    } catch (e) {
+      console.warn("session listener failed", e);
+    }
+  }
+}
 
 export async function loadSession(): Promise<{ token: string | null; server: string }> {
   try {
@@ -23,6 +43,7 @@ export async function loadSession(): Promise<{ token: string | null; server: str
   } catch {
     token = null;
   }
+  emitSession();
   return { token, server };
 }
 
@@ -41,6 +62,7 @@ export async function setSession(next: { token: string | null; server?: string }
   }
   if (token) await SecureStore.setItemAsync(TOKEN_KEY, token);
   else await SecureStore.deleteItemAsync(TOKEN_KEY);
+  emitSession();
 }
 
 export function normalizeServer(input: string): string {
