@@ -75,7 +75,8 @@ export default function AutomationsPage() {
   }, [data]);
 
   const row = (a: Automation) => {
-    const meta = KIND_META[a.kind];
+    // A kind this build doesn't know yet (agent deployed before the web) still renders.
+    const meta = KIND_META[a.kind] ?? KIND_META.agent_prompt;
     const Icon = meta.icon;
     return (
       <li key={a.id} className="flex items-start gap-3 px-4 py-3">
