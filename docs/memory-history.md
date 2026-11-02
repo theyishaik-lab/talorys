@@ -13,6 +13,9 @@ Personal facts change. Memory history lets Talorys keep up:
 It works with keyword recall and with [semantic recall](semantic-recall.md),
 uses no AI by default, and needs no extra Cloudflare service.
 
+Pinned **core memory** and **nightly memory dreaming** (learning from the day's
+conversations) build on it: see [memory-dreaming.md](memory-dreaming.md).
+
 ## Statuses
 
 Every memory has a status:

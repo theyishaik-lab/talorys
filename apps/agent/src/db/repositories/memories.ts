@@ -33,19 +33,33 @@ function statusWhere(status: MemoryStatusFilter | undefined, alias = ""): string
   }
 }
 
+type MemoryRow = Omit<Memory, "pinned"> & { pinned?: number | boolean | null };
+
+/** SQLite stores `pinned` as 0/1; the API and the model see a boolean. */
+function toMemory(row: MemoryRow): Memory {
+  return { ...row, pinned: row.pinned === true || row.pinned === 1 };
+}
+
+/** Memory columns plus the pinned flag (tal_memory_pins), for a query aliasing tal_memories as `m`. */
+const COLS = `m.*, EXISTS (SELECT 1 FROM tal_memory_pins p WHERE p.memory_id = m.id) AS pinned`;
+
 export class MemoryRepository {
   constructor(private readonly db: Database) {}
+
+  private rows(sql: string, ...params: unknown[]): Memory[] {
+    return this.db.all<MemoryRow>(sql, ...params).map(toMemory);
+  }
 
   list(opts: { category?: string; q?: string; limit?: number; status?: MemoryStatusFilter } = {}): Memory[] {
     if (opts.q) return this.search(opts.q, opts.limit ?? 100, opts.category, opts.status);
     const params: unknown[] = [];
-    let where = `WHERE ${statusWhere(opts.status)}`;
+    let where = `WHERE ${statusWhere(opts.status, "m.")}`;
     if (opts.category) {
-      where += " AND category = ?";
+      where += " AND m.category = ?";
       params.push(opts.category);
     }
-    return this.db.all<Memory>(
-      `SELECT * FROM tal_memories ${where} ORDER BY updated_at DESC LIMIT ?`,
+    return this.rows(
+      `SELECT ${COLS} FROM tal_memories m ${where} ORDER BY m.updated_at DESC LIMIT ?`,
       ...params,
       opts.limit ?? 500,
     );
@@ -59,27 +73,28 @@ export class MemoryRepository {
     const match = ftsQuery(q);
     const filter = statusWhere(status, "m.");
     if (match) {
-      return this.db.all<Memory>(
-        `SELECT m.* FROM tal_memories_fts f JOIN tal_memories m ON m.rowid = f.rowid
+      return this.rows(
+        `SELECT ${COLS} FROM tal_memories_fts f JOIN tal_memories m ON m.rowid = f.rowid
          WHERE tal_memories_fts MATCH ? AND ${filter} ${category ? "AND m.category = ?" : ""}
          ORDER BY bm25(tal_memories_fts) LIMIT ?`,
         ...(category ? [match, category, limit] : [match, limit]),
       );
     }
-    return this.db.all<Memory>(
-      `SELECT m.* FROM tal_memories m WHERE m.content LIKE ? ESCAPE '\\' AND ${filter} ${category ? "AND m.category = ?" : ""}
+    return this.rows(
+      `SELECT ${COLS} FROM tal_memories m WHERE m.content LIKE ? ESCAPE '\\' AND ${filter} ${category ? "AND m.category = ?" : ""}
        ORDER BY m.updated_at DESC LIMIT ?`,
       ...(category ? [likePattern(q), category, limit] : [likePattern(q), limit]),
     );
   }
 
   get(id: string): Memory | null {
-    return this.db.one<Memory>(`SELECT * FROM tal_memories WHERE id = ?`, id);
+    const row = this.db.one<MemoryRow>(`SELECT ${COLS} FROM tal_memories m WHERE m.id = ?`, id);
+    return row ? toMemory(row) : null;
   }
 
   getMany(ids: string[]): Memory[] {
     if (ids.length === 0) return [];
-    return this.db.all<Memory>(`SELECT * FROM tal_memories WHERE id IN (${ids.map(() => "?").join(",")})`, ...ids);
+    return this.rows(`SELECT ${COLS} FROM tal_memories m WHERE m.id IN (${ids.map(() => "?").join(",")})`, ...ids);
   }
 
   require(id: string): Memory {
@@ -91,11 +106,12 @@ export class MemoryRepository {
   /** Creates a memory. An identical current memory is refreshed instead of duplicated. */
   create(input: { content: string; category?: MemoryCategory; source?: Memory["source"]; valid_from?: string | null }): Memory & { duplicate?: boolean } {
     const content = input.content.trim();
-    const dup = this.db.one<Memory>(
-      `SELECT * FROM tal_memories WHERE lower(content) = lower(?) AND status != 'historical' ORDER BY updated_at DESC LIMIT 1`,
+    const dupRow = this.db.one<MemoryRow>(
+      `SELECT ${COLS} FROM tal_memories m WHERE lower(m.content) = lower(?) AND m.status != 'historical' ORDER BY m.updated_at DESC LIMIT 1`,
       content,
     );
-    if (dup) {
+    if (dupRow) {
+      const dup = toMemory(dupRow);
       const ts = now();
       this.db.run(`UPDATE tal_memories SET updated_at = ? WHERE id = ?`, ts, dup.id);
       return { ...dup, updated_at: ts, duplicate: true };
@@ -106,6 +122,7 @@ export class MemoryRepository {
       content,
       category: input.category ?? "other",
       source: input.source ?? "manual",
+      pinned: false,
       status: "active",
       superseded_by: null,
       valid_from: input.valid_from ?? null,
@@ -133,6 +150,31 @@ export class MemoryRepository {
     return next;
   }
 
+  // ---------- Pinned core memory ----------
+
+  /** Current pinned memories, oldest pin first (stable order in the prompt). */
+  listPinned(): Memory[] {
+    return this.rows(
+      `SELECT ${COLS} FROM tal_memories m JOIN tal_memory_pins pin ON pin.memory_id = m.id WHERE m.status != 'historical' ORDER BY pin.pinned_at ASC, m.created_at ASC LIMIT 200`,
+    );
+  }
+
+  /** Owner-only: pins or unpins a memory. Limits are enforced by the caller (memory/core.ts). */
+  setPinned(id: string, pinned: boolean): Memory {
+    const existing = this.require(id);
+    const ts = now();
+    if (pinned) this.db.run(`INSERT OR IGNORE INTO tal_memory_pins (memory_id, pinned_at) VALUES (?, ?)`, id, ts);
+    else this.db.run(`DELETE FROM tal_memory_pins WHERE memory_id = ?`, id);
+    this.db.run(`UPDATE tal_memories SET updated_at = ? WHERE id = ?`, ts, id);
+    return { ...existing, pinned, updated_at: ts };
+  }
+
+  /** Cheap change signature (count + last update) for caches such as the topic map. */
+  signature(): string {
+    const r = this.db.one<{ n: number; last: string | null }>(`SELECT count(*) AS n, max(updated_at) AS last FROM tal_memories`);
+    return `${r?.n ?? 0}:${r?.last ?? ""}`;
+  }
+
   /** Low-level lifecycle write. Callers (MemoryLifecycle) enforce relationship rules. */
   setLifecycle(
     id: string,
@@ -149,7 +191,7 @@ export class MemoryRepository {
 
   /** Memories that were replaced by `id`. */
   predecessors(id: string): Memory[] {
-    return this.db.all<Memory>(`SELECT * FROM tal_memories WHERE superseded_by = ? ORDER BY created_at`, id);
+    return this.rows(`SELECT ${COLS} FROM tal_memories m WHERE m.superseded_by = ? ORDER BY m.created_at`, id);
   }
 
   /**
@@ -161,6 +203,7 @@ export class MemoryRepository {
     this.db.transaction(() => {
       this.db.run(`DELETE FROM tal_memory_reviews WHERE memory_id = ? OR other_id = ?`, id, id);
       this.db.run(`UPDATE tal_memories SET superseded_by = NULL WHERE superseded_by = ?`, id);
+      this.db.run(`DELETE FROM tal_memory_pins WHERE memory_id = ?`, id);
       this.db.run(`DELETE FROM tal_memories WHERE id = ?`, id);
     });
   }
@@ -170,6 +213,7 @@ export class MemoryRepository {
       this.db.run(`DELETE FROM tal_memory_reviews`);
       // rowsWritten would also count full-text index writes; report memories only.
       const n = this.count();
+      this.db.run(`DELETE FROM tal_memory_pins`);
       this.db.run(`DELETE FROM tal_memories`);
       return n;
     });

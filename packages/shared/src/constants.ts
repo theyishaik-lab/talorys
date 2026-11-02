@@ -46,7 +46,16 @@ export const DEFAULT_LIMITS = {
 export const DEFAULT_MEMORY_HISTORY = {
   conflictReview: true,
   aiConflictCheck: false,
+  /** Nightly memory "dreaming": learn durable facts from recent chats (one AI request a night). */
+  dreaming: true,
 } as const;
+
+/**
+ * Pinned core memory: a small set of facts the owner chose, shown to the model in every chat
+ * regardless of search. Only the owner (Memory page / API, or an explicit "always remember" in
+ * chat) changes it; nightly dreaming never does.
+ */
+export const PINNED_MEMORY_LIMITS = { maxItems: 30, maxChars: 2000 } as const;
 
 /**
  * Hard ceilings the owner cannot exceed through settings — set to what the models and the Workers
@@ -76,7 +85,7 @@ export const TASK_STATUSES = ["todo", "in_progress", "done"] as const;
 export const TASK_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
 export const MEMORY_CATEGORIES = ["preference", "fact", "goal", "project", "habit", "person", "other"] as const;
 export const PROJECT_STATUSES = ["active", "paused", "completed", "archived"] as const;
-export const AUTOMATION_KINDS = ["reminder", "task_digest", "agent_prompt", "proactive_scan"] as const;
+export const AUTOMATION_KINDS = ["reminder", "task_digest", "agent_prompt", "proactive_scan", "memory_dream"] as const;
 
 /** Proactive engine: what a surfaced suggestion is, and its lifecycle. */
 export const SUGGESTION_KINDS = ["opportunity", "reminder", "digest", "action_proposal"] as const;

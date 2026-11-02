@@ -4,6 +4,7 @@ import type {
   Conversation,
   ChatMessage,
   Memory,
+  MemoryDreamRun,
   MemoryHistory,
   MemoryReview,
   Note,
@@ -96,6 +97,24 @@ export function useMemories(q?: string, status: MemoryStatusFilter = "all") {
 
 export function useMemoryReviews() {
   return useQuery({ queryKey: keys.memoryReviews, queryFn: () => api<{ reviews: MemoryReview[] }>("/memories/reviews").then((r) => r.reviews) });
+}
+
+export interface PinnedUsage {
+  items: number;
+  chars: number;
+  maxItems: number;
+  maxChars: number;
+}
+
+export function usePinnedMemories() {
+  return useQuery({ queryKey: ["memories", "pinned"], queryFn: () => api<{ memories: Memory[]; usage: PinnedUsage }>("/memories/pinned") });
+}
+
+export function useDreaming() {
+  return useQuery({
+    queryKey: ["memories", "dreaming"],
+    queryFn: () => api<{ enabled: boolean; next_run: string | null; runs: MemoryDreamRun[] }>("/memories/dreaming?limit=5"),
+  });
 }
 
 export function useMemoryHistory(id: string | null) {

@@ -279,6 +279,7 @@ export function newerWinsNote(): Memory {
     content: NEWER_WINS_NOTE,
     category: "other",
     source: "agent",
+    pinned: false,
     status: "active",
     superseded_by: null,
     valid_from: null,

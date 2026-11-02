@@ -31,14 +31,17 @@ export function exportData(s: Services): Backup {
       conversations: db.all(`SELECT id, title, summary, summary_upto, created_at, updated_at FROM tal_conversations ORDER BY created_at`),
       messages: db.all(`SELECT id, conversation_id, role, content, tools, status, error, created_at FROM tal_messages ORDER BY created_at`),
       // Lifecycle fields travel with each memory; embeddings are derived data and are rebuilt after import.
-      memories: db.all(
-        `SELECT id, content, category, source, status, superseded_by, valid_from, valid_until, created_at, updated_at FROM tal_memories ORDER BY created_at`,
-      ),
+      memories: db
+        .all<Record<string, unknown>>(
+          `SELECT id, content, category, source, status, superseded_by, valid_from, valid_until, EXISTS (SELECT 1 FROM tal_memory_pins p WHERE p.memory_id = m.id) AS pinned, created_at, updated_at FROM tal_memories m ORDER BY created_at`,
+        )
+        .map((m) => ({ ...m, pinned: m.pinned === 1 })),
       tasks: db.all(`SELECT * FROM tal_tasks ORDER BY created_at`),
       notes: db.all(`SELECT * FROM tal_notes ORDER BY created_at`),
       projects: db.all(`SELECT * FROM tal_projects ORDER BY created_at`),
       automations: db
-        .all<Record<string, unknown>>(`SELECT id, name, kind, message, schedule, enabled, created_at, updated_at FROM tal_automations`)
+        // The nightly memory pass is derived from Settings (memoryHistory.dreaming) and re-created on import.
+        .all<Record<string, unknown>>(`SELECT id, name, kind, message, schedule, enabled, created_at, updated_at FROM tal_automations WHERE kind != 'memory_dream'`)
         .map((a) => ({ ...a, schedule: JSON.parse(String(a.schedule)), enabled: a.enabled === 1 })),
     },
   } as unknown as Backup;
@@ -128,6 +131,8 @@ export async function importData(s: Services, raw: unknown): Promise<ImportSumma
         m.id, m.content, pick(m.category, MEMORY_CATEGORIES, "other"), "import", status,
         statedDate(m.valid_from), statedDate(m.valid_until), m.created_at, m.updated_at,
       );
+      // Core memory travels with the backup (the owner pinned it).
+      if ((m as { pinned?: unknown }).pinned === true) db.run(`INSERT OR IGNORE INTO tal_memory_pins (memory_id, pinned_at) VALUES (?, ?)`, m.id, m.updated_at);
       if (typeof m.superseded_by === "string" && m.superseded_by) importedLinks.push({ id: m.id, superseded_by: m.superseded_by });
     }
     // Relationships are restored only when they point at an existing memory and don't form a cycle.

@@ -156,7 +156,7 @@ export class AgentRunner {
 
       // 2. Context: relevant memories, the running summary, recent history within the token budget.
       const selected = this.ext ? await this.ext.selectMemories(userMessage.content) : selectRelevantMemories(s.memories, userMessage.content);
-      const memories = s.memoryHistory.promptMemories(selected, memoryTokenBudget(limits));
+      const { memories, pinned, topicMap } = s.memoryHistory.promptContext(selected, memoryTokenBudget(limits));
       const B = CONTEXT_BUDGETS;
       let summary = conversation.summary;
       let summaryUpto = conversation.summary_upto;
@@ -179,6 +179,8 @@ export class AgentRunner {
           now: new Date(),
           autoMemory: settings.autoMemory,
           memories,
+          pinned,
+          topicMap,
           conversationSummary: summary,
           abridgedHistory,
           connectors: this.ext?.connectors,
@@ -380,7 +382,7 @@ export class AgentRunner {
       timezone: settings.timezone,
       now: new Date(),
       autoMemory: false,
-      memories: s.memoryHistory.promptMemories(
+      ...s.memoryHistory.promptContext(
         this.ext ? await this.ext.selectMemories(prompt) : selectRelevantMemories(s.memories, prompt),
         memoryTokenBudget(settings.limits),
       ),

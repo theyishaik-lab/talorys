@@ -7,6 +7,7 @@ import { deleteAllVectors, deleteVector } from "../semantic/vectorStore";
 import type { SettingsService } from "../services/settings";
 import type { ActivityLog, UsageService } from "../services/usage";
 import { aiCheckConflict, classifyRelationship, type ConflictAssessment, decide, slotSearchTerms } from "./conflict";
+import { assertCanPin, coreContext } from "./core";
 import { extractStatedDate, MemoryLifecycle } from "./lifecycle";
 
 export interface MemoryHistoryHooks {
@@ -54,10 +55,19 @@ export class MemoryHistoryService {
 
   // ---------- Writes ----------
 
-  async create(input: { content: string; category?: MemoryCategory; source?: Memory["source"] }, opts: { signal?: AbortSignal } = {}): Promise<WriteResult> {
-    const { duplicate, ...memory } = this.repo.create({ ...input, valid_from: extractStatedDate(input.content) });
+  async create(
+    input: { content: string; category?: MemoryCategory; source?: Memory["source"]; pinned?: boolean },
+    opts: { signal?: AbortSignal } = {},
+  ): Promise<WriteResult & { duplicate?: boolean }> {
+    const { pinned, ...fields } = input;
+    // Checked before saving, so a full core memory rejects the request instead of half-applying it.
+    if (pinned) assertCanPin(this.repo, { id: "", content: fields.content.trim(), status: "active" });
+    const { duplicate, ...created } = this.repo.create({ ...fields, valid_from: extractStatedDate(fields.content) });
+    // Pin only on the owner's explicit request.
+    let memory: Memory = created;
+    if (pinned && !memory.pinned) memory = this.repo.setPinned(memory.id, true);
     // Saved first: nothing below can lose the memory.
-    if (duplicate) return { memory, superseded: [], reviews: [] };
+    if (duplicate) return { memory, superseded: [], reviews: [], duplicate: true };
     return this.afterWrite(memory, opts.signal);
   }
 
@@ -139,7 +149,9 @@ export class MemoryHistoryService {
     for (const a of assessments) {
       const action = decide(a);
       if (action === "none") continue;
-      if (action === "supersede") {
+      // Pinned core memory is only ever changed by the owner: a would-be replacement waits for review.
+      const pinnedOld = candidates.get(a.oldMemoryId)?.pinned === true;
+      if (action === "supersede" && !pinnedOld) {
         if (this.lifecycle.wouldCycle(a.oldMemoryId, memory.id)) continue;
         superseded.push(this.lifecycle.supersede(a.oldMemoryId, memory.id, { validUntil: memory.valid_from }));
         continue;
@@ -179,6 +191,23 @@ export class MemoryHistoryService {
   }
 
   // ---------- Prompt ----------
+
+  /**
+   * Everything memory puts in a system prompt, within `maxTokens`: pinned core memory (always),
+   * the topic map (when it fits), then the search-selected memories in the room left.
+   */
+  promptContext(selected: Memory[], maxTokens: number): { pinned: string[]; topicMap: string | null; memories: PromptMemory[] } {
+    const core = coreContext(this.repo, maxTokens);
+    const pinnedIds = new Set(core.pinned.map((m) => m.id));
+    return {
+      pinned: core.pinned.map((m) => m.content),
+      topicMap: core.topicMap,
+      memories: this.promptMemories(
+        selected.filter((m) => !pinnedIds.has(m.id)),
+        core.remainingTokens,
+      ),
+    };
+  }
 
   /**
    * Labels selected memories for the system prompt (current / unsure / past, with known

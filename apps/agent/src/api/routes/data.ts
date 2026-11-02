@@ -1,6 +1,8 @@
 import {
   memoryCorrectSchema,
   memoryCreateSchema,
+  memoryDreamUndoSchema,
+  memoryPinSchema,
   memoryListQuerySchema,
   memoryReviewResolveSchema,
   memoryStatusSchema,
@@ -21,8 +23,11 @@ import { body, query } from "../middleware";
 import { ValidationError } from "../errors";
 import { localDayBounds } from "../../services/time";
 import { projectThreadId } from "../../agent/threads";
+import { pinnedUsage, setPinned } from "../../memory/core";
+import { nextDreamRun } from "../../memory/dream-schedule";
+import { DreamStore, runDreamPass, undoDreamChange } from "../../memory/dreaming";
 
-/** Tasks, memories, notes and projects. None of these routes need AI. */
+/** Tasks, memories, notes and projects. Only POST /memories/dreaming/run uses AI. */
 export const dataRoutes = new Hono<AppEnv>();
 
 function assertProject(c: { env: AppEnv["Bindings"] }, projectId: string | null | undefined) {
@@ -122,6 +127,42 @@ dataRoutes.post("/memories/:id/correct", async (c) => {
   const input = await body(c, memoryCorrectSchema);
   const result = await c.env.agent.services.memoryHistory.correct(c.req.param("id"), input.content, input.category);
   return c.json({ memory: result.memory, superseded: result.superseded, reviews: result.reviews.length }, 201);
+});
+
+// ---------- Core memory and nightly dreaming (docs/memory-dreaming.md) ----------
+
+dataRoutes.get("/memories/pinned", (c) => {
+  const s = c.env.agent.services;
+  return c.json({ memories: s.memories.listPinned(), usage: pinnedUsage(s.memories) });
+});
+
+/** Owner-only: pin (always shown to the model) or unpin. */
+dataRoutes.post("/memories/:id/pin", async (c) => {
+  const { pinned } = await body(c, memoryPinSchema);
+  const s = c.env.agent.services;
+  const memory = setPinned(s.memories, c.req.param("id"), pinned);
+  s.activity.record(pinned ? "memory.pinned" : "memory.unpinned", pinned ? "Pinned a memory to core memory" : "Unpinned a core memory");
+  return c.json({ memory, usage: pinnedUsage(s.memories) });
+});
+
+/** "What was learned": recent dreaming passes with their changes. */
+dataRoutes.get("/memories/dreaming", (c) => {
+  const s = c.env.agent.services;
+  const limit = Math.min(50, Math.max(1, Number(c.req.query("limit") ?? 10) || 10));
+  return c.json({ enabled: s.settings.get().memoryHistory.dreaming, next_run: nextDreamRun(s), runs: new DreamStore(s.db).list(limit) });
+});
+
+/** Runs a pass now (one AI request, counted against the daily budget). */
+dataRoutes.post("/memories/dreaming/run", async (c) => {
+  const agent = c.env.agent;
+  const run = await runDreamPass(agent.services, agent.aiProvider(), { trigger: "manual" });
+  return c.json({ run });
+});
+
+/** Undoes one change of a pass. */
+dataRoutes.post("/memories/dreaming/runs/:id/undo", async (c) => {
+  const { index } = await body(c, memoryDreamUndoSchema);
+  return c.json({ run: undoDreamChange(c.env.agent.services, c.req.param("id"), index) });
 });
 
 // ---------- Notes ----------

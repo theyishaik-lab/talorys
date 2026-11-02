@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Memory, MemoryCategory, MemoryReview, MemoryReviewAction } from "@talorys/shared";
+import type { Memory, MemoryCategory, MemoryDreamRun, MemoryReview, MemoryReviewAction } from "@talorys/shared";
 import { MEMORY_CATEGORIES } from "@talorys/shared/constants";
-import { Archive, ArchiveRestore, Brain, Clock, GitCompare, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { Archive, ArchiveRestore, Brain, Clock, GitCompare, Moon, Pencil, Pin, PinOff, Plus, RefreshCw, Search, Trash2, Undo2 } from "lucide-react";
 import { Badge, Button, ConfirmDialog, Dialog, EmptyState, ErrorNotice, Input, Label, PageHeader, Select, Spinner, Textarea } from "../components/ui";
-import { type MemoryStatusFilter, useApiMutation, useMemories, useMemoryHistory, useMemoryReviews } from "../hooks/queries";
+import { type MemoryStatusFilter, useApiMutation, useDreaming, useMemories, useMemoryHistory, useMemoryReviews, usePinnedMemories } from "../hooks/queries";
 import { useToast } from "../hooks/toast";
 import { api } from "../lib/api";
 import { type StringKey, useT } from "../lib/i18n";
@@ -40,7 +40,13 @@ function writeMessage(r: WriteResponse, t: ReturnType<typeof useT>): string {
   return parts.join(" · ");
 }
 
-const sourceKey = (m: Memory): StringKey => (m.source === "agent" ? "memory.source.agent" : m.source === "import" ? "memory.source.import" : "memory.source.manual");
+const SOURCE_KEYS: Record<Memory["source"], StringKey> = {
+  agent: "memory.source.agent",
+  import: "memory.source.import",
+  manual: "memory.source.manual",
+  dream: "memory.source.dream",
+};
+const sourceKey = (m: Memory): StringKey => SOURCE_KEYS[m.source] ?? "memory.source.manual";
 
 export default function MemoryPage() {
   const t = useT();
@@ -79,6 +85,11 @@ export default function MemoryPage() {
       invalidate: [["memories"]],
       success: t("memory.updated"),
     },
+  );
+
+  const pin = useApiMutation(
+    ({ id, pinned }: { id: string; pinned: boolean }) => api(`/memories/${id}/pin`, { method: "POST", body: { pinned } }),
+    { invalidate: [["memories"]] },
   );
 
   const reviewList = reviews.data ?? [];
@@ -126,6 +137,13 @@ export default function MemoryPage() {
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t("memory.search")} className="ps-9" dir="auto" aria-label={t("memory.search")} />
       </div>
 
+      {filter === "all" && !debounced && (
+        <>
+          <CorePanel onUnpin={(id) => pin.mutate({ id, pinned: false })} />
+          <LearnedPanel />
+        </>
+      )}
+
       {(filter === "review" || filter === "all") && reviewList.length > 0 && <ReviewPanel reviews={reviewList} />}
 
       {error ? (
@@ -167,6 +185,7 @@ export default function MemoryPage() {
                         {m.content}
                         {m.status === "historical" && <Badge className="ms-2 align-middle">{t("memory.badge.past")}</Badge>}
                         {m.status === "uncertain" && <Badge tone="warning" className="ms-2 align-middle">{t("memory.badge.unsure")}</Badge>}
+                        {m.pinned && <Pin className="ms-2 inline h-3.5 w-3.5 align-middle text-accent" aria-label={t("memory.core")} />}
                       </p>
                       <p className="mt-0.5 text-xs text-fg-subtle">
                         {t(sourceKey(m))} · {relativeTime(m.updated_at)}
@@ -183,6 +202,18 @@ export default function MemoryPage() {
                       </p>
                     </div>
                     <div className="flex shrink-0 gap-0.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100">
+                      {m.status !== "historical" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => pin.mutate({ id: m.id, pinned: !m.pinned })}
+                          aria-label={m.pinned ? t("memory.unpin") : t("memory.pin")}
+                          title={m.pinned ? t("memory.unpin") : t("memory.pin")}
+                          aria-pressed={m.pinned}
+                        >
+                          {m.pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                        </Button>
+                      )}
                       <Button variant="ghost" size="icon" onClick={() => setHistoryOf(m)} aria-label={t("ai.memoryHistory")} title={t("memory.historyShort")}>
                         <Clock className="h-4 w-4" />
                       </Button>
@@ -228,6 +259,101 @@ export default function MemoryPage() {
         loading={remove.isPending}
       />
     </div>
+  );
+}
+
+/** Pinned core memory: always in the prompt; changed only here (or by an explicit "always remember"). */
+function CorePanel({ onUnpin }: { onUnpin: (id: string) => void }) {
+  const t = useT();
+  const { data } = usePinnedMemories();
+  if (!data) return null;
+  const u = data.usage;
+  return (
+    <section className="mb-8" aria-label={t("memory.core")}>
+      <h2 className="mb-1 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-fg-subtle">
+        <Pin className="h-3.5 w-3.5" /> {t("memory.core")}
+        <span className="ms-auto normal-case tracking-normal">{t("memory.coreUsage", { items: u.items, maxItems: u.maxItems, chars: u.chars, maxChars: u.maxChars })}</span>
+      </h2>
+      <p className="mb-2 text-xs text-fg-subtle">{data.memories.length ? t("memory.coreHint") : t("memory.coreEmpty")}</p>
+      {data.memories.length > 0 && (
+        <ul className="divide-y divide-border rounded-xl border border-accent/40 bg-surface">
+          {data.memories.map((m) => (
+            <li key={m.id} className="flex items-start gap-3 px-4 py-2.5">
+              <p className="min-w-0 flex-1 text-[15px] leading-6" dir="auto">
+                {m.content}
+              </p>
+              <Button variant="ghost" size="icon" onClick={() => onUnpin(m.id)} aria-label={t("memory.unpin")} title={t("memory.unpin")}>
+                <PinOff className="h-4 w-4" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** "What was learned": the latest nightly passes, each change with an Undo. */
+function LearnedPanel() {
+  const t = useT();
+  const toast = useToast();
+  const { data } = useDreaming();
+  const run = useApiMutation(() => api<{ run: MemoryDreamRun }>("/memories/dreaming/run", { method: "POST" }), {
+    invalidate: [["memories"]],
+    onSuccess: ({ run: r }) =>
+      toast(
+        r.status === "success"
+          ? t("memory.runDone", { n: r.applied })
+          : r.status === "failed"
+            ? t("memory.runFailed", { error: r.error ?? r.summary })
+            : t("memory.runSkipped", { summary: r.summary }),
+      ),
+  });
+  const undo = useApiMutation(
+    ({ id, index }: { id: string; index: number }) => api(`/memories/dreaming/runs/${id}/undo`, { method: "POST", body: { index } }),
+    { invalidate: [["memories"]], success: t("memory.undone") },
+  );
+  if (!data) return null;
+  const changes = data.runs.flatMap((r) => r.changes.map((c, index) => ({ run: r, c, index })));
+  const rejected = data.runs.reduce((n, r) => n + r.rejected, 0);
+  return (
+    <section className="mb-8" aria-label={t("memory.learned")}>
+      <h2 className="mb-1 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-fg-subtle">
+        <Moon className="h-3.5 w-3.5" /> {t("memory.learned")}
+        <Button size="sm" variant="ghost" className="ms-auto normal-case tracking-normal" onClick={() => run.mutate(undefined)} loading={run.isPending}>
+          {t("memory.runNow")}
+        </Button>
+      </h2>
+      <p className="mb-2 text-xs text-fg-subtle">
+        {data.enabled ? t("memory.learnedHint") : t("memory.dreamingOff")}
+        {data.enabled && data.next_run ? ` ${t("memory.nextRun", { when: relativeTime(data.next_run) })}` : ""}
+      </p>
+      {changes.length === 0 ? (
+        <p className="text-sm text-fg-muted">{data.runs[0]?.summary || t("memory.learnedEmpty")}</p>
+      ) : (
+        <ul className="divide-y divide-border rounded-xl border border-border bg-surface">
+          {changes.slice(0, 20).map(({ run: r, c, index }) => (
+            <li key={`${r.id}:${index}`} className={cn("flex items-start gap-3 px-4 py-2.5", c.undone && "opacity-50")}>
+              <div className="min-w-0 flex-1">
+                <p className={cn("text-[15px] leading-6", c.undone && "line-through")} dir="auto">
+                  {c.content}
+                </p>
+                <p className="text-xs text-fg-subtle" dir="auto">
+                  {t(c.type === "added" ? "memory.change.added" : "memory.change.marked_past")} · {relativeTime(r.started_at)}
+                  {c.reason ? ` · ${c.reason}` : ""}
+                </p>
+              </div>
+              {!c.undone && (
+                <Button variant="ghost" size="icon" onClick={() => undo.mutate({ id: r.id, index })} aria-label={t("memory.undo")} title={t("memory.undo")}>
+                  <Undo2 className="h-4 w-4" />
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {rejected > 0 && <p className="mt-1 text-xs text-fg-subtle">{t("memory.rejectedN", { n: rejected })}</p>}
+    </section>
   );
 }
 

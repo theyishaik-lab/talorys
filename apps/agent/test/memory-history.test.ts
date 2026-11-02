@@ -237,7 +237,7 @@ describe("conflict detection", () => {
     const run = freshAgent();
     await run(async (agent) => {
       const s = agent.services;
-      expect(s.settings.get().memoryHistory).toEqual({ conflictReview: true, aiConflictCheck: false });
+      expect(s.settings.get().memoryHistory).toEqual({ conflictReview: true, aiConflictCheck: false, dreaming: true });
       s.settings.update({ memoryHistory: { conflictReview: false } });
       const { memory: a } = await s.memoryHistory.create({ content: "I own a Volkswagen." });
       const r = await s.memoryHistory.create({ content: "I sold it and bought a Tesla." });

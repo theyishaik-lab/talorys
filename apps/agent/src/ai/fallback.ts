@@ -133,7 +133,7 @@ export class FallbackProvider implements AIProvider {
       try {
         const result = await candidate.generate(req);
         this.noteSuccess(candidate);
-        return result;
+        return { ...result, model: result.model ?? `${candidate.id}/${candidate.modelId ?? ""}` };
       } catch (error) {
         if (req.signal?.aborted) throw error;
         this.noteFailure(candidate, error);

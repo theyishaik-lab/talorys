@@ -393,6 +393,11 @@ function MemoryHistorySection({ settings }: { settings: Settings }) {
           </div>
         </Row>
       )}
+      <Row label={t("ai.dreaming")} hint={t("ai.dreamingHint")}>
+        <div className="flex justify-end">
+          <Switch checked={mh.dreaming} onChange={(v) => save.mutate({ memoryHistory: { dreaming: v } })} label={t("ai.dreaming")} />
+        </div>
+      </Row>
     </Section>
   );
 }

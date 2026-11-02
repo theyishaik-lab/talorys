@@ -61,7 +61,8 @@ export interface AIProvider {
   readonly id: AiProviderId | (string & {});
   /** The model id this provider answers with. */
   readonly modelId?: string;
-  generate(req: GenerateRequest): Promise<{ text: string; usage: Usage }>;
+  /** `model`, when set, names the provider/model that answered (a fallback chain may move down). */
+  generate(req: GenerateRequest): Promise<{ text: string; usage: Usage; model?: string }>;
   stream(req: GenerateRequest): AsyncIterable<AgentEvent>;
   generateWithTools(req: ToolRequest): AsyncIterable<AgentEvent>;
   /**

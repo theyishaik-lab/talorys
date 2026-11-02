@@ -39,7 +39,10 @@ export interface Memory {
   id: string;
   content: string;
   category: MemoryCategory;
-  source: "manual" | "agent" | "import";
+  /** "dream": learned by the nightly memory pass (see docs/memory-dreaming.md). */
+  source: "manual" | "agent" | "import" | "dream";
+  /** Pinned core memory: always shown to the model; changed only by the owner. */
+  pinned: boolean;
   /** Lifecycle: current fact, past fact kept as history, or flagged as possibly outdated. */
   status: MemoryStatus;
   /** The newer memory that replaced this one, if any. */
@@ -312,7 +315,48 @@ export const taskListQuerySchema = z.object({
 export const memoryCreateSchema = z.object({
   content: shortText(2000),
   category: z.enum(MEMORY_CATEGORIES).optional().default("other"),
+  /** Pin as core memory right away (always shown to the model). */
+  pinned: z.boolean().optional(),
 });
+export const memoryPinSchema = z.object({ pinned: z.boolean() });
+export const memoryDreamUndoSchema = z.object({ index: z.number().int().min(0).max(63) });
+
+/** One change a dreaming pass made, kept so the owner can undo it. */
+export interface MemoryDreamChange {
+  type: "added" | "marked_past";
+  memory_id: string;
+  content: string;
+  reason: string;
+  /** added: memories the new one superseded (restored on undo). */
+  superseded?: string[];
+  /** marked_past: the status before the pass (restored on undo). */
+  previous_status?: MemoryStatus;
+  undone?: boolean;
+}
+
+/** An operation the pass proposed but local validation refused. */
+export interface MemoryDreamRejection {
+  op: string;
+  text: string;
+  why: string;
+}
+
+/** One nightly (or manual) memory dreaming pass. */
+export interface MemoryDreamRun {
+  id: string;
+  trigger: "scheduled" | "manual";
+  status: "success" | "skipped" | "failed";
+  started_at: string;
+  finished_at: string;
+  turns_read: number;
+  applied: number;
+  rejected: number;
+  summary: string;
+  model: string | null;
+  error: string | null;
+  changes: MemoryDreamChange[];
+  rejections: MemoryDreamRejection[];
+}
 // Update schemas are declared without defaults: `.partial()` on a schema with
 // `.default()` would fill omitted fields and silently overwrite stored values.
 export const memoryUpdateSchema = z.object({ content: shortText(2000), category: z.enum(MEMORY_CATEGORIES) }).partial();
@@ -385,6 +429,8 @@ export const memoryHistorySettingsSchema = z.object({
   conflictReview: z.boolean(),
   /** Ask the chat model to double-check ambiguous conflicts (uses one AI request per check). */
   aiConflictCheck: z.boolean(),
+  /** Nightly memory dreaming (docs/memory-dreaming.md). Settings saved before it existed read as on. */
+  dreaming: z.boolean(),
 });
 export type MemoryHistorySettings = z.infer<typeof memoryHistorySettingsSchema>;
 

@@ -355,6 +355,41 @@ export const MIGRATIONS: Migration[] = [
       `CREATE INDEX IF NOT EXISTS tal_messages_created ON tal_messages(created_at)`,
     ],
   },
+  {
+    version: 15,
+    name: "memory_core_and_dreaming",
+    statements: [
+      // Pinned core memory (memory/core.ts): always in the prompt, changed only by the owner. A side
+      // table rather than ALTER TABLE so the migration can be re-applied safely (as version 14).
+      `CREATE TABLE IF NOT EXISTS tal_memory_pins (
+        memory_id TEXT PRIMARY KEY,
+        pinned_at TEXT NOT NULL
+      )`,
+      // Nightly memory dreaming (memory/dreaming.ts): one audit row per pass, with the changes it
+      // made (JSON, for undo) and the operations local validation refused.
+      `CREATE TABLE IF NOT EXISTS tal_memory_dream_runs (
+        id TEXT PRIMARY KEY,
+        trigger TEXT NOT NULL,
+        status TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        finished_at TEXT NOT NULL,
+        turns_read INTEGER NOT NULL DEFAULT 0,
+        applied INTEGER NOT NULL DEFAULT 0,
+        rejected INTEGER NOT NULL DEFAULT 0,
+        summary TEXT NOT NULL DEFAULT '',
+        model TEXT,
+        error TEXT,
+        changes TEXT NOT NULL DEFAULT '[]',
+        rejections TEXT NOT NULL DEFAULT '[]'
+      )`,
+      `CREATE INDEX IF NOT EXISTS tal_memory_dream_runs_started ON tal_memory_dream_runs(started_at)`,
+      // Fingerprints of (user, assistant) turn pairs a pass already read, so none is read twice.
+      `CREATE TABLE IF NOT EXISTS tal_memory_dream_seen (
+        fp TEXT PRIMARY KEY,
+        created_at TEXT NOT NULL
+      )`,
+    ],
+  },
 ];
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version;

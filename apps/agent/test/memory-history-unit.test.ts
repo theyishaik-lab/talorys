@@ -14,6 +14,7 @@ function mem(content: string, extra: Partial<Memory> = {}): Memory {
     content,
     category: "fact",
     source: "manual",
+    pinned: false,
     status: "active",
     superseded_by: null,
     valid_from: null,

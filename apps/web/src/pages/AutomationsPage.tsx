@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Automation, AutomationKind, AutomationRun, ScheduleSpec } from "@talorys/shared";
-import { AlarmClock, Bell, Bot, CalendarClock, ListChecks, Plus, Trash2 } from "lucide-react";
+import { AlarmClock, Bell, Bot, CalendarClock, ListChecks, Moon, Plus, Trash2 } from "lucide-react";
 import { Badge, Button, Card, ConfirmDialog, Dialog, EmptyState, ErrorNotice, Input, Label, PageHeader, Select, Spinner, Switch, Textarea } from "../components/ui";
 import { keys, useApiMutation, useAutomations } from "../hooks/queries";
 import { api } from "../lib/api";
@@ -12,6 +12,7 @@ const KIND_META: Record<AutomationKind, { label: StringKey; icon: typeof Bell; h
   task_digest: { label: "auto.kind.task_digest", icon: ListChecks, hint: "auto.kind.task_digestHint" },
   agent_prompt: { label: "auto.kind.agent_prompt", icon: Bot, hint: "auto.kind.agent_promptHint" },
   proactive_scan: { label: "auto.kind.proactive_scan", icon: CalendarClock, hint: "auto.kind.proactive_scanHint" },
+  memory_dream: { label: "auto.kind.memory_dream", icon: Moon, hint: "auto.kind.memory_dreamHint" },
 };
 
 /** Kinds the owner can create here. `proactive_scan` is managed by Settings → Proactive. */

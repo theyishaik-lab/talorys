@@ -22,6 +22,8 @@ import { toolsWithOpenConnector, withOpenConnector } from "../openconnector";
 import type { ToolDefinition } from "../tools";
 import { runProactiveScan } from "../proactive/engine";
 import { syncProactiveSchedule } from "../proactive/schedule";
+import { syncDreamSchedule } from "../memory/dream-schedule";
+import { runDreamPass } from "../memory/dreaming";
 
 interface AgentState {
   /** Unread notifications, kept in agent state for cheap polling. */
@@ -69,6 +71,7 @@ export class TalorysAgent extends Agent<Env, AgentState> {
     const services = this.services;
     try {
       await syncProactiveSchedule(services);
+      await syncDreamSchedule(services);
       const { repaired } = await services.automations.reconcile();
       if (repaired > 0) services.activity.record("automation.reconciled", `Recovered ${repaired} schedule(s) after restart`);
     } catch (error) {
@@ -215,6 +218,12 @@ export class TalorysAgent extends Agent<Env, AgentState> {
       }
       case "proactive_scan": {
         return runProactiveScan(s, settings, this.aiProvider());
+      }
+      case "memory_dream": {
+        const run = await runDreamPass(s, this.aiProvider(), { trigger: "scheduled" });
+        if (run.status === "failed") throw new Error(run.error ?? "Memory dreaming failed");
+        const text = run.status === "success" ? `${run.applied} change(s) from ${run.turns_read} turn(s): ${run.summary}` : run.summary;
+        return { status: run.status === "success" ? "success" : "skipped", result: text.slice(0, 300) };
       }
     }
   }

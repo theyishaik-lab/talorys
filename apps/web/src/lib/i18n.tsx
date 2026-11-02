@@ -336,6 +336,8 @@ const baseEn = {
   "ai.conflictReviewHint": "When a new memory clearly replaces an old one (“I sold my car…”), keep the old one as a past fact. Unclear cases wait for you on the Memory page. Uses no AI.",
   "ai.aiConflictCheck": "Double-check conflicts with AI",
   "ai.aiConflictCheckHint": "For unclear conflicts only, ask the chat model whether they really conflict. One AI request per check. It never changes memories by itself.",
+  "ai.dreaming": "Learn overnight",
+  "ai.dreamingHint": "Each night (03:00) Talorys reads new conversations and updates its memory: one AI request a night, never touches pinned core memory. See and undo changes on the Memory page.",
   // Chat errors by code
   "chat.error.AI_QUOTA_EXHAUSTED": "{provider}'s quota is used up — switch to another model in Settings.",
   "chat.error.NOT_CONFIGURED": "{provider} is not set up ({message}). Open Settings → Model.",
@@ -667,6 +669,8 @@ const baseHe: Record<keyof typeof baseEn, string> = {
   "ai.conflictReviewHint": "כשזיכרון חדש מחליף בבירור זיכרון ישן (\"מכרתי את האוטו…\"), הישן נשמר כעובדת עבר. מקרים לא ברורים מחכים לך בעמוד הזיכרון. בלי AI.",
   "ai.aiConflictCheck": "אימות סתירות עם AI",
   "ai.aiConflictCheckHint": "רק לסתירות לא ברורות: לשאול את המודל אם הן באמת סותרות. בקשת AI אחת לכל בדיקה. לא משנה זיכרונות בעצמו.",
+  "ai.dreaming": "למידה לילית",
+  "ai.dreamingHint": "בכל לילה (03:00) Talorys קורא שיחות חדשות ומעדכן את הזיכרון: בקשת AI אחת בלילה, בלי לגעת בזיכרון הליבה המוצמד. השינויים וביטולם בעמוד הזיכרון.",
   // Chat errors
   "chat.error.AI_QUOTA_EXHAUSTED": "נגמרה המכסה של {provider} — עבור למודל אחר בהגדרות.",
   "chat.error.NOT_CONFIGURED": "{provider} לא מוגדר ({message}). פתח הגדרות ← מודל.",
