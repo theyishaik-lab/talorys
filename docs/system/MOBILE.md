@@ -13,7 +13,7 @@ that still has it, uninstall it (the two can sit side by side).
 
 | Area | How |
 | --- | --- |
-| Screens | Login (server address + owner password) → **bottom tabs Home · Chat · Projects** (v0.3.0, see "v0.3.0: Home, one chat, projects" below). Settings (Appearance, Language, Notifications, Model, Connections, Account, About) opens from Home's header; Memory / Tasks / Notes / Automations / Connections from Home's shortcuts. Pushed screens use native stack transitions; Android Back pops them. |
+| Screens | Login (server address + owner password) → **bottom tabs Home · Chat · Projects** (v0.3.0, see "v0.3.0: Home, one chat, projects" below). Settings (Appearance, Language, Keyboard (Android, v0.4.0), Notifications, Model, Connections, Account, About) opens from Home's header; Memory / Tasks / Notes / Automations / Connections from Home's shortcuts. Pushed screens use native stack transitions; Android Back pops them. |
 | Chat | FlashList, memoized rows; the streaming reply lives in its own store so each token re-renders **one row**, never the list. Markdown (`react-native-markdown-display`) for finished messages, plain text while streaming. Tool calls as chips; approval cards with Approve / Decline; connect cards (OAuth link or secure API-key fields) — same endpoints as the web. Haptics on send / approve. Keyboard-aware composer. |
 | Design | The approved mockups: Inter (Latin) + Heebo (Hebrew), the neutral grey tokens with the placeholder accent (`#4C47E0` / `#8F8CFF`), radii 10/14/20/28, Lucide icons, light / dark / system (Settings → Appearance, persisted per device). Edge-to-edge, themed status and navigation bars, splash + adaptive icon from the web icon. |
 | Hebrew | Strings ported from `apps/web/src/lib/i18n.tsx` (`src/lib/strings.json`, every key in both languages, tested). Language = device (auto) / עברית / English. Hebrew flips the whole app to RTL through `I18nManager.forceRTL` — Android applies that on the next start, so the Settings row says to restart after a change. The drawer opens from the start edge (the right in Hebrew). |
@@ -88,6 +88,28 @@ a project's chat) keep the old rule.
 **Not changed:** the web app keeps its conversation list (the new threads simply appear in it, titled
 "Talorys" and the project's name). Old conversations are still on the server; the app no longer lists
 them (they open from a push or a link).
+
+## v0.4.0: Talorys Keyboard inside the app (Oct 31, 2026)
+
+Yishai approved merging the separate keyboard app (`com.talorys.keyboard`, repo
+`yishaik/talorys-keyboard` v1.4.1) into this app: **one app, one login, settings in React Native**.
+versionCode 9; the release signing setup is unchanged.
+
+| Part | Where |
+| --- | --- |
+| Keyboard (native, Kotlin) | Expo local module `modules/talorys-keyboard` (Android only, autolinked from `modules/`). IME, suggestion strip, glide, autocorrect, bigrams, background engine, spatial model, encrypted clipboard history, Material You, opt-in screen-word learning, Ask sheet, device assistant, accessibility context service, companion polling service, dictionary backup. Kotlin packages stay `com.talorys.keyboard`; resources are prefixed `tk_`. Its manifest (merged into `dev.talorys.app`) registers the IME, the accessibility service, the companion service, the Ask / assistant activities and their permissions. See the module's README. |
+| One login | `src/lib/session.ts` emits every session change (load, sign-in, sign-out, 401) to `onSessionChange` listeners; `src/lib/keyboardBridge.ts` (wired in `auth.tsx`) passes `{server, token}` to `TalorysKeyboard.setSession`, which keeps it in the keyboard's encrypted prefs. The keyboard has no URL / token form any more. |
+| Settings → Keyboard | `src/app/settings/keyboard.tsx` (+ `keyboard-clipboard.tsx`, `keyboard-words.tsx`), Android only: setup checklist (enable → switch → screen context → default assistant, re-read on return), typing toggles, keyboard language, key height (presets + fine-tune), theme + Material You, one-handed, vibration / sound, clipboard history (on/off, expiry, view / pin / delete / clear), learned words (backup on/off, sync now, restore from backup, delete), learn words from the screen (opt-in with confirmation, backup, words list with search / delete / clear, excluded apps editor), background suggestions (always-on companion). Pure logic in `src/lib/keyboardSettings.ts` (tested). |
+| System gear | The IME / accessibility "settings" entries open `KeyboardSettingsActivity`, a no-UI trampoline to `talorys://settings/keyboard`. |
+
+Moving from the old app: **uninstall Talorys Keyboard (`com.talorys.keyboard`)**, then enable
+"Talorys Keyboard" from the Talorys app (Settings → Keyboard). Its preferences do not carry over
+(different package); learned words come back with Settings → Keyboard → Restore from backup (or the
+first backup sync), as long as the old app had backup on. Open the app once after installing so the
+keyboard receives the session.
+
+Tests: `npm test` covers the JS side; the keyboard's own tests (109 + the bridge test, JUnit +
+Robolectric) run with `./gradlew :talorys-keyboard:testDebugUnitTest` in the prebuilt `android/`.
 
 ## CI build (GitHub Actions)
 

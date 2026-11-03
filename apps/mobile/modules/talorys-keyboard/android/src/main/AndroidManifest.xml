@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Talorys Keyboard inside the Talorys app (dev.talorys.app). Merged into the app's manifest by the
+  Expo module: the input method, the screen-context accessibility service, the suggestion
+  companion, the Ask sheet / device assistant, and the permissions they need. Settings are the
+  app's React Native "Keyboard" screen (KeyboardSettingsActivity forwards the system gear there).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+        </intent>
+    </queries>
+
+    <application>
+
+        <!-- The keyboard -->
+        <service
+            android:name="com.talorys.keyboard.TalorysInputMethodService"
+            android:exported="true"
+            android:label="@string/tk_ime_name"
+            android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/tk_input_method" />
+        </service>
+
+        <!-- Screen context (app name + field hint only) and opt-in screen-word learning -->
+        <service
+            android:name="com.talorys.keyboard.TalorysAccessibilityService"
+            android:exported="true"
+            android:label="@string/tk_accessibility_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/tk_accessibility_service_config" />
+        </service>
+
+        <!-- Suggestion polling; bound by the keyboard, optionally foreground ("always on") -->
+        <service
+            android:name="com.talorys.keyboard.CompanionService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
+        <!-- System "keyboard settings" gear → the app's Keyboard settings screen -->
+        <activity
+            android:name="com.talorys.keyboard.KeyboardSettingsActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.NoDisplay" />
+
+        <!-- Ask sheet opened from the keyboard -->
+        <activity
+            android:name="com.talorys.keyboard.ChatActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="@string/tk_chat_title"
+            android:launchMode="singleTop"
+            android:taskAffinity="dev.talorys.app.keyboard.chat"
+            android:theme="@style/Theme.Talorys.Sheet"
+            android:windowSoftInputMode="adjustResize|stateVisible" />
+
+        <!-- Device assistant (hold Home) and "Ask Talorys" in the text-selection menu -->
+        <activity
+            android:name="com.talorys.keyboard.AssistActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/tk_strip_ask_desc"
+            android:launchMode="singleTop"
+            android:taskAffinity="dev.talorys.app.keyboard.assist"
+            android:theme="@style/Theme.Talorys.Sheet"
+            android:windowSoftInputMode="adjustResize|stateVisible">
+            <intent-filter>
+                <action android:name="android.intent.action.ASSIST" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VOICE_COMMAND" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
+        <!-- WorkManager (dictionary backup) is initialised by its own androidx.startup provider. -->
+    </application>
+</manifest>

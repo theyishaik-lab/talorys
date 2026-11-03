@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Default row height before the user setting is applied (Gboard-like; the setting wins). -->
+    <dimen name="tk_kb_key_height">56dp</dimen>
+    <dimen name="tk_kb_strip_height">48dp</dimen>
+    <dimen name="tk_kb_key_radius">8dp</dimen>
+    <dimen name="tk_screen_padding">16dp</dimen>
+</resources>

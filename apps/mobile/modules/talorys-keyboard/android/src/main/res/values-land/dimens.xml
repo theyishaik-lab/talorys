@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Landscape: shorter rows (the key-height setting × 0.75) so the app keeps room above the keyboard. -->
+    <dimen name="tk_kb_key_height">42dp</dimen>
+    <dimen name="tk_kb_strip_height">40dp</dimen>
+</resources>

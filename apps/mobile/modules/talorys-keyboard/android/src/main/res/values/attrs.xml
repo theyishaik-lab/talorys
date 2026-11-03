@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Keyboard palette, resolved per light/dark theme. -->
+    <attr name="kbBackground" format="color" />
+    <attr name="kbKey" format="color" />
+    <attr name="kbFunctionKey" format="color" />
+    <attr name="kbKeyText" format="color" />
+    <attr name="kbKeyHint" format="color" />
+    <attr name="kbAccentKey" format="color" />
+    <attr name="kbAccentKeyText" format="color" />
+    <attr name="kbPreview" format="color" />
+    <attr name="kbTrail" format="color" />
+    <attr name="kbDivider" format="color" />
+</resources>

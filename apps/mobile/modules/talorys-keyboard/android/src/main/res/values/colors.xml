@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Talorys brand palette (Material 3 tonal roles, light). Dynamic color overrides these on Android 12+. -->
+    <color name="tk_brand_primary">#4A4FD0</color>
+    <color name="tk_brand_on_primary">#FFFFFF</color>
+    <color name="tk_brand_primary_container">#E1E0FF</color>
+    <color name="tk_brand_on_primary_container">#05006C</color>
+    <color name="tk_brand_secondary">#5C5D72</color>
+    <color name="tk_brand_on_secondary">#FFFFFF</color>
+    <color name="tk_brand_secondary_container">#E1E0F9</color>
+    <color name="tk_brand_on_secondary_container">#191A2C</color>
+    <color name="tk_brand_tertiary">#7A4C9A</color>
+    <color name="tk_brand_tertiary_container">#F5D9FF</color>
+    <color name="tk_brand_on_tertiary_container">#300549</color>
+    <color name="tk_brand_error">#BA1A1A</color>
+    <color name="tk_brand_surface">#FBF8FF</color>
+    <color name="tk_brand_on_surface">#1B1B21</color>
+    <color name="tk_brand_on_surface_variant">#46464F</color>
+    <color name="tk_brand_outline">#777680</color>
+    <color name="tk_brand_outline_variant">#C7C5D0</color>
+    <color name="tk_brand_surface_container_lowest">#FFFFFF</color>
+    <color name="tk_brand_surface_container_low">#F5F2FA</color>
+    <color name="tk_brand_surface_container">#EFEDF4</color>
+    <color name="tk_brand_surface_container_high">#E9E7EF</color>
+    <color name="tk_brand_surface_container_highest">#E4E1E9</color>
+    <color name="tk_success">#2E7D32</color>
+    <!-- Keyboard (Gboard-style neutral greys). -->
+    <color name="tk_kb_background">#EEF0F4</color>
+    <color name="tk_kb_key">#FFFFFF</color>
+    <color name="tk_kb_function_key">#D3D7DF</color>
+    <color name="tk_kb_key_text">#1F1F1F</color>
+    <color name="tk_kb_key_hint">#6B6F76</color>
+    <color name="tk_kb_preview">#FFFFFF</color>
+    <color name="tk_kb_divider">#C4C7CE</color>
+</resources>

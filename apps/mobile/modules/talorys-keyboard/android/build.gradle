@@ -1,0 +1,55 @@
+// Talorys Keyboard (formerly yishaik/talorys-keyboard 1.4.1) as an Expo local module.
+// Kotlin package names stay com.talorys.keyboard; resources are prefixed tk_ so they never clash
+// with the app's or other libraries' resources.
+buildscript {
+  repositories {
+    mavenCentral()
+  }
+  dependencies {
+    // Same Kotlin version as the app (kotlinVersion is set by the Expo root project plugin).
+    classpath("org.jetbrains.kotlin:kotlin-serialization:${kotlinVersion}")
+  }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'expo-module-gradle-plugin'
+apply plugin: 'org.jetbrains.kotlin.plugin.serialization'
+
+group = 'dev.talorys'
+version = '0.4.0'
+
+android {
+  namespace "com.talorys.keyboard"
+  defaultConfig {
+    versionCode 9
+    versionName '0.4.0'
+    consumerProguardFiles 'proguard-rules.pro'
+  }
+  buildFeatures {
+    viewBinding true
+    buildConfig true
+  }
+  testOptions {
+    unitTests.includeAndroidResources = true
+    unitTests.all {
+      maxHeapSize = "2g"
+    }
+  }
+  lint {
+    disable 'MissingTranslation'
+  }
+}
+
+dependencies {
+  implementation 'androidx.core:core-ktx:1.17.0'
+  implementation 'androidx.appcompat:appcompat:1.7.1'
+  implementation 'com.google.android.material:material:1.13.0'
+  implementation 'androidx.security:security-crypto:1.1.0'
+  implementation 'androidx.work:work-runtime-ktx:2.11.2'
+  implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2'
+  implementation 'org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1'
+  implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+
+  testImplementation 'junit:junit:4.13.2'
+  testImplementation 'org.robolectric:robolectric:4.16'
+}

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="tk_brand_primary">#C0C1FF</color>
+    <color name="tk_brand_on_primary">#13128F</color>
+    <color name="tk_brand_primary_container">#3133B6</color>
+    <color name="tk_brand_on_primary_container">#E1E0FF</color>
+    <color name="tk_brand_secondary">#C5C4DD</color>
+    <color name="tk_brand_on_secondary">#2E2F42</color>
+    <color name="tk_brand_secondary_container">#444559</color>
+    <color name="tk_brand_on_secondary_container">#E1E0F9</color>
+    <color name="tk_brand_tertiary">#E7B5FF</color>
+    <color name="tk_brand_tertiary_container">#603380</color>
+    <color name="tk_brand_on_tertiary_container">#F5D9FF</color>
+    <color name="tk_brand_error">#FFB4AB</color>
+    <color name="tk_brand_surface">#131318</color>
+    <color name="tk_brand_on_surface">#E4E1E9</color>
+    <color name="tk_brand_on_surface_variant">#C7C5D0</color>
+    <color name="tk_brand_outline">#91909A</color>
+    <color name="tk_brand_outline_variant">#46464F</color>
+    <color name="tk_brand_surface_container_lowest">#0E0E13</color>
+    <color name="tk_brand_surface_container_low">#1B1B21</color>
+    <color name="tk_brand_surface_container">#1F1F25</color>
+    <color name="tk_brand_surface_container_high">#2A292F</color>
+    <color name="tk_brand_surface_container_highest">#35343A</color>
+    <color name="tk_success">#81C784</color>
+    <!-- Keyboard (Gboard-style neutral greys). -->
+    <color name="tk_kb_background">#121214</color>
+    <color name="tk_kb_key">#323337</color>
+    <color name="tk_kb_function_key">#46484D</color>
+    <color name="tk_kb_key_text">#E6E6E9</color>
+    <color name="tk_kb_key_hint">#A2A3A8</color>
+    <color name="tk_kb_preview">#4A4C51</color>
+    <color name="tk_kb_divider">#3E4045</color>
+</resources>

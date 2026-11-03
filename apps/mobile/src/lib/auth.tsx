@@ -2,6 +2,10 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useM
 import { ApiError, api } from "./api";
 import { getServerUrl, loadSession, onUnauthorized, setSession } from "./session";
 import { registerForPush, unregisterPush } from "./push";
+import { connectKeyboardSession } from "./keyboardBridge";
+
+// Before the session loads (AuthProvider's effect), so the keyboard gets the stored session at start-up.
+connectKeyboardSession();
 
 export interface Session {
   authenticated: boolean;

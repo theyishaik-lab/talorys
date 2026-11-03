@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Base.Theme.Talorys" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/tk_brand_primary</item>
+        <item name="colorOnPrimary">@color/tk_brand_on_primary</item>
+        <item name="colorPrimaryContainer">@color/tk_brand_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/tk_brand_on_primary_container</item>
+        <item name="colorSecondary">@color/tk_brand_secondary</item>
+        <item name="colorOnSecondary">@color/tk_brand_on_secondary</item>
+        <item name="colorSecondaryContainer">@color/tk_brand_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/tk_brand_on_secondary_container</item>
+        <item name="colorTertiary">@color/tk_brand_tertiary</item>
+        <item name="colorTertiaryContainer">@color/tk_brand_tertiary_container</item>
+        <item name="colorOnTertiaryContainer">@color/tk_brand_on_tertiary_container</item>
+        <item name="colorError">@color/tk_brand_error</item>
+        <item name="android:colorBackground">@color/tk_brand_surface</item>
+        <item name="colorSurface">@color/tk_brand_surface</item>
+        <item name="colorOnSurface">@color/tk_brand_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/tk_brand_on_surface_variant</item>
+        <item name="colorOutline">@color/tk_brand_outline</item>
+        <item name="colorOutlineVariant">@color/tk_brand_outline_variant</item>
+        <item name="colorSurfaceContainerLowest">@color/tk_brand_surface_container_lowest</item>
+        <item name="colorSurfaceContainerLow">@color/tk_brand_surface_container_low</item>
+        <item name="colorSurfaceContainer">@color/tk_brand_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/tk_brand_surface_container_high</item>
+        <item name="colorSurfaceContainerHighest">@color/tk_brand_surface_container_highest</item>
+    </style>
+
+    <!-- App theme: settings screen. -->
+    <style name="Theme.Talorys" parent="Base.Theme.Talorys" />
+
+    <!-- Chat + assistant: translucent, dimmed window with a bottom sheet card. -->
+    <style name="Theme.Talorys.Sheet" parent="Base.Theme.Talorys">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.45</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Translucent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- Keyboard (IME): neutral greys like Gboard, light/dark by the colors.xml qualifier; Enter uses the brand / dynamic primary. -->
+    <style name="Theme.Talorys.Keyboard" parent="Base.Theme.Talorys">
+        <item name="kbBackground">@color/tk_kb_background</item>
+        <item name="kbKey">@color/tk_kb_key</item>
+        <item name="kbFunctionKey">@color/tk_kb_function_key</item>
+        <item name="kbKeyText">@color/tk_kb_key_text</item>
+        <item name="kbKeyHint">@color/tk_kb_key_hint</item>
+        <item name="kbAccentKey">?attr/colorPrimary</item>
+        <item name="kbAccentKeyText">?attr/colorOnPrimary</item>
+        <item name="kbPreview">@color/tk_kb_preview</item>
+        <item name="kbTrail">?attr/colorPrimary</item>
+        <item name="kbDivider">@color/tk_kb_divider</item>
+    </style>
+
+    <!-- Material You keyboard (Android 12+, wallpaper colours): tinted board, flat keys a step
+         brighter than the board, tonal function keys, primary Enter. Light / dark follow the
+         context's night mode (system, or forced in Settings). -->
+    <style name="Theme.Talorys.Keyboard.Dynamic" parent="Theme.Talorys.Keyboard">
+        <item name="kbBackground">?attr/colorSurfaceContainer</item>
+        <item name="kbKey">?attr/colorSurfaceBright</item>
+        <item name="kbFunctionKey">?attr/colorSecondaryContainer</item>
+        <item name="kbKeyText">?attr/colorOnSurface</item>
+        <item name="kbKeyHint">?attr/colorOnSurfaceVariant</item>
+        <item name="kbPreview">?attr/colorSurfaceContainerHighest</item>
+        <item name="kbDivider">?attr/colorOutlineVariant</item>
+    </style>
+
+    <!-- Labelled panel action: icon above a short text label, three share the row equally. -->
+    <style name="Talorys.PanelAction" parent="Widget.Material3.Button.TextButton.Icon">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:maxLines">2</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:paddingHorizontal">4dp</item>
+        <item name="android:textColor">?attr/kbKeyText</item>
+        <item name="iconGravity">top</item>
+        <item name="iconPadding">2dp</item>
+        <item name="iconSize">22dp</item>
+        <item name="iconTint">?attr/kbKeyText</item>
+    </style>
+
+    <style name="ShapeAppearance.Talorys.Sheet" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSizeTopLeft">28dp</item>
+        <item name="cornerSizeTopRight">28dp</item>
+        <item name="cornerSizeBottomLeft">0dp</item>
+        <item name="cornerSizeBottomRight">0dp</item>
+    </style>
+
+    <style name="TextAppearance.Talorys.Section" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:textColor">?attr/colorPrimary</item>
+    </style>
+</resources>
