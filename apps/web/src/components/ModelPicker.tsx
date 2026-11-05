@@ -132,8 +132,8 @@ function ProviderSection({
     <Section title={providerLabel(t, p.id)}>
       <div className="px-4 pt-3.5 pb-2">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge tone={p.connected ? "success" : "warning"}>{p.connected ? t("model.connected") : p.needsKey ? t("model.needsKey") : t("model.noBinding")}</Badge>
-          {p.source === "static" && p.error && <span className="text-[12px] text-fg-subtle">{t("model.sourceStatic", { error: p.error })}</span>}
+          <Badge tone={p.connected ? "success" : "warning"}>{p.connected ? t("model.connected") : p.needsKey ? t("model.needsKey") : p.id === "device" ? t("model.deviceOffline") : t("model.noBinding")}</Badge>
+          {p.source === "static" && p.error && p.id !== "device" && <span className="text-[12px] text-fg-subtle">{t("model.sourceStatic", { error: p.error })}</span>}
         </div>
         <p className="mt-2 text-[12.5px] leading-5 text-fg-muted">{t(`model.provider.${p.id}Hint` as StringKey)}</p>
       </div>
