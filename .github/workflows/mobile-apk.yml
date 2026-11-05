@@ -117,7 +117,7 @@ jobs:
 
       - name: Keyboard unit tests (modules/talorys-keyboard, JUnit + Robolectric)
         working-directory: apps/mobile/android
-        run: ./gradlew :talorys-keyboard:testDebugUnitTest --no-daemon --console=plain
+        run: ./gradlew :talorys-keyboard:testDebugUnitTest :talorys-local-llm:testDebugUnitTest --no-daemon --console=plain
 
       - name: Name and verify the APK
         id: apk

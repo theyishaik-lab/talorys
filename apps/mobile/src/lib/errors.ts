@@ -36,6 +36,7 @@ export function chatErrorLines(
 
 /** The quiet note under a reply a backup wrote ("ענה: Nemotron 3 Super 120B A12B (OpenRouter)"); null when the chosen model answered. */
 export function answeredByLine(ai: AiAttribution | null | undefined, hasError: boolean, t: (key: StringKey, vars?: Record<string, string | number>) => string): string | null {
+  if (ai?.local) return t("chat.answeredLocal", { model: modelDisplayName(ai) });
   if (hasError || !ai?.fallback) return null;
   return t("chat.answeredBy", { model: modelDisplayName(ai) });
 }

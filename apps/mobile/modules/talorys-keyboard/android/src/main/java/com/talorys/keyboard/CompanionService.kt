@@ -99,6 +99,7 @@ class CompanionService : Service() {
     override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onDestroy() {
+        if (inForeground) LocalBridgeHook.stopped(this)
         scope.cancel()
         super.onDestroy()
     }
@@ -174,6 +175,7 @@ class CompanionService : Service() {
             )
             inForeground = true
             wake.trySend(false)
+            LocalBridgeHook.foreground(this)
         } catch (e: Exception) {
             // ForegroundServiceStartNotAllowedException (API 31+), missing type, or exhausted time budget.
             Log.w(TAG, "Could not enter foreground; staying a bound service", e)
@@ -184,6 +186,7 @@ class CompanionService : Service() {
     private fun leaveForeground() {
         if (!inForeground) return
         inForeground = false
+        LocalBridgeHook.stopped(this)
         runCatching { ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE) }
     }
 
@@ -241,4 +244,28 @@ class CompanionService : Service() {
             }.onFailure { Log.w(TAG, "stop foreground failed", it) }
         }
     }
+}
+
+/**
+ * Keeps the local-model device bridge (modules/talorys-local-llm, docs/local-models.md) open while this
+ * service runs in the foreground. Called by reflection so the keyboard does not depend on that module;
+ * a build without it simply does nothing.
+ */
+internal object LocalBridgeHook {
+    private const val KEEPER = "com.talorys.localllm.bridge.BridgeKeeper"
+
+    private fun call(method: String, context: Context) {
+        try {
+            val cls = Class.forName(KEEPER)
+            val instance = cls.getField("INSTANCE").get(null)
+            cls.getMethod(method, Context::class.java).invoke(instance, context.applicationContext)
+        } catch (_: ClassNotFoundException) {
+            // Local models are not part of this build.
+        } catch (e: Exception) {
+            Log.w(TAG, "local bridge hook $method failed", e)
+        }
+    }
+
+    fun foreground(context: Context) = call("onCompanionForeground", context)
+    fun stopped(context: Context) = call("onCompanionStopped", context)
 }

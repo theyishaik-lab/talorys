@@ -2,7 +2,7 @@
   "expo": {
     "name": "Talorys",
     "slug": "talorys",
-    "version": "0.4.1",
+    "version": "0.5.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "talorys",
@@ -11,7 +11,7 @@
     "android": {
       "package": "dev.talorys.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 10,
+      "versionCode": 11,
       "adaptiveIcon": {
         "backgroundColor": "#4C47E0",
         "foregroundImage": "./assets/images/adaptive-foreground.png",
@@ -78,7 +78,8 @@
         {
           "android": {
             "enableProguardInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "kotlinVersion": "2.3.21"
           }
         }
       ],

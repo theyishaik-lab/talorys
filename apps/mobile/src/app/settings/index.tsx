@@ -1,12 +1,13 @@
 import Constants from "expo-constants";
 import { router } from "expo-router";
-import { Bell, Cpu, Info, Keyboard, Languages, Link2, UserRound } from "lucide-react-native";
+import { Bell, Cpu, HardDriveDownload, Info, Keyboard, Languages, Link2, UserRound } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { Screen } from "../../components/Screen";
 import { Group, RadioRow, Row } from "../../components/SettingsList";
 import { T } from "../../components/ui";
 import { isKeyboardAvailable } from "../../../modules/talorys-keyboard";
+import { isLocalLlmAvailable } from "../../../modules/talorys-local-llm";
 import { api } from "../../lib/api";
 import { LOCALE_NAMES, type LocalePreference, deviceLocale, useI18n } from "../../lib/i18n";
 import { type ThemeMode, useTheme } from "../../lib/theme";
@@ -59,6 +60,7 @@ export default function SettingsScreen() {
         {isKeyboardAvailable() ? <Row icon={Keyboard} title={t("kb.title")} subtitle={t("kb.hint")} chevron onPress={() => router.push("/settings/keyboard")} /> : null}
         <Row icon={Bell} title={t("m.notifications")} subtitle={t("m.notifications.hint")} chevron onPress={() => router.push("/settings/notifications")} />
         <Row icon={Cpu} title={t("settings.model")} subtitle={t("m.model.hint")} value={model.split("/").pop()} chevron onPress={() => router.push("/settings/model")} />
+        {isLocalLlmAvailable() ? <Row icon={HardDriveDownload} title={t("lm.title")} subtitle={t("m.localModels.hint")} chevron onPress={() => router.push("/settings/local-models")} /> : null}
         <Row icon={Link2} title={t("settings.connections")} subtitle={t("m.connections.hint")} chevron onPress={() => router.push("/settings/connections")} />
         <Row icon={UserRound} title={t("settings.account")} subtitle={t("m.account.hint")} chevron onPress={() => router.push("/settings/account")} />
         <Row icon={Info} title={t("m.about")} subtitle={t("m.about.hint")} value={Constants.expoConfig?.version} chevron last onPress={() => router.push("/settings/about")} />

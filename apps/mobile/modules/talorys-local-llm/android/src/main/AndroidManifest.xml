@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Talorys local models (docs/local-models.md), merged into the app's manifest by the Expo module.
+  Downloads go to the app's external files dir (no storage permission). The GPU backend of LiteRT-LM
+  needs the vendor OpenCL library; it is optional so phones without it still install (CPU fallback).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application>
+        <uses-native-library android:name="libvndksupport.so" android:required="false" />
+        <uses-native-library android:name="libOpenCL.so" android:required="false" />
+    </application>
+</manifest>

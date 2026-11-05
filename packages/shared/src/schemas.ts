@@ -233,6 +233,8 @@ export interface ChatMessage {
    * backup answered, and every model that failed on the way. Absent on older messages.
    */
   ai?: AiAttribution | null;
+  /** App-only: written (or answered on the phone) while the agent was unreachable; never stored by the agent. */
+  offline?: boolean;
 }
 
 export type AutomationStatus = "scheduled" | "running" | "paused" | "completed" | "failed";

@@ -3,9 +3,14 @@ import { ApiError, api } from "./api";
 import { getServerUrl, loadSession, onUnauthorized, setSession } from "./session";
 import { registerForPush, unregisterPush } from "./push";
 import { connectKeyboardSession } from "./keyboardBridge";
+import { connectLocalModels } from "./localModelsBridge";
+import { registerOfflineChat } from "./offlineChat";
 
 // Before the session loads (AuthProvider's effect), so the keyboard gets the stored session at start-up.
 connectKeyboardSession();
+// The same session for the local models' device bridge (docs/local-models.md).
+connectLocalModels();
+registerOfflineChat();
 
 export interface Session {
   authenticated: boolean;
