@@ -79,12 +79,12 @@
           "android": {
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "kotlinVersion": "2.3.21"
+            "kotlinVersion": "2.3.20"
           }
         }
       ],
       "./plugins/withReleaseSigning.js",
-      ["./plugins/withKotlinGradlePlugin.js", { "version": "2.3.21" }],
+      ["./plugins/withKotlinGradlePlugin.js", { "version": "2.3.20" }],
       [
         "expo-location",
         {

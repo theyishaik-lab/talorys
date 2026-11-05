@@ -15,7 +15,7 @@ function pinKotlinPlugin(contents, version) {
 const withKotlinGradlePlugin = (config, props = {}) =>
   withProjectBuildGradle(config, (cfg) => {
     if (cfg.modResults.language !== "groovy") throw new Error("withKotlinGradlePlugin: expected a Groovy build.gradle");
-    cfg.modResults.contents = pinKotlinPlugin(cfg.modResults.contents, props.version ?? "2.3.21");
+    cfg.modResults.contents = pinKotlinPlugin(cfg.modResults.contents, props.version ?? "2.3.20");
     return cfg;
   });
 

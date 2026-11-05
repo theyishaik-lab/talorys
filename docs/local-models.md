@@ -41,7 +41,7 @@ is cancellable. Native library adds ~23 MB (arm64 only).
 ## Build notes
 
 LiteRT-LM 0.19.0 needs Kotlin ≥ 2.3 tooling, so `app.json` sets `expo-build-properties.android.kotlinVersion`
-to `2.3.21`. The Mobile APK workflow also runs `:talorys-local-llm:testDebugUnitTest`.
+to `2.3.20` (2.3.21 lacks a matching expo pika-compiler build). The Mobile APK workflow also runs `:talorys-local-llm:testDebugUnitTest`.
 
 ## Reusing the bridge
 
