@@ -106,7 +106,10 @@ describe("NVIDIA build preset", () => {
       maxOutputTokens: 500,
       maxIterations: 4,
       toolBudgetExhausted: () => false,
-      tools: [{ name: "list_tasks", description: "List tasks", inputSchema: z.object({ status: z.string() }), execute: async (input) => (executed.push(input), [{ id: 1 }, { id: 2 }]) }],
+      tools: [{ name: "list_tasks", description: "List tasks", inputSchema: z.object({ status: z.string() }), execute: async (input) => {
+        executed.push(input);
+        return [{ id: 1 }, { id: 2 }];
+      } }],
     };
     const events: AgentEvent[] = [];
     for await (const e of provider.generateWithTools(req)) events.push(e);

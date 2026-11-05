@@ -11,7 +11,8 @@
 			"!playwright-report",
 			"!apps/mobile/android",
 			"!apps/mobile/ios",
-			"!apps/mobile/.expo"
+			"!apps/mobile/.expo",
+			"!docs/site"
 		]
 	},
 	"formatter": {

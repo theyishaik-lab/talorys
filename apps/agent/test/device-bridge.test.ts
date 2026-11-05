@@ -321,7 +321,7 @@ describe("device entries in the fallback chain", () => {
   });
 
   it("a device model in the middle of the chain is tried in its place", async () => {
-    const first = { ...cloud("workers-ai", ""), async *generateWithTools(): AsyncIterable<AgentEvent> { throw new AppError("AI_QUOTA_EXHAUSTED", "4006", { provider: "workers-ai", reason: "quota" }); } };
+    const first = { ...cloud("workers-ai", ""), generateWithTools(): AsyncIterable<AgentEvent> { return { [Symbol.asyncIterator]: () => ({ next: () => Promise.reject(new AppError("AI_QUOTA_EXHAUSTED", "4006", { provider: "workers-ai", reason: "quota" })) }) }; } };
     const b = new DeviceBridge();
     const s = phone(b);
     b.attach(() => [s]);

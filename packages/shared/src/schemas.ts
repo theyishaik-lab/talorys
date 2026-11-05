@@ -1,6 +1,6 @@
 import type { AiAttempt, AiAttribution, AiFailureReason } from "./attribution";
 import { z } from "zod";
-import { AUTOMATION_KINDS, BACKUP_FORMAT, DEFAULT_MODEL, LIMIT_CEILINGS, MEMORY_CATEGORIES, PROJECT_STATUSES, SUGGESTION_KINDS, SUGGESTION_STATUSES, TASK_PRIORITIES, TASK_STATUSES } from "./constants";
+import { AUTOMATION_KINDS, BACKUP_FORMAT, DEFAULT_MODEL, LIMIT_CEILINGS, MEMORY_CATEGORIES, PROJECT_STATUSES, type SUGGESTION_KINDS, SUGGESTION_STATUSES, TASK_PRIORITIES, TASK_STATUSES } from "./constants";
 import { isValidTimeZone, scheduleSpecSchema } from "./recurrence";
 import { isDeviceModelId } from "./device";
 

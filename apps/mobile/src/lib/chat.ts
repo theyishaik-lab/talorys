@@ -283,12 +283,11 @@ export async function sendMessage(stores: ChatStores, text: string, controller: 
       }
     }
   } finally {
-    if (offline && !controller.signal.aborted && (await answerOffline(stores, localId, text, controller))) {
-      if (stores.controller.current === controller) stores.controller.current = null;
-      return;
-    }
+    const answeredOffline = offline && !controller.signal.aborted && (await answerOffline(stores, localId, text, controller));
     if (stores.controller.current === controller) stores.controller.current = null;
-    if (recover && conversationId) {
+    if (answeredOffline) {
+      // The phone answered; nothing to recover or finish.
+    } else if (recover && conversationId) {
       await recoverReply(stores, conversationId);
     } else {
       finishStream(stores, controller.signal.aborted);

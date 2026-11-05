@@ -60,7 +60,9 @@ function LocalModels({ native }: { native: Native }) {
       native.addListener("onModelState", (m) => setModels((list) => list.map((x) => (x.id === m.id ? m : x)))),
       native.addListener("onBridgeState", (b) => setBridge(b)),
     ];
-    return () => subs.forEach((s) => s.remove());
+    return () => {
+      for (const s of subs) s.remove();
+    };
   }, [native, refresh]);
 
   const update = (values: Partial<LocalModelSettings>) => setSettings(native.setSettings(values));
