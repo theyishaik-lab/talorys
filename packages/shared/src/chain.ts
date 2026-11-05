@@ -17,7 +17,8 @@ export type ChainEntryState =
   | "available" // nothing known against it
   | "paused" // a short pause after an overload / per-minute limit / silence
   | "exhausted" // its daily (or monthly) free quota is used up until the reset
-  | "not_configured"; // no key / endpoint for it
+  | "not_configured" // no key / endpoint for it
+  | "offline"; // a "device" entry whose phone is not connected, or has not downloaded / allowed the model
 
 export interface ChainQuotaCounter {
   remaining: number | null;

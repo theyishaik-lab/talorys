@@ -200,7 +200,8 @@ export class FallbackProvider implements AIProvider {
     /** The failures before this candidate when it is a backup (it is then announced), else null. */
     before: AiAttempt[] | null,
   ): AsyncGenerator<AgentEvent, { kind: "done"; answered: boolean } | { kind: "failed"; error: AppError }> {
-    const watchdogMs = hasNext ? this.firstEventTimeoutMs : null;
+    // A provider with its own first-word timeout (the phone, ai/device.ts) is not cut off sooner.
+    const watchdogMs = hasNext ? Math.max(this.firstEventTimeoutMs, candidate.firstEventWaitMs ?? 0) : null;
     let committed = false;
     // Bookkeeping events seen before the first real one: forwarded once the candidate commits,
     // and usage forwarded even if it fails (the tokens were spent).

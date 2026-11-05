@@ -1,4 +1,5 @@
-import { type AiProviderId, type CatalogModel, type CatalogProvider, DEFAULT_MODEL, GEMINI_STATIC_MODELS, type ModelCatalog, PROVIDER_KEY_URLS } from "@talorys/shared";
+import { type AiProviderId, type CatalogModel, type CatalogProvider, DEFAULT_MODEL, DEVICE_MODELS, GEMINI_STATIC_MODELS, type ModelCatalog, PROVIDER_KEY_URLS } from "@talorys/shared";
+import type { DeviceBridge } from "../device/bridge";
 import { listGeminiModels } from "./gemini";
 import type { ProviderKeyStore } from "./keys";
 import { listOpenRouterModels } from "./openrouter";
@@ -127,8 +128,40 @@ interface CacheEntry {
   error: string | null;
 }
 
+/**
+ * The on-device models (provider "device"): answered by the owner's phone through the device bridge,
+ * without tools. Listed whether or not a phone is connected, so they can be placed in the chain first.
+ */
+export function deviceCatalogProvider(devices: { models: { id: string; state: string }[] }[]): CatalogProvider {
+  const connected = devices.length > 0;
+  return {
+    id: "device",
+    name: PROVIDER_NAMES.device,
+    connected,
+    keyHint: null,
+    keyAddedAt: null,
+    needsKey: false,
+    keyUrl: null,
+    models: DEVICE_MODELS.map((m) => ({
+      id: m.id,
+      name: m.name,
+      description: m.description,
+      context: m.contextTokens,
+      tools: false,
+      free: true,
+      speed: m.reasoning ? "slow" : "balanced",
+      quality: m.id === "gemma-4-e4b" ? "good" : "basic",
+      price: null,
+    })),
+    error: connected ? null : "No phone is connected. Open the Talorys app on your phone (Settings → Local models) to download a model and connect it.",
+    source: "static",
+  };
+}
+
 export class ModelCatalogService {
   private readonly cache = new Map<string, CacheEntry>();
+  /** Set by the services container; the device provider row says whether a phone is connected. */
+  device: Pick<DeviceBridge, "devices"> | null = null;
 
   constructor(
     private readonly ai: Ai | undefined,
@@ -148,6 +181,7 @@ export class ModelCatalogService {
       { id: "workers-ai", name: PROVIDER_NAMES["workers-ai"], connected: !!this.ai, keyHint: null, keyAddedAt: null, needsKey: false, keyUrl: null, ...cf },
       { id: "gemini", name: PROVIDER_NAMES.gemini, connected: info.gemini.set, keyHint: info.gemini.hint, keyAddedAt: info.gemini.added_at, needsKey: true, keyUrl: PROVIDER_KEY_URLS.gemini, ...gemini },
       { id: "openrouter", name: PROVIDER_NAMES.openrouter, connected: info.openrouter.set, keyHint: info.openrouter.hint, keyAddedAt: info.openrouter.added_at, needsKey: true, keyUrl: PROVIDER_KEY_URLS.openrouter, ...openrouter },
+      deviceCatalogProvider(this.device?.devices() ?? []),
     ];
     // The chosen model is always listed, even when the live list no longer carries it.
     const chosen = providers.find((p) => p.id === current.provider);

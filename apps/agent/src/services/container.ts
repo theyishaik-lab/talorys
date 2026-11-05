@@ -17,6 +17,7 @@ import { NativePushService } from "../push/native";
 import { excerpt, PushService, pushKeysFromEnv } from "../push/service";
 import { ProviderKeyStore } from "../ai/keys";
 import { ModelCatalogService } from "../ai/catalog";
+import { DeviceBridge } from "../device/bridge";
 import { ModelCooldowns } from "../ai/cooldown";
 import { EndpointStore } from "../ai/openai-compatible";
 import { QuotaObservations } from "../ai/quota";
@@ -46,6 +47,8 @@ export interface Services {
   providerKeys: ProviderKeyStore;
   /** The model lists Settings shows (cached per Durable Object). */
   catalog: ModelCatalogService;
+  /** The owner's phone(s) on the device bridge (on-device chain entries, docs/local-models.md). */
+  device: DeviceBridge;
   /** Models paused after a quota / overload failure (skipped by the fallback chain until then). */
   cooldowns: ModelCooldowns;
   /** OpenAI-compatible endpoints the owner registered (OVH, Groq, …). */
@@ -72,7 +75,9 @@ export function createServices(storage: DurableObjectStorage, env: Env, schedule
   const usage = new UsageService(db);
   const push = new PushService(db, pushKeysFromEnv(env), (work) => deliver(work.catch((e) => console.error("push delivery failed", e))));
   const providerKeys = new ProviderKeyStore(settings, env.SESSION_SECRET);
+  const device = new DeviceBridge();
   const catalog = new ModelCatalogService(env.AI, providerKeys);
+  catalog.device = device;
   push.native = new NativePushService(db, parseFcmCredentials(env.FCM_SERVICE_ACCOUNT), env.PUBLIC_APP_URL ?? "", (work) => deliver(work.catch((e) => console.error("native push delivery failed", e))));
   // Everything that lands in the bell also reaches the devices that asked for it.
   // The full text also lands in a chat thread (one per automation, one shared inbox for the rest),
@@ -96,6 +101,7 @@ export function createServices(storage: DurableObjectStorage, env: Env, schedule
     push,
     providerKeys,
     catalog,
+    device,
     cooldowns: new ModelCooldowns(settings),
     endpoints: new EndpointStore(settings),
     quotas: new QuotaObservations(settings),

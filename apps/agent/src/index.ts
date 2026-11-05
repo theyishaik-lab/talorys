@@ -1,5 +1,5 @@
 import { getAgentByName } from "agents";
-import { AGENT_INSTANCE_NAME } from "@talorys/shared";
+import { AGENT_INSTANCE_NAME, DEVICE_BRIDGE_PATH } from "@talorys/shared";
 import type { Env } from "./env";
 
 export { TalorysAgent } from "./agent/talorys-agent";
@@ -21,8 +21,8 @@ export default {
     if ((!url.pathname.startsWith("/api/") && url.pathname !== "/api") || isSubAgentPath) {
       return Response.json({ error: { code: "NOT_FOUND", message: "Not found" } }, { status: 404 });
     }
-    // WebSocket upgrades are not part of the API surface.
-    if (request.headers.get("upgrade")?.toLowerCase() === "websocket") {
+    // The only WebSocket is the phone's device bridge (docs/local-models.md); the agent authenticates it.
+    if (request.headers.get("upgrade")?.toLowerCase() === "websocket" && url.pathname !== DEVICE_BRIDGE_PATH) {
       return Response.json({ error: { code: "FORBIDDEN", message: "WebSockets are not supported" } }, { status: 400 });
     }
     const agent = await getAgentByName(env.TalorysAgent, AGENT_INSTANCE_NAME);

@@ -4,7 +4,7 @@ import type { z } from "zod";
 import { AppError } from "../api/errors";
 
 /** Human names of the providers, used in error messages (the UI localizes by code, not by this text). */
-export const PROVIDER_NAMES: Record<AiProviderId, string> = { "workers-ai": "Cloudflare Workers AI", gemini: "Google Gemini", openrouter: "OpenRouter", "openai-compatible": "The OpenAI-compatible endpoint" };
+export const PROVIDER_NAMES: Record<AiProviderId, string> = { "workers-ai": "Cloudflare Workers AI", gemini: "Google Gemini", openrouter: "OpenRouter", "openai-compatible": "The OpenAI-compatible endpoint", device: "Your phone (on-device model)" };
 
 export interface ModelMessage {
   role: "user" | "assistant";
@@ -70,6 +70,11 @@ export interface AIProvider {
    * `maxOutputTokens`; absent when unknown (the owner's maxContextTokens alone then applies).
    */
   promptBudget?(maxOutputTokens: number): number;
+  /**
+   * How long the chain's first-event watchdog waits on this provider when it is longer than the
+   * chain's own (FallbackProvider). The phone (ai/device.ts) enforces its own, shorter timeouts.
+   */
+  readonly firstEventWaitMs?: number;
 }
 
 /** Rough token estimate (≈4 chars/token) used for budgeting and local usage estimates. */

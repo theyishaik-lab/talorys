@@ -1,4 +1,4 @@
-import { AI_PROVIDERS, type AiProviderId, aiEndpointUpdateSchema, type ChainRef, chainFromSettings, ENDPOINT_ID, isModelIdFor, type ModelCatalog, providerKeySchema, splitEndpointModel } from "@talorys/shared";
+import { AI_PROVIDERS, type AiProviderId, DEVICE_MODELS, aiEndpointUpdateSchema, type ChainRef, chainFromSettings, ENDPOINT_ID, isModelIdFor, type ModelCatalog, providerKeySchema, splitEndpointModel } from "@talorys/shared";
 import { chainStatus, needsKey, type OpenRouterAllowance } from "../../ai/chain-status";
 import { Hono } from "hono";
 import { listGeminiModels } from "../../ai/gemini";
@@ -97,6 +97,7 @@ aiRoutes.get("/ai/chain", async (c) => {
       const id = splitEndpointModel(ref.model)?.endpoint;
       return !!id && !!s.endpoints.get(id);
     }
+    if (ref.provider === "device") return true;
     return !!c.env.env.AI;
   };
   const status = chainStatus(settings, {
@@ -105,9 +106,26 @@ aiRoutes.get("/ai/chain", async (c) => {
     configured,
     endpointName: (id) => s.endpoints.get(id)?.name ?? null,
     openRouter,
+    device: (model) => {
+      const a = s.device.availability(model);
+      return a.ok ? "ok" : a.reason === "device_offline" ? "device_offline" : "not_downloaded";
+    },
     now: Date.now(),
   });
   return c.json(status);
+});
+
+/**
+ * The owner's phones on the device bridge and what each reported (on-device models, docs/local-models.md),
+ * plus whether each on-device model can answer a chain turn right now.
+ */
+aiRoutes.get("/device/status", (c) => {
+  const s = c.env.agent.services;
+  const models = DEVICE_MODELS.map((m) => {
+    const a = s.device.availability(m.id);
+    return { id: m.id, name: m.name, available: a.ok, reason: a.ok ? null : a.reason };
+  });
+  return c.json({ devices: s.device.devices(), models, settings: s.settings.get().device });
 });
 
 /** The models an OpenAI-compatible endpoint offers (its own `GET /models`), for "add to chain". */

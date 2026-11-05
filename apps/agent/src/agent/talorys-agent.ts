@@ -1,4 +1,4 @@
-import { Agent } from "agents";
+import { Agent, type Connection, type ConnectionContext, type WSMessage } from "agents";
 import type { Automation } from "@talorys/shared";
 import type { Env } from "../env";
 import { migrate } from "../db/migrations";
@@ -15,6 +15,9 @@ import { OpenAICompatibleProvider } from "../ai/openai-compatible";
 import { FallbackProvider, fallbackOrder } from "../ai/fallback";
 import { modelLabel } from "@talorys/shared";
 import { MockAIProvider } from "../ai/mock";
+import { DeviceProvider } from "../ai/device";
+import { BRIDGE_TAG, type BridgeConnState, type BridgeSocket } from "../device/bridge";
+import { DEVICE_BRIDGE_PATH } from "@talorys/shared";
 import type { AIProvider } from "../ai/provider";
 import { localDayBounds, formatLocal } from "../services/time";
 import { semanticExtensions } from "../semantic";
@@ -60,6 +63,8 @@ export class TalorysAgent extends Agent<Env, AgentState> {
         exists: async (id) => (await this.getScheduleById(id)) !== undefined,
       };
       this._services = createServices(this.ctx.storage, this.env, scheduler, { provider: () => this.aiProvider() }, (work) => this.ctx.waitUntil(work));
+      // The phones on the device bridge are this Durable Object's own hibernating sockets.
+      this._services.device.attach(() => this.getConnections<BridgeConnState>(BRIDGE_TAG) as Iterable<BridgeSocket>);
       migrate(this._services.db);
       // Cross-thread message search (guarded: a missing SQLite feature only means LIKE search).
       ensureMessageSearch(this._services.db);
@@ -81,6 +86,53 @@ export class TalorysAgent extends Agent<Env, AgentState> {
 
   override async onRequest(request: Request): Promise<Response> {
     return api.fetch(request, { agent: this, env: this.env });
+  }
+
+  // ---------- Device bridge (docs/local-models.md) ----------
+  // The only WebSocket this agent accepts is the phone's bridge at /api/device/bridge (src/index.ts
+  // refuses every other upgrade). The Agents SDK's own protocol frames (identity, state sync, MCP
+  // lists) are never sent on it, and the phone may not write agent state.
+
+  override shouldSendProtocolMessages(_connection: Connection, _ctx: ConnectionContext): boolean {
+    return false;
+  }
+
+  override getConnectionTags(_connection: Connection, ctx: ConnectionContext): string[] {
+    return new URL(ctx.request.url).pathname === DEVICE_BRIDGE_PATH ? [BRIDGE_TAG] : [];
+  }
+
+  override async onConnect(connection: Connection, ctx: ConnectionContext): Promise<void> {
+    this.setConnectionReadonly(connection, true);
+    if (new URL(ctx.request.url).pathname !== DEVICE_BRIDGE_PATH) {
+      connection.close(4404, "Not found");
+      return;
+    }
+    // The app's native session token (the same bearer the API takes); never a cookie, never a query.
+    const auth = ctx.request.headers.get("authorization") ?? "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+    const session = token ? await this.services.auth.validate(token) : null;
+    if (!session) {
+      connection.close(4401, "Please sign in.");
+      return;
+    }
+    this.services.device.opened(connection as unknown as BridgeSocket);
+    this.services.activity.record("device.connected", "A phone connected to the device bridge");
+  }
+
+  override onMessage(connection: Connection, message: WSMessage): void {
+    if (typeof message !== "string") return;
+    this.services.device.message(connection as unknown as BridgeSocket, message);
+  }
+
+  override onClose(connection: Connection): void {
+    this.services.device.closed(connection as unknown as BridgeSocket);
+  }
+
+  override onError(connectionOrError: Connection | unknown, error?: unknown): void {
+    if (error !== undefined) {
+      console.warn("device bridge socket error", error);
+      this.services.device.closed(connectionOrError as unknown as BridgeSocket);
+    } else console.error("agent error", connectionOrError);
   }
 
   /**
@@ -144,6 +196,10 @@ export class TalorysAgent extends Agent<Env, AgentState> {
         return new OpenRouterProvider(model, () => keys.get("openrouter"));
       case "openai-compatible":
         return new OpenAICompatibleProvider(model, this.services.endpoints, keys, (snapshot) => this.services.quotas.record("openai-compatible", model, snapshot));
+      case "device": {
+        const t = this.services.settings.get().device;
+        return new DeviceProvider(model, this.services.device, { firstTokenTimeoutMs: t.firstTokenTimeoutS * 1000, overallTimeoutMs: t.overallTimeoutS * 1000 });
+      }
       default:
         return this.env.AI ? new CloudflareWorkersAIProvider(this.env.AI, model) : null;
     }

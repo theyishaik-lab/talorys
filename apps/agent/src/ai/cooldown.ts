@@ -15,7 +15,8 @@ import { detailsOf, reasonOf } from "./attribution";
  *    min), capped at 30 min, and reset by the model's next success;
  *  - an endpoint's own first-byte timeout (NVIDIA build hangs, openai-compatible.ts): 1 → 2 → 4 …
  *    min, capped at 10 min — such hangs are per request, so the free model is soon tried again;
- *  - the provider does not offer the model: 6 h; a rejected key 1 h; no key 10 min.
+ *  - the provider does not offer the model: 6 h; a rejected key 1 h; no key 10 min;
+ *  - an on-device model whose phone is offline or has not downloaded it: no pause (checking is free).
  * OpenRouter's free allowance and Workers AI's neurons are the account's, so those pauses cover
  * every model of that provider. When every model in the chain is paused, the turn tries them all
  * anyway — the person never gets "nothing was tried".
@@ -88,6 +89,11 @@ export function cooldownFor(error: unknown, now: number, strikes = 1): { ms: num
       return { ms: HOUR, scope: "provider" };
     case "not_configured":
       return { ms: 10 * MINUTE, scope: "provider" };
+    // A "device" entry whose phone is offline or lacks the model costs nothing to check (no request
+    // leaves the agent), so it is never paused: the turn after the phone reconnects uses it.
+    case "device_offline":
+    case "not_downloaded":
+      return null;
     default:
       return { ms: doubling(MINUTE), scope: "model" };
   }
