@@ -5,3 +5,4 @@ export * from "./recurrence";
 export * from "./crypto";
 export * from "./attribution";
 export * from "./chain";
+export * from "./device";

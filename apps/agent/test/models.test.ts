@@ -131,7 +131,7 @@ describe("model catalog", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ data: [{ id: "a/b:free", name: "B (free)", supported_parameters: ["tools"], context_length: 1000, pricing: { prompt: "0", completion: "0" } }, { id: "a/paid", supported_parameters: ["tools"] }] }), { status: 200 })));
     const c = await svc.catalog({ provider: "workers-ai", model: "@cf/old/model" });
     vi.unstubAllGlobals();
-    expect(c.providers.map((p) => p.id)).toEqual(["workers-ai", "gemini", "openrouter"]);
+    expect(c.providers.map((p) => p.id)).toEqual(["workers-ai", "gemini", "openrouter", "device"]);
     const cf = c.providers[0]!;
     expect(cf.models.map((m) => m.id)).toEqual(["@cf/old/model", "@cf/x/y"]);
     expect(cf.source).toBe("live");

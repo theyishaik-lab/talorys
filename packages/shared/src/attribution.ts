@@ -15,6 +15,8 @@ export type AiFailureReason =
   | "not_configured" // no API key stored
   | "bad_key" // the provider rejected the key (401/403)
   | "no_model" // the provider does not offer the model (404)
+  | "device_offline" // a "device" entry: no phone is connected to the agent's device bridge
+  | "not_downloaded" // a "device" entry: the phone has not downloaded the model, or "Use in chain" is off for it
   | "error"; // anything else
 
 export interface AiAttempt {
@@ -48,10 +50,12 @@ export interface AiAttribution {
   fallback: boolean;
   /** Every model that failed in this turn, in the order tried (empty when the chosen model answered). */
   attempts: AiAttempt[];
+  /** True when the phone answered on its own because the agent was unreachable (offline fallback, app-side only). */
+  local?: boolean;
 }
 
 /** Short provider names for chips and error lines. */
-export const PROVIDER_SHORT_NAMES: Record<string, string> = { gemini: "Google", openrouter: "OpenRouter", "workers-ai": "Workers AI", "openai-compatible": "API" };
+export const PROVIDER_SHORT_NAMES: Record<string, string> = { gemini: "Google", openrouter: "OpenRouter", "workers-ai": "Workers AI", "openai-compatible": "API", device: "Phone" };
 
 /** How well-known OpenAI-compatible endpoints are named ("ovh/gpt-oss-120b" → "OVH"). */
 const ENDPOINT_NAMES: Record<string, string> = { ovh: "OVH", groq: "Groq", cerebras: "Cerebras", mistral: "Mistral", github: "GitHub Models", nvidia: "NVIDIA", together: "Together", sambanova: "SambaNova", zai: "Z.ai", cohere: "Cohere" };
@@ -92,7 +96,7 @@ export function modelLabel(id: string | null | undefined): string {
     .map((w) => {
       const lower = w.toLowerCase();
       if (/^\d+(\.\d+)?[bmk]$/i.test(w)) return w.toUpperCase();
-      if (/^a\d+(\.\d+)?b$/i.test(w)) return w.toUpperCase();
+      if (/^[ae]\d+(\.\d+)?b$/i.test(w)) return w.toUpperCase();
       if (UPPER.has(lower)) return lower.toUpperCase();
       return w.charAt(0).toUpperCase() + w.slice(1);
     })
@@ -113,6 +117,8 @@ const REASON_HE: Record<AiFailureReason, string> = {
   not_configured: "לא מוגדר",
   bad_key: "מפתח שגוי",
   no_model: "מודל לא זמין",
+  device_offline: "הטלפון לא מחובר",
+  not_downloaded: "המודל לא הורד",
   error: "שגיאה",
 };
 
@@ -123,6 +129,8 @@ const REASON_EN: Record<AiFailureReason, string> = {
   not_configured: "not set up",
   bad_key: "key rejected",
   no_model: "model unavailable",
+  device_offline: "device offline",
+  not_downloaded: "model not downloaded",
   error: "error",
 };
 

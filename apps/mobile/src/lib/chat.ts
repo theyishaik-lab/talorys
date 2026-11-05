@@ -1,6 +1,18 @@
 import type { AiAttribution, ApiErrorCode, ChatMessage, ChatStreamEvent, Conversation, ToolActivity } from "@talorys/shared";
 import { ApiError, api, streamChat } from "./api";
+import { isAgentUnreachable } from "./localModels";
 import { createStore, type Store } from "./store";
+
+/**
+ * Answers a message on the phone itself when the agent cannot be reached (Settings → Local models →
+ * Offline fallback; lib/offlineChat.ts registers it). Streams through `onDelta`; resolves with the
+ * model that answered, or null when the fallback is off or no model is ready (the normal error shows).
+ */
+export type OfflineResponder = (req: { history: ChatMessage[]; text: string; onDelta: (delta: string) => void; signal: AbortSignal }) => Promise<{ model: string } | null>;
+let offlineResponder: OfflineResponder | null = null;
+export function setOfflineResponder(fn: OfflineResponder | null): void {
+  offlineResponder = fn;
+}
 
 /**
  * Chat state for one open conversation.
@@ -122,7 +134,8 @@ export async function recoverReply(stores: ChatStores, conversationId: string, o
 /** Server history, plus our own bubbles the server never accepted (they carry an error). */
 export function mergeHistory(server: ChatMessage[], local: ChatMessage[]): ChatMessage[] {
   const known = new Set(server.map((m) => m.id));
-  return [...server, ...local.filter((m) => m.id.startsWith("local-") && m.error && !known.has(m.id))];
+  // Offline answers from the phone (and the message they answered) never reached the server either.
+  return [...server, ...local.filter((m) => m.id.startsWith("local-") && (m.error || m.offline) && !known.has(m.id))];
 }
 
 const QUOTA_CODES = new Set(["AI_QUOTA_EXCEEDED", "RATE_LIMITED", "AI_UNAVAILABLE"]);
@@ -222,11 +235,14 @@ export async function sendMessage(stores: ChatStores, text: string, controller: 
   let conversationId = state.conversationId;
   let finished = false;
   let recover = false;
+  let started = false;
+  let offline = false;
   try {
     await streamChat(
       { conversation_id: state.conversationId ?? undefined, message: text },
       (e) => {
         if (e.type === "start") {
+          started = true;
           conversationId = e.conversation_id;
           // Registered before the screen hears about the conversation, so its new route finds these stores.
           inFlight.set(e.conversation_id, stores);
@@ -244,7 +260,11 @@ export async function sendMessage(stores: ChatStores, text: string, controller: 
     } else {
       const message = error instanceof Error ? error.message : "Failed";
       const code = error instanceof ApiError ? error.code : "";
-      if (code === "CONFLICT") {
+      if (offlineResponder && isAgentUnreachable(error instanceof ApiError ? { status: error.status, code: error.code } : { code: "NETWORK" }, started)) {
+        // The agent is unreachable before it took the message: the phone may answer on its own.
+        offline = true;
+        stores.stream.set((st) => (st ? { ...st, error: message } : st));
+      } else if (code === "CONFLICT") {
         // The agent is still on the previous message: ours was not accepted. Say so on our bubble,
         // and bring in the previous answer when it lands.
         stores.chat.set((s) => ({ ...s, messages: s.messages.map((m) => (m.id === localId ? { ...m, error: "CONFLICT" } : m)) }));
@@ -263,6 +283,10 @@ export async function sendMessage(stores: ChatStores, text: string, controller: 
       }
     }
   } finally {
+    if (offline && !controller.signal.aborted && (await answerOffline(stores, localId, text, controller))) {
+      if (stores.controller.current === controller) stores.controller.current = null;
+      return;
+    }
     if (stores.controller.current === controller) stores.controller.current = null;
     if (recover && conversationId) {
       await recoverReply(stores, conversationId);
@@ -270,6 +294,53 @@ export async function sendMessage(stores: ChatStores, text: string, controller: 
       finishStream(stores, controller.signal.aborted);
       if (conversationId && inFlight.get(conversationId) === stores) inFlight.delete(conversationId);
     }
+  }
+}
+
+/**
+ * The offline fallback: streams the phone's answer into the reply row and keeps both bubbles locally,
+ * marked "answered on this phone (offline)". False when the responder declined (fallback off, no model).
+ */
+async function answerOffline(stores: ChatStores, localId: string, text: string, controller: AbortController): Promise<boolean> {
+  const responder = offlineResponder;
+  if (!responder) return false;
+  const history = stores.chat.get().messages.filter((m) => m.id !== localId);
+  stores.stream.set({ messageId: "pending", text: "", tools: [], error: null });
+  try {
+    const answered = await responder({
+      history,
+      text,
+      signal: controller.signal,
+      onDelta: (delta) => stores.stream.set((st) => (st ? { ...st, text: st.text + delta } : st)),
+    });
+    if (!answered) return false;
+    const st = stores.stream.get();
+    const now = new Date().toISOString();
+    const reply: ChatMessage = {
+      id: `local-offline-${Date.now()}`,
+      conversation_id: stores.chat.get().conversationId ?? "",
+      role: "assistant",
+      content: st?.text ?? "",
+      tools: [],
+      status: controller.signal.aborted ? "cancelled" : "complete",
+      error: null,
+      created_at: now,
+      ai: { provider: "device", model: answered.model, fallback: true, attempts: [], local: true },
+      offline: true,
+    };
+    stores.chat.set((s) => ({
+      ...s,
+      // The question stays visible as an offline message (it never reached the agent).
+      messages: [...s.messages.map((m) => (m.id === localId ? { ...m, offline: true } : m)), reply],
+      streamingId: null,
+    }));
+    stores.stream.set(null);
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed";
+    stores.stream.set((st) => (st ? { ...st, error: message } : { messageId: "pending", text: "", tools: [], error: message }));
+    finishStream(stores, controller.signal.aborted);
+    return true;
   }
 }
 

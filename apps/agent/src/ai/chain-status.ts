@@ -19,6 +19,8 @@ export interface ChainStatusDeps {
   endpointName: (id: string) => string | null;
   /** OpenRouter's free allowance right now (null when unknown or no key). */
   openRouter: OpenRouterAllowance | null;
+  /** For "device" entries: whether a connected phone can run the model now (absent: treated as offline). */
+  device?: (model: string) => "ok" | "device_offline" | "not_downloaded";
   now: number;
 }
 
@@ -69,7 +71,10 @@ export function chainStatus(settings: Pick<Settings, "modelProvider" | "model" |
         base.quota = { requests: fresh(seen.requests), tokens: fresh(seen.tokens), source: "headers", as_of: seen.seen_at, shared: false };
       }
     }
-    if (!deps.configured(ref)) return { ...base, state: "not_configured", reason: "not_configured" };
+    if (ref.provider === "device") {
+      const d = deps.device?.(ref.model) ?? "device_offline";
+      if (d !== "ok") return { ...base, state: "offline", reason: d };
+    } else if (!deps.configured(ref)) return { ...base, state: "not_configured", reason: "not_configured" };
     const pause = deps.cooldowns.active(ref.provider, ref.model);
     if (pause) {
       const long = Date.parse(pause.until) - deps.now > HOUR;

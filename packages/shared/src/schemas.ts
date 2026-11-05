@@ -2,6 +2,7 @@ import type { AiAttempt, AiAttribution, AiFailureReason } from "./attribution";
 import { z } from "zod";
 import { AUTOMATION_KINDS, BACKUP_FORMAT, DEFAULT_MODEL, LIMIT_CEILINGS, MEMORY_CATEGORIES, PROJECT_STATUSES, SUGGESTION_KINDS, SUGGESTION_STATUSES, TASK_PRIORITIES, TASK_STATUSES } from "./constants";
 import { isValidTimeZone, scheduleSpecSchema } from "./recurrence";
+import { isDeviceModelId } from "./device";
 
 // ---------- Primitives ----------
 
@@ -232,6 +233,8 @@ export interface ChatMessage {
    * backup answered, and every model that failed on the way. Absent on older messages.
    */
   ai?: AiAttribution | null;
+  /** App-only: written (or answered on the phone) while the agent was unreachable; never stored by the agent. */
+  offline?: boolean;
 }
 
 export type AutomationStatus = "scheduled" | "running" | "paused" | "completed" | "failed";
@@ -440,9 +443,10 @@ export type MemoryHistorySettings = z.infer<typeof memoryHistorySettingsSchema>;
  * Where the chat model runs. Workers AI is built in; Gemini and OpenRouter need an API key stored on
  * the agent; "openai-compatible" is any OpenAI-compatible endpoint the owner registered
  * (`/api/ai/endpoints`), its model id written "<endpoint id>/<model>" — e.g. "ovh/gpt-oss-120b",
- * "groq/openai/gpt-oss-120b".
+ * "groq/openai/gpt-oss-120b". "device" is an on-device model run by the owner's phone through the
+ * device bridge (docs/local-models.md); its model ids are DEVICE_MODEL_IDS ("gemma-4-e4b").
  */
-export const AI_PROVIDERS = ["workers-ai", "gemini", "openrouter", "openai-compatible"] as const;
+export const AI_PROVIDERS = ["workers-ai", "gemini", "openrouter", "openai-compatible", "device"] as const;
 export type AiProviderId = (typeof AI_PROVIDERS)[number];
 export const aiProviderSchema = z.enum(AI_PROVIDERS);
 
@@ -456,6 +460,7 @@ export function isModelIdFor(provider: AiProviderId, model: string): boolean {
   if (model.length === 0 || model.length > 200) return false;
   if (provider === "workers-ai") return WORKERS_AI_MODEL.test(model);
   if (provider === "openai-compatible") return ENDPOINT_MODEL_ID.test(model);
+  if (provider === "device") return isDeviceModelId(model);
   return OPEN_MODEL_ID.test(model);
 }
 
@@ -523,6 +528,18 @@ export const fallbackSchema = z.object({
   chain: z.array(fallbackChainEntrySchema).max(MAX_FALLBACK_CHAIN).default([]),
 });
 export type FallbackSettings = z.infer<typeof fallbackSchema>;
+
+/**
+ * Chain entries answered by the owner's phone (provider "device", docs/local-models.md): how long the
+ * agent waits for the phone to take the request / show it is working before it moves on, and how long
+ * one answer may take in total.
+ */
+export const deviceSettingsSchema = z.object({
+  firstTokenTimeoutS: z.number().int().min(5).max(120),
+  overallTimeoutS: z.number().int().min(30).max(900),
+});
+export type DeviceSettings = z.infer<typeof deviceSettingsSchema>;
+export const DEFAULT_DEVICE_SETTINGS: DeviceSettings = { firstTokenTimeoutS: 20, overallTimeoutS: 240 };
 export const DEFAULT_FALLBACK: FallbackSettings = { enabled: false, provider: "workers-ai", model: DEFAULT_MODEL, chain: [] };
 /**
  * A partial fallback update. Each field is replaced when present and kept when absent — so a
@@ -589,6 +606,8 @@ export const settingsSchema = z
     demoMode: z.boolean(),
     memoryHistory: memoryHistorySettingsSchema,
     proactive: proactiveSettingsSchema.default(proactiveSettingsSchema.parse({})),
+    /** Settings stored before on-device models existed read as the defaults. */
+    device: deviceSettingsSchema.default(DEFAULT_DEVICE_SETTINGS),
   })
   .refine((v) => isModelIdFor(v.modelProvider, v.model), { path: ["model"], message: "Not a model id of the chosen provider" })
   .refine((v) => !v.fallback.enabled || modelRef.safeParse({ provider: v.fallback.provider, model: v.fallback.model }).success, {
@@ -615,6 +634,7 @@ export const settingsUpdateSchema = z.object({
     quietStartHour: proactiveSettingsSchema.shape.quietStartHour.removeDefault().optional(),
     quietEndHour: proactiveSettingsSchema.shape.quietEndHour.removeDefault().optional(),
   }).optional(),
+  device: deviceSettingsSchema.partial().optional(),
 });
 
 /** A model as the Settings picker shows it. `tools` = function calling; `free` = no charge beyond the provider's free allowance. */

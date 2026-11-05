@@ -48,6 +48,7 @@ const STATE_DOT: Record<ChainStatusEntry["state"], string> = {
   paused: "bg-warning",
   exhausted: "bg-danger",
   not_configured: "bg-fg-subtle",
+  offline: "bg-fg-subtle",
 };
 
 /**
@@ -351,6 +352,7 @@ function AddModelDialog({ open, onClose, catalog, endpoints, list, onAdd }: { op
           </Select>
         </label>
         {provider && !provider.connected && provider.needsKey && <p className="text-[12.5px] text-warning">{t("chain.pick.noKey")}</p>}
+        {provider?.id === "device" && <p className="text-[12.5px] text-fg-muted">{t(provider.connected ? "chain.pick.device" : "chain.pick.deviceOffline")}</p>}
         <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("chain.pick.search")} aria-label={t("chain.pick.search")} dir="ltr" />
         <div className="max-h-[42vh] overflow-y-auto rounded-xl border border-border">
           {chosen?.kind === "endpoint" && endpointModels.isLoading ? (

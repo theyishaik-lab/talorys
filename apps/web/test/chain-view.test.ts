@@ -36,6 +36,13 @@ describe("model chain words", () => {
     expect(stateText(he, entry({ state: "not_configured", reason: "not_configured" }))).toBe("לא מוגדר");
   });
 
+  it("device entries: offline because the phone is not connected or the model is not downloaded", () => {
+    const device = { provider: "device" as const, model: "gemma-4-e4b", label: "Gemma 4 E4B", provider_label: "Phone" };
+    expect(stateText(en, entry({ ...device, state: "offline", reason: "device_offline" }))).toBe("Not reachable (phone not connected)");
+    expect(stateText(he, entry({ ...device, state: "offline", reason: "not_downloaded" }))).toBe("לא זמין (לא הורד בטלפון)");
+    expect(stateText(en, entry({ ...device }))).toBe("Available");
+  });
+
   it("quota: OpenRouter's shared daily allowance, Groq's headers, and unknown", () => {
     expect(quotaLine(he, null)).toBe("מכסה: לא ידוע");
     expect(

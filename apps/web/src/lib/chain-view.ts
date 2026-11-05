@@ -41,5 +41,7 @@ export function stateText(t: T, e: ChainStatusEntry): string {
   }
   if (e.state === "exhausted") return [head, e.until ? t("chain.resets", { time: timeLeft(t, e.until) }) : ""].filter(Boolean).join(" · ");
   if (e.state === "not_configured" && e.reason === "bad_key") return `${head} (${t("chain.reason.bad_key")})`;
+  // A device entry: the phone is not connected, or has not downloaded / allowed the model.
+  if (e.state === "offline" && e.reason) return `${head} (${t(`chain.reason.${e.reason}` as StringKey)})`;
   return head;
 }
