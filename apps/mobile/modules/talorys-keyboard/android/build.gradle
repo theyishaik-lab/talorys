@@ -16,13 +16,13 @@ apply plugin: 'expo-module-gradle-plugin'
 apply plugin: 'org.jetbrains.kotlin.plugin.serialization'
 
 group = 'dev.talorys'
-version = '0.4.1'
+version = '0.5.1'
 
 android {
   namespace "com.talorys.keyboard"
   defaultConfig {
-    versionCode 11
-    versionName '0.5.0'
+    versionCode 12
+    versionName '0.5.1'
     consumerProguardFiles 'proguard-rules.pro'
   }
   buildFeatures {

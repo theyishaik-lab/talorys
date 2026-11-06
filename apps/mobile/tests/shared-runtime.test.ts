@@ -14,6 +14,7 @@ describe("shared runtime helpers", () => {
     expect(local.formatAttempts).toBe(pkg.formatAttempts);
     expect(local.headerModel).toBe(pkg.headerModel);
     expect(local.MAX_FALLBACK_CHAIN).toBe(pkg.MAX_FALLBACK_CHAIN);
+    expect(local.MEMORY_CATEGORIES).toBe(pkg.MEMORY_CATEGORIES);
   });
 
   it("src/ imports only types from @talorys/shared (Metro cannot bundle the package)", () => {
