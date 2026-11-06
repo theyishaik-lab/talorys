@@ -57,7 +57,8 @@ RRF k=60, newer near-duplicates pulled in) on those vectors instead of Workers A
 and free. `bench/memory/embed_fixture.py` makes the file: it runs bge-m3 locally from its ONNX export
 (`Xenova/bge-m3`, fp16; CLS token, L2-normalized, stored as int8) over exactly the texts the agent
 embeds (`content + "\n" + category`, and each query). These match Workers AI's `@cf/baai/bge-m3`
-closely but not bit for bit, so treat cosines near a floor as approximate. The synthetic fixture's
+closely but not bit for bit, so treat cosines near a floor as approximate (checked live on Nov 6,
+2026: GitHub question 0.634 local vs 0.634 Workers AI, home question 0.453 vs 0.453). The synthetic fixture's
 vectors are committed (`fixture.embeddings.json`, 143 KB); a private fixture's never are.
 
 Results (Nov 6, 2026), legacy → BM25 → hybrid:
@@ -78,7 +79,7 @@ owner's language (dreaming, Nov 6) is what closes that gap; vectors then help wi
 What keyword search still cannot do: synonyms and paraphrase (`לאשתי` vs a memory naming the
 partner), and cross-language matches (a Hebrew question about a memory written in English). Those
 need semantic recall ([semantic-recall.md](semantic-recall.md)), which is on for the live instance
-since Nov 6, 2026 (bge-m3, 500 embedding calls a day).
+(verified Nov 6, 2026: bge-m3, cap 500 embedding calls a day, Workers AI binding).
 
 ## Follow-ups
 
