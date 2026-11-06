@@ -79,7 +79,9 @@ exact floors by hand also reads as bge-m3.
 
 bge-m3 compresses its cosines (correct hits about 0.43 to 0.66), so a newer
 near-duplicate is pulled in beside a selected memory at a stored cosine of 0.57
-under bge-m3 and 0.70 under every other model.
+under bge-m3 and 0.70 under every other model. When the list is full, a pulled-in memory only
+replaces a hit ranked below the memory that pulled it, so a weak hit's look-alikes never push out a
+stronger hit (found by the hybrid bench, Nov 6, 2026: the top BM25 + vector hit was being evicted).
 
 ## How recall works
 

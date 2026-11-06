@@ -3,9 +3,15 @@
 //   BENCH_CF_ACCOUNT=... BENCH_CF_TOKEN=... BENCH_OC_URL=... BENCH_OC_TOKEN=... \
 //   BENCH_MODELS=@cf/zai-org/glm-4.7-flash npx vitest run --config vitest.bench.config.ts bench/models.bench.test.ts
 // Memory search bench (offline, free): npm run bench:memory
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { cloudflareTest } from "@cloudflare/vitest-plugin";
 import { defineConfig } from "vitest/config";
+
+/** `<fixture>.embeddings.json` beside a private fixture, or "" when there is none. */
+function embeddingsFor(fixture: string | undefined): string {
+  const path = fixture?.replace(/\.json$/, "") + ".embeddings.json";
+  return fixture && existsSync(path) ? readFileSync(path, "utf8") : "";
+}
 
 export default defineConfig(async () => ({
   plugins: [
@@ -28,6 +34,8 @@ export default defineConfig(async () => ({
           BENCH_TZ: process.env.BENCH_TZ ?? "Asia/Jerusalem",
           // Memory search bench (bench/memory): a local fixture file instead of the synthetic one.
           BENCH_MEMORY_FIXTURE: process.env.BENCH_MEMORY_FIXTURE_FILE ? readFileSync(process.env.BENCH_MEMORY_FIXTURE_FILE, "utf8") : "",
+          // Its precomputed bge-m3 vectors (bench/memory/embed_fixture.py), when made: enables the hybrid column.
+          BENCH_MEMORY_EMBEDDINGS: embeddingsFor(process.env.BENCH_MEMORY_FIXTURE_FILE),
         },
       },
     }),

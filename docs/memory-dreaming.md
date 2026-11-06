@@ -40,9 +40,10 @@ A pass (`apps/agent/src/memory/dreaming.ts`):
 2. Snapshots up to 80 current memories (pinned first, marked read-only).
 3. Asks the **existing model chain** (same order and fallbacks as chat, no tools, JSON only,
    at least 4,096 output tokens so reasoning models have room) for a plan:
-   `{upserts: [{text, category, reason}], markPast: [{id, reason}], summary}`. The prompt is
+   `{upserts: [{text, category, turn, reason}], markPast: [{id, reason}], summary}`. The prompt is
    Alfred's rules: the data is untrusted; store only what the owner stated or confirmed; no small
-   talk or credentials; merge duplicates; at most 16 operations; never touch pinned; respect dates.
+   talk or credentials; merge duplicates; at most 16 operations; never touch pinned; respect dates;
+   **write each memory in the language the owner used** (see below).
 4. Validates locally: secret patterns, 8–500 characters, known categories only (nothing can be
    pinned), operation cap; a retirement must name exactly one current, non-pinned memory (by id, or
    a unique substring).
@@ -52,7 +53,26 @@ A pass (`apps/agent/src/memory/dreaming.ts`):
 6. Writes an audit row to `tal_memory_dream_runs`: time, trigger, turns read, changes (for undo),
    refused operations, summary, the model that answered, error.
 
-Budget: one AI request per pass, counted against **AI requests per day**; a nightly pass also counts
+### Language (Nov 6, 2026)
+
+Memories are written in the owner's language, not translated: a Hebrew conversation gives Hebrew
+memories ("המשתמש גר בתל אביב."), an English one English memories. Before this, the prompt's English
+example ("The owner …") made the model write English even from Hebrew chats, and Hebrew questions
+then found nothing by keyword (all 5 live memories were English).
+
+- Every turn in the prompt carries `n` and `lang` (`he`/`en`, from the share of Hebrew letters in
+  the owner's message: a quarter or more is Hebrew, so English names and code inside Hebrew text
+  don't flip it), and the payload carries `owner_language` (the language of most turns, or `mixed`).
+  The model names each addition's source turn in `turn`.
+- After parsing, `languageMismatches` checks each addition against its source turn's language (or
+  the pass's main language when it named none). A Hebrew memory needs at least a quarter Hebrew
+  letters; an English one may hold Hebrew names but not be mostly Hebrew.
+- Mismatches get **one** rewrite request ("rewrite these in Hebrew, keep names and code"); a rewrite
+  that is in the right language and passes the usual checks replaces the text, anything else is
+  refused with "not written in the owner's language" and shows in the pass's refused list.
+- Existing English memories are left as they are; translating them is a separate, owner-approved step.
+
+Budget: one AI request per pass (two when a rewrite is needed), counted against **AI requests per day**; a nightly pass also counts
 as one **scheduled AI run** and is skipped when either budget is used up. If the chain fails or the
 reply is not JSON, nothing changes and the turns are read again next time.
 

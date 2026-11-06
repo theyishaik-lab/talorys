@@ -177,8 +177,9 @@ const isNewer = (a: Memory, b: Memory) =>
  * After selection, each selected hit pulls in up to MAX_NEWER_PER_HIT newer memories whose
  * stored vector is within the model's newerDuplicateCosine of its own, so a superseded fact never reaches
  * the model without its replacement. Pulled memories sit right after their puller with its fused
- * score and never pull further. A full list drops its weakest non-pulled hit that pulled nothing;
- * when there is none the pull is skipped. Uses cached stored vectors only: no embedder calls. Only rows
+ * score and never pull further. A full list drops its weakest non-pulled hit that pulled nothing and
+ * ranks below the puller; when there is none the pull is skipped, so a weak hit's look-alikes never
+ * push out a stronger hit (bench, 2026-11-06: the top BM25 + vector hit was evicted that way). Uses cached stored vectors only: no embedder calls. Only rows
  * of the current model and its dims are read; with the dims still unknown, only equal-length vectors compare.
  */
 export function pullInNewer(ctx: SemanticContext, hits: RecallHit[], limit: number, includeHistorical = false): RecallHit[] {
@@ -207,7 +208,8 @@ export function pullInNewer(ctx: SemanticContext, hits: RecallHit[], limit: numb
     for (const { memory } of candidates.slice(0, MAX_NEWER_PER_HIT)) {
       if (out.length >= limit) {
         let drop = -1;
-        for (let i = out.length - 1; i >= 0; i--) {
+        // Only a hit ranked below the puller makes room: a weak puller never evicts a stronger hit.
+        for (let i = out.length - 1; i > out.indexOf(puller); i--) {
           const h = out[i]!;
           if (h !== puller && !pulled.has(h) && !pullers.has(h)) {
             drop = i;
