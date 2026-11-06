@@ -14,12 +14,18 @@ export function ListScreen<T_ extends { id: string }>({
   render,
   empty,
   header,
+  right,
+  refreshKey,
 }: {
   title: string;
   load: () => Promise<T_[]>;
   render: (item: T_, reload: () => void) => ReactElement;
   empty: string;
   header?: ReactElement;
+  /** Top-bar action next to the title (e.g. Add). */
+  right?: ReactElement;
+  /** Change it to reload the list from outside a row (e.g. after a sheet saved a new item). */
+  refreshKey?: number;
 }) {
   const { c } = useTheme();
   const insets = useSafeAreaInsets();
@@ -39,10 +45,10 @@ export function ListScreen<T_ extends { id: string }>({
 
   useEffect(() => {
     Promise.resolve().then(reload);
-  }, [reload]);
+  }, [reload, refreshKey]);
 
   return (
-    <Screen title={title} scroll={false}>
+    <Screen title={title} scroll={false} right={right}>
       {header}
       <FlashList
         data={items ?? []}

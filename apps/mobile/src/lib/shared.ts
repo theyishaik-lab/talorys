@@ -7,6 +7,7 @@
  */
 export { formatAttempts, headerModel, modelDisplayName, modelLabel } from "../../../../packages/shared/src/attribution";
 export { endpointIdFromName, moveItem, settingsPatchForChain } from "../../../../packages/shared/src/chain";
+export { MEMORY_CATEGORIES } from "../../../../packages/shared/src/constants";
 export { DEVICE_MODELS, deviceModelSpec, fitDevicePrompt, ramVerdict, stripThinking } from "../../../../packages/shared/src/device";
 
 /** Mirrors `MAX_FALLBACK_CHAIN` in packages/shared/src/schemas.ts (that file needs zod); the test checks they match. */

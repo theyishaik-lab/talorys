@@ -627,7 +627,20 @@
     "chat.answeredLocal": "Answered on this phone (offline) · {model}",
     "m.chain.state.offline": "Not reachable",
     "m.chain.reason.device_offline": "phone not connected",
-    "m.chain.reason.not_downloaded": "not downloaded on the phone"
+    "m.chain.reason.not_downloaded": "not downloaded on the phone",
+    "m.memory.add": "Add memory",
+    "m.memory.edit": "Edit memory",
+    "m.memory.editHint": "Tap a memory to edit it",
+    "m.memory.whatRemember": "What should Talorys remember?",
+    "m.memory.placeholder": "Prefers concise answers",
+    "m.memory.category": "Category",
+    "m.memory.typoHint": "Fixing a typo? Edit here. If the fact itself changed, tell your agent so it keeps the old version as history.",
+    "m.memory.saved": "Memory saved",
+    "m.memory.supersededOne": "the older version was kept as history",
+    "m.memory.supersededMany": "{n} older versions were kept as history",
+    "m.memory.mayConflict": "it may conflict with an older memory — review it on the web Memory page",
+    "m.memory.saveFailed": "Couldn't save the memory",
+    "m.memory.chars": "{n}/{max}"
   },
   "he": {
     "nav.chat": "צ'אט",
@@ -1257,6 +1270,19 @@
     "chat.answeredLocal": "נענה בטלפון (לא מקוון) · {model}",
     "m.chain.state.offline": "לא זמין",
     "m.chain.reason.device_offline": "הטלפון לא מחובר",
-    "m.chain.reason.not_downloaded": "לא הורד בטלפון"
+    "m.chain.reason.not_downloaded": "לא הורד בטלפון",
+    "m.memory.add": "הוסף זיכרון",
+    "m.memory.edit": "ערוך זיכרון",
+    "m.memory.editHint": "הקש על זיכרון כדי לערוך אותו",
+    "m.memory.whatRemember": "מה Talorys צריך לזכור?",
+    "m.memory.placeholder": "מעדיף תשובות קצרות",
+    "m.memory.category": "קטגוריה",
+    "m.memory.typoHint": "מתקן טעות הקלדה? ערוך כאן. אם העובדה עצמה השתנתה, ספר לסוכן כדי שישמור את הגרסה הקודמת כהיסטוריה.",
+    "m.memory.saved": "הזיכרון נשמר",
+    "m.memory.supersededOne": "הגרסה הקודמת נשמרה כהיסטוריה",
+    "m.memory.supersededMany": "{n} גרסאות קודמות נשמרו כהיסטוריה",
+    "m.memory.mayConflict": "ייתכן שזה סותר זיכרון קודם — בדוק בדף הזיכרון באתר",
+    "m.memory.saveFailed": "שמירת הזיכרון נכשלה",
+    "m.memory.chars": "{n}/{max}"
   }
 }
