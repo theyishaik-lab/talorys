@@ -1,0 +1,728 @@
+{
+ "_note": "Synthetic Hebrew/English memory fixture modeled on a Tel Aviv household and the owner's projects. Not real personal data.",
+ "memories": [
+  {
+   "key": "home",
+   "content": "גר בתל אביב, ברחוב בן יהודה, מאז ספטמבר 2026",
+   "category": "fact"
+  },
+  {
+   "key": "home_old",
+   "content": "לפני כן גרנו ברחוב כ\"ט בנובמבר בתל אביב",
+   "category": "fact"
+  },
+  {
+   "key": "partner",
+   "content": "נוֹעָה היא אשתי, התחתנו באוגוסט 2025",
+   "category": "fact"
+  },
+  {
+   "key": "daughter",
+   "content": "תמר היא הבת שלי",
+   "category": "fact"
+  },
+  {
+   "key": "daughter_school",
+   "content": "הילדה לומדת בגן חובה ליד הבית, האיסוף בשעה 16:00",
+   "category": "fact"
+  },
+  {
+   "key": "daughter_allergy",
+   "content": "לתמר יש אלרגיה לבוטנים",
+   "category": "fact"
+  },
+  {
+   "key": "job",
+   "content": "עובד כמהנדס שירותים מקצועיים בחברת תוכנה (Acme Software) מאז אוקטובר 2026",
+   "category": "fact"
+  },
+  {
+   "key": "job_hours",
+   "content": "בימי שלישי אני עובד מהבית",
+   "category": "preference"
+  },
+  {
+   "key": "car_share",
+   "content": "אין לי רכב פרטי, נוסע ברכב שיתופי של GoTo או Autotel",
+   "category": "fact"
+  },
+  {
+   "key": "scooter",
+   "content": "בתוך העיר אני נוסע בקורקינט של Bird",
+   "category": "preference"
+  },
+  {
+   "key": "taxi",
+   "content": "כשממהרים מזמינים מונית בגט",
+   "category": "preference"
+  },
+  {
+   "key": "burger",
+   "content": "אוהב המבורגר במידת עשייה מדיום-וול, לא חריף",
+   "category": "preference"
+  },
+  {
+   "key": "wolt",
+   "content": "מזמין משלוחים בעיקר בוולט, ולפעמים במשלוחה",
+   "category": "preference"
+  },
+  {
+   "key": "kosher",
+   "content": "Noa prefers vegetarian restaurants when we eat out together",
+   "category": "preference"
+  },
+  {
+   "key": "coffee",
+   "content": "שותה קפה הפוך עם חלב שיבולת שועל",
+   "category": "preference"
+  },
+  {
+   "key": "piano",
+   "content": "מנגן בפסנתר כל ערב לפני השינה",
+   "category": "fact"
+  },
+  {
+   "key": "printer",
+   "content": "יש לי מדפסת תלת־ממד ואני מדפיס חלקים לפרויקטים",
+   "category": "fact"
+  },
+  {
+   "key": "leds",
+   "content": "בונה פרויקט תאורה עם לדים WS2812B ובקר ESP32",
+   "category": "project"
+  },
+  {
+   "key": "robot_arm",
+   "content": "בונה זרוע רובוטית עם סרוואים",
+   "category": "project"
+  },
+  {
+   "key": "aliexpress",
+   "content": "קונה חלקים אלקטרוניים באלי אקספרס ומשלם בפייפאל",
+   "category": "preference"
+  },
+  {
+   "key": "talorys",
+   "content": "Talorys is my personal AI agent on Cloudflare Workers, with a web app and an Android app",
+   "category": "project"
+  },
+  {
+   "key": "keyboard",
+   "content": "מקלדת טלוריס היא אפליקציית מקלדת לאנדרואיד שאני מפתח, עם השלמה אוטומטית בעברית",
+   "category": "project"
+  },
+  {
+   "key": "simcity",
+   "content": "I'm porting a SimCity-style city builder to Android",
+   "category": "project"
+  },
+  {
+   "key": "agents_hub",
+   "content": "Agents Hub is the shared dashboard and chat for all my AI agents",
+   "category": "project"
+  },
+  {
+   "key": "github",
+   "content": "My GitHub accounts are yishaik and theyishaik-lab",
+   "category": "fact"
+  },
+  {
+   "key": "study_fund",
+   "content": "קרן ההשתלמות שלי בשתי חברות ביטוח, מחפש דמי ניהול מתחת ל־0.55%",
+   "category": "fact"
+  },
+  {
+   "key": "pension",
+   "content": "בדקתי את קרן הפנסיה באפריל, דמי ניהול 0.2% מההפקדה",
+   "category": "fact"
+  },
+  {
+   "key": "land",
+   "content": "יש לנו חלקת קרקע בחדרה, בתהליך תכנון",
+   "category": "project"
+  },
+  {
+   "key": "land_lawyer",
+   "content": "עורך הדין של הקרקע בחדרה הוא יוסי מזרחי",
+   "category": "fact"
+  },
+  {
+   "key": "phone",
+   "content": "I use a Android test phone for Talorys testing and an iPhone as my main phone",
+   "category": "fact"
+  },
+  {
+   "key": "birthday",
+   "content": "יום ההולדת שלי ב־12 במאי",
+   "category": "fact"
+  },
+  {
+   "key": "lisya_birthday",
+   "content": "Noa's birthday is on June 2",
+   "category": "fact"
+  },
+  {
+   "key": "parents",
+   "content": "ההורים שלי גרים בנהריה, מבקרים אותם פעם בחודש",
+   "category": "fact"
+  },
+  {
+   "key": "doctor",
+   "content": "רופאת המשפחה שלי היא ד\"ר שרון בקופת החולים",
+   "category": "fact"
+  },
+  {
+   "key": "dentist",
+   "content": "Dentist appointment every six months at the clinic on the main street",
+   "category": "fact"
+  },
+  {
+   "key": "gym",
+   "content": "מתאמן בחדר כושר בימי ראשון ורביעי בבוקר",
+   "category": "preference"
+  },
+  {
+   "key": "running",
+   "content": "רץ חמישה קילומטר בפארק הירקון בשישי בבוקר",
+   "category": "preference"
+  },
+  {
+   "key": "wedding_events",
+   "content": "נוסעים לחתונות מחוץ לעיר ברכב שיתופי",
+   "category": "fact"
+  },
+  {
+   "key": "vacation",
+   "content": "בקיץ הקרוב רוצים לטוס ליוון עם הילדה",
+   "category": "fact"
+  },
+  {
+   "key": "hotel_pref",
+   "content": "Prefer hotels with a pool and free cancellation",
+   "category": "preference"
+  },
+  {
+   "key": "isrotel",
+   "content": "נפשנו במלון של ישרוטל באילת אחרי החתונה",
+   "category": "fact"
+  },
+  {
+   "key": "wine",
+   "content": "Noa likes dry white wine, especially Sauvignon Blanc",
+   "category": "preference"
+  },
+  {
+   "key": "flowers",
+   "content": "נועה אוהבת פרחים לבנים, בעיקר שושנים",
+   "category": "preference"
+  },
+  {
+   "key": "shopping_list",
+   "content": "רשימת הקניות לבית נשמרת בפתקים",
+   "category": "fact"
+  },
+  {
+   "key": "tab",
+   "content": "Tab is my agent that deploys the Talorys web app and builds the APKs",
+   "category": "fact"
+  },
+  {
+   "key": "guri",
+   "content": "גורי הוא סוכן הקול שלי, רץ על מחשב בבית",
+   "category": "project"
+  },
+  {
+   "key": "models",
+   "content": "Use only free models; don't add paid AI providers",
+   "category": "preference"
+  },
+  {
+   "key": "lang",
+   "content": "תענה לי בעברית אלא אם כתבתי באנגלית",
+   "category": "preference"
+  },
+  {
+   "key": "tz",
+   "content": "אזור הזמן שלי הוא ישראל, Asia/Jerusalem",
+   "category": "preference"
+  },
+  {
+   "key": "bank",
+   "content": "החשבון שלי בבנק הדואר, הסניף בכיכר",
+   "category": "fact"
+  },
+  {
+   "key": "insurance",
+   "content": "ביטוח הדירה מתחדש בינואר",
+   "category": "fact"
+  },
+  {
+   "key": "electricity",
+   "content": "חשבונות החשמל מגיעים כל חודשיים",
+   "category": "fact"
+  },
+  {
+   "key": "cat",
+   "content": "אין לנו חיות מחמד",
+   "category": "fact"
+  },
+  {
+   "key": "tv",
+   "content": "Watching The Bear with Noa on weekends",
+   "category": "preference"
+  },
+  {
+   "key": "books",
+   "content": "קורא ספרי מדע בדיוני, אחרון שקראתי היה דיונה",
+   "category": "preference"
+  },
+  {
+   "key": "chabad_meal",
+   "content": "בשבת אוכלים ארוחת צהריים אצל ההורים של נועה בגבעתיים",
+   "category": "fact"
+  },
+  {
+   "key": "table",
+   "content": "קנינו שולחן אוכל מעץ אלון לסלון",
+   "category": "fact"
+  },
+  {
+   "key": "plants",
+   "content": "יש לנו עציצים במרפסת, משקים פעמיים בשבוע",
+   "category": "fact"
+  },
+  {
+   "key": "army",
+   "content": "שירתתי בצה\"ל ביחידת תקשוב",
+   "category": "fact"
+  },
+  {
+   "key": "abroad_work",
+   "content": "Travel for work to the Acme office in Ra'anana on Mondays",
+   "category": "fact"
+  }
+ ],
+ "queries": [
+  {
+   "q": "איפה אני גר בתל אביב?",
+   "relevant": [
+    "home",
+    "home_old"
+   ],
+   "tags": [
+    "he",
+    "prefix"
+   ]
+  },
+  {
+   "q": "מה הכתובת שלי בתל־אביב",
+   "relevant": [
+    "home",
+    "home_old"
+   ],
+   "tags": [
+    "he",
+    "maqaf"
+   ]
+  },
+  {
+   "q": "והילדה, באיזה גן היא?",
+   "relevant": [
+    "daughter_school"
+   ],
+   "tags": [
+    "he",
+    "prefix"
+   ]
+  },
+  {
+   "q": "לבית שלנו יש מרפסת?",
+   "relevant": [
+    "plants"
+   ],
+   "tags": [
+    "he",
+    "prefix"
+   ]
+  },
+  {
+   "q": "מתי האיסוף מהגן",
+   "relevant": [
+    "daughter_school"
+   ],
+   "tags": [
+    "he",
+    "prefix"
+   ]
+  },
+  {
+   "q": "לאשתי יש יום הולדת מתי?",
+   "relevant": [
+    "lisya_birthday",
+    "partner"
+   ],
+   "tags": [
+    "he",
+    "prefix",
+    "mixed"
+   ]
+  },
+  {
+   "q": "לתמר יש אלרגיות?",
+   "relevant": [
+    "daughter_allergy"
+   ],
+   "tags": [
+    "he",
+    "prefix"
+   ]
+  },
+  {
+   "q": "איך אני מתנייד בעיר",
+   "relevant": [
+    "scooter",
+    "car_share"
+   ],
+   "tags": [
+    "he",
+    "morph"
+   ]
+  },
+  {
+   "q": "ברכב שיתופי איזו חברה",
+   "relevant": [
+    "car_share",
+    "wedding_events"
+   ],
+   "tags": [
+    "he",
+    "prefix"
+   ]
+  },
+  {
+   "q": "כשממהרים מה מזמינים",
+   "relevant": [
+    "taxi"
+   ],
+   "tags": [
+    "he",
+    "prefix"
+   ]
+  },
+  {
+   "q": "בהמבורגר איזו מידת עשייה",
+   "relevant": [
+    "burger"
+   ],
+   "tags": [
+    "he",
+    "prefix"
+   ]
+  },
+  {
+   "q": "ממה אני מזמין משלוחים",
+   "relevant": [
+    "wolt"
+   ],
+   "tags": [
+    "he",
+    "prefix"
+   ]
+  },
+  {
+   "q": "שהקרן השתלמות שלי איפה",
+   "relevant": [
+    "study_fund"
+   ],
+   "tags": [
+    "he",
+    "prefix"
+   ]
+  },
+  {
+   "q": "בקרקע בחדרה מה המצב",
+   "relevant": [
+    "land",
+    "land_lawyer"
+   ],
+   "tags": [
+    "he",
+    "prefix"
+   ]
+  },
+  {
+   "q": "מי עורך הדין של הקרקע",
+   "relevant": [
+    "land_lawyer"
+   ],
+   "tags": [
+    "he"
+   ]
+  },
+  {
+   "q": "וההורים שלי איפה גרים",
+   "relevant": [
+    "parents"
+   ],
+   "tags": [
+    "he",
+    "prefix"
+   ]
+  },
+  {
+   "q": "בפסנתר מתי אני מנגן",
+   "relevant": [
+    "piano"
+   ],
+   "tags": [
+    "he",
+    "prefix"
+   ]
+  },
+  {
+   "q": "בחדר הכושר באילו ימים",
+   "relevant": [
+    "gym"
+   ],
+   "tags": [
+    "he",
+    "prefix"
+   ]
+  },
+  {
+   "q": "לחתונה איך נוסעים",
+   "relevant": [
+    "wedding_events"
+   ],
+   "tags": [
+    "he",
+    "prefix"
+   ]
+  },
+  {
+   "q": "ליוון מתי טסים",
+   "relevant": [
+    "vacation"
+   ],
+   "tags": [
+    "he",
+    "prefix"
+   ]
+  },
+  {
+   "q": "נוֹעָה",
+   "relevant": [
+    "partner",
+    "flowers",
+    "wine",
+    "kosher",
+    "lisya_birthday"
+   ],
+   "tags": [
+    "he",
+    "niqqud"
+   ]
+  },
+  {
+   "q": "מה עם הַפְּסַנְתֵּר",
+   "relevant": [
+    "piano"
+   ],
+   "tags": [
+    "he",
+    "niqqud"
+   ]
+  },
+  {
+   "q": "שולחנות מעץ",
+   "relevant": [
+    "table"
+   ],
+   "tags": [
+    "he",
+    "final"
+   ]
+  },
+  {
+   "q": "עצים ועציצים",
+   "relevant": [
+    "plants",
+    "table"
+   ],
+   "tags": [
+    "he",
+    "final"
+   ]
+  },
+  {
+   "q": "חשבון החשמל",
+   "relevant": [
+    "electricity",
+    "bank"
+   ],
+   "tags": [
+    "he",
+    "final"
+   ]
+  },
+  {
+   "q": "איפה שירתתי בצה״ל",
+   "relevant": [
+    "army"
+   ],
+   "tags": [
+    "he",
+    "gershayim"
+   ]
+  },
+  {
+   "q": "מי ד״ר שרון",
+   "relevant": [
+    "doctor"
+   ],
+   "tags": [
+    "he",
+    "gershayim"
+   ]
+  },
+  {
+   "q": "רופא משפחה בקופת החולים",
+   "relevant": [
+    "doctor"
+   ],
+   "tags": [
+    "he"
+   ]
+  },
+  {
+   "q": "Talorys מקלדת",
+   "relevant": [
+    "keyboard",
+    "talorys"
+   ],
+   "tags": [
+    "mixed"
+   ]
+  },
+  {
+   "q": "פרויקט ESP32 עם לדים",
+   "relevant": [
+    "leds"
+   ],
+   "tags": [
+    "mixed",
+    "prefix"
+   ]
+  },
+  {
+   "q": "GitHub שלי",
+   "relevant": [
+    "github"
+   ],
+   "tags": [
+    "mixed"
+   ]
+  },
+  {
+   "q": "GoTo רכב",
+   "relevant": [
+    "car_share"
+   ],
+   "tags": [
+    "mixed"
+   ]
+  },
+  {
+   "q": "דמי ניהול 0.55%",
+   "relevant": [
+    "study_fund",
+    "pension"
+   ],
+   "tags": [
+    "he",
+    "number"
+   ]
+  },
+  {
+   "q": "Noa פרחים",
+   "relevant": [
+    "flowers"
+   ],
+   "tags": [
+    "mixed"
+   ]
+  },
+  {
+   "q": "what is Talorys",
+   "relevant": [
+    "talorys"
+   ],
+   "tags": [
+    "en"
+   ]
+  },
+  {
+   "q": "which phone do I use for testing",
+   "relevant": [
+    "phone"
+   ],
+   "tags": [
+    "en"
+   ]
+  },
+  {
+   "q": "Noa birthday",
+   "relevant": [
+    "lisya_birthday"
+   ],
+   "tags": [
+    "en"
+   ]
+  },
+  {
+   "q": "hotel preferences pool",
+   "relevant": [
+    "hotel_pref"
+   ],
+   "tags": [
+    "en"
+   ]
+  },
+  {
+   "q": "dentist appointments",
+   "relevant": [
+    "dentist"
+   ],
+   "tags": [
+    "en"
+   ]
+  },
+  {
+   "q": "who builds the APKs",
+   "relevant": [
+    "tab"
+   ],
+   "tags": [
+    "en"
+   ]
+  },
+  {
+   "q": "paid AI providers",
+   "relevant": [
+    "models"
+   ],
+   "tags": [
+    "en"
+   ]
+  },
+  {
+   "q": "wine Noa likes",
+   "relevant": [
+    "wine"
+   ],
+   "tags": [
+    "en"
+   ]
+  }
+ ]
+}

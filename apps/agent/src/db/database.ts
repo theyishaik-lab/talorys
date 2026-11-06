@@ -45,17 +45,5 @@ export function likePattern(q: string): string {
   return `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 }
 
-/** Builds a safe FTS5 MATCH expression (OR of quoted prefix terms) from free text. */
-export function ftsQuery(q: string, maxTerms = 8): string | null {
-  const terms = (q.toLowerCase().match(/[\p{L}\p{N}]{2,}/gu) ?? [])
-    .filter((t) => !STOPWORDS.has(t))
-    .slice(0, maxTerms);
-  if (terms.length === 0) return null;
-  return [...new Set(terms)].map((t) => `"${t}"*`).join(" OR ");
-}
-
-const STOPWORDS = new Set(
-  "a an and are as at be but by can could do does for from had has have how i if in into is it its me my of on or our please should so than that the their them then there these they this to us was we were what when where which who why will with would you your about also just like want need tell show give make get remember".split(
-    " ",
-  ),
-);
+// Query builders live with the Hebrew-aware normalization (schema 16); re-exported for callers.
+export { ftsQuery, legacyFtsQuery } from "./search-text";

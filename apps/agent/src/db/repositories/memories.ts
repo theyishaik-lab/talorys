@@ -1,5 +1,6 @@
 import type { Memory, MemoryCategory, MemoryStatus } from "@talorys/shared";
-import { type Database, ftsQuery, likePattern, newId, now } from "../database";
+import { type Database, ftsQuery, legacyFtsQuery, likePattern, newId, now } from "../database";
+import { MEMORY_SEARCH_TABLE, MEMORY_SEARCH_WEIGHTS, syncSearchIndex } from "../search-index";
 import { NotFoundError } from "../../api/errors";
 import { stripUndefined } from "./tasks";
 
@@ -66,24 +67,44 @@ export class MemoryRepository {
   }
 
   /**
-   * Full-text search with BM25 ranking; falls back to LIKE for queries without indexable terms.
+   * Full-text search with BM25 ranking over the Hebrew-aware index (schema 16); falls back to the
+   * legacy index if that fails, and to LIKE for queries without indexable terms.
    * Without a status filter every lifecycle state is searched (the Memory page and older callers).
    */
   search(q: string, limit = 10, category?: string, status?: MemoryStatusFilter): Memory[] {
-    const match = ftsQuery(q);
     const filter = statusWhere(status, "m.");
+    const cat = category ? "AND m.category = ?" : "";
+    const tail = (match: string) => (category ? [match, category, limit] : [match, limit]);
+    const match = ftsQuery(q);
     if (match) {
-      return this.rows(
-        `SELECT ${COLS} FROM tal_memories_fts f JOIN tal_memories m ON m.rowid = f.rowid
-         WHERE tal_memories_fts MATCH ? AND ${filter} ${category ? "AND m.category = ?" : ""}
-         ORDER BY bm25(tal_memories_fts) LIMIT ?`,
-        ...(category ? [match, category, limit] : [match, limit]),
-      );
+      try {
+        syncSearchIndex(this.db);
+        return this.rows(
+          `SELECT ${COLS} FROM ${MEMORY_SEARCH_TABLE} f JOIN tal_memories m ON m.rowid = f.rowid
+           WHERE ${MEMORY_SEARCH_TABLE} MATCH ? AND ${filter} ${cat}
+           ORDER BY bm25(${MEMORY_SEARCH_TABLE}, ${MEMORY_SEARCH_WEIGHTS}) LIMIT ?`,
+          ...tail(match),
+        );
+      } catch (error) {
+        console.warn("memory search: Hebrew index unavailable, using legacy index", error instanceof Error ? error.message : error);
+      }
+      const legacy = legacyFtsQuery(q);
+      if (legacy) return this.legacySearch(legacy, limit, category, status);
     }
     return this.rows(
-      `SELECT ${COLS} FROM tal_memories m WHERE m.content LIKE ? ESCAPE '\\' AND ${filter} ${category ? "AND m.category = ?" : ""}
+      `SELECT ${COLS} FROM tal_memories m WHERE m.content LIKE ? ESCAPE '\\' AND ${filter} ${cat}
        ORDER BY m.updated_at DESC LIMIT ?`,
-      ...(category ? [likePattern(q), category, limit] : [likePattern(q), limit]),
+      ...tail(likePattern(q)),
+    );
+  }
+
+  /** The pre-16 index (default unicode61 tokenizer, no Hebrew handling). Fallback and benchmark baseline. */
+  legacySearch(match: string, limit = 10, category?: string, status?: MemoryStatusFilter): Memory[] {
+    return this.rows(
+      `SELECT ${COLS} FROM tal_memories_fts f JOIN tal_memories m ON m.rowid = f.rowid
+       WHERE tal_memories_fts MATCH ? AND ${statusWhere(status, "m.")} ${category ? "AND m.category = ?" : ""}
+       ORDER BY bm25(tal_memories_fts) LIMIT ?`,
+      ...(category ? [match, category, limit] : [match, limit]),
     );
   }
 

@@ -32,7 +32,7 @@ This folder has two kinds of documents:
 | [deployment.md](deployment.md) | The `create-talorys` installer and generated configs |
 | [development.md](development.md) | Local dev processes, ports, scripts, mock AI |
 | [openconnector.md](openconnector.md) | The OpenConnector tools added in this fork |
-| [memory-history.md](memory-history.md), [semantic-recall.md](semantic-recall.md) | Memory features |
+| [memory-history.md](memory-history.md), [semantic-recall.md](semantic-recall.md), [memory-search.md](memory-search.md) | Memory features |
 | [security.md](security.md), [troubleshooting.md](troubleshooting.md) | Security model, common problems |
 
 ## The one rule to remember

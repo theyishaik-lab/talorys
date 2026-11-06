@@ -1,4 +1,5 @@
 import type { Database } from "./database";
+import { searchIndexMigration } from "./search-index";
 
 /**
  * Versioned, append-only schema migrations for Talorys data.
@@ -389,6 +390,15 @@ export const MIGRATIONS: Migration[] = [
         created_at TEXT NOT NULL
       )`,
     ],
+  },
+  {
+    version: 16,
+    name: "hebrew_search",
+    // Hebrew-aware full-text indexes for memories and notes (db/search-index.ts, search-text.ts):
+    // normalized text (no niqqud, medial letters) plus prefix-stripped stems, filled from JS. Every
+    // existing row is queued and indexed on first use. The version-1 tal_*_fts indexes stay as a
+    // fallback.
+    statements: searchIndexMigration(),
   },
 ];
 

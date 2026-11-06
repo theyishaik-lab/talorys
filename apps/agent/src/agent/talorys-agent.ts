@@ -3,6 +3,7 @@ import type { Automation } from "@talorys/shared";
 import type { Env } from "../env";
 import { migrate } from "../db/migrations";
 import { ensureMessageSearch } from "../db/message-search";
+import { syncSearchIndex } from "../db/search-index";
 import { createServices, type Services } from "../services/container";
 import type { Scheduler } from "./scheduling";
 import { AgentRunner, subrequestLimitFrom } from "./runner";
@@ -66,6 +67,12 @@ export class TalorysAgent extends Agent<Env, AgentState> {
       // The phones on the device bridge are this Durable Object's own hibernating sockets.
       this._services.device.attach(() => this.getConnections<BridgeConnState>(BRIDGE_TAG) as Iterable<BridgeSocket>);
       migrate(this._services.db);
+      // Hebrew-aware memory/note search (schema 16): index rows queued by the migration or by writes.
+      try {
+        syncSearchIndex(this._services.db);
+      } catch (error) {
+        console.warn("search index sync skipped", error instanceof Error ? error.message : error);
+      }
       // Cross-thread message search (guarded: a missing SQLite feature only means LIKE search).
       ensureMessageSearch(this._services.db);
     }

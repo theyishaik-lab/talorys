@@ -1,5 +1,6 @@
 import type { Note, Project } from "@talorys/shared";
-import { type Database, ftsQuery, likePattern, newId, now } from "../database";
+import { type Database, ftsQuery, legacyFtsQuery, likePattern, newId, now } from "../database";
+import { NOTE_SEARCH_TABLE, NOTE_SEARCH_WEIGHTS, syncSearchIndex } from "../search-index";
 import { NotFoundError } from "../../api/errors";
 import { stripUndefined } from "./tasks";
 
@@ -17,15 +18,30 @@ export class NoteRepository {
     return this.db.all<Note>(`SELECT * FROM tal_notes ${where} ORDER BY updated_at DESC LIMIT ?`, ...params, opts.limit ?? 500);
   }
 
+  /** BM25 over the Hebrew-aware index (schema 16); legacy index, then LIKE, as fallbacks. */
   search(q: string, limit = 20): Note[] {
     const match = ftsQuery(q);
     if (match) {
-      return this.db.all<Note>(
-        `SELECT n.* FROM tal_notes_fts f JOIN tal_notes n ON n.rowid = f.rowid
-         WHERE tal_notes_fts MATCH ? ORDER BY bm25(tal_notes_fts, 2.0, 1.0) LIMIT ?`,
-        match,
-        limit,
-      );
+      try {
+        syncSearchIndex(this.db);
+        return this.db.all<Note>(
+          `SELECT n.* FROM ${NOTE_SEARCH_TABLE} f JOIN tal_notes n ON n.rowid = f.rowid
+           WHERE ${NOTE_SEARCH_TABLE} MATCH ? ORDER BY bm25(${NOTE_SEARCH_TABLE}, ${NOTE_SEARCH_WEIGHTS}) LIMIT ?`,
+          match,
+          limit,
+        );
+      } catch (error) {
+        console.warn("note search: Hebrew index unavailable, using legacy index", error instanceof Error ? error.message : error);
+      }
+      const legacy = legacyFtsQuery(q);
+      if (legacy) {
+        return this.db.all<Note>(
+          `SELECT n.* FROM tal_notes_fts f JOIN tal_notes n ON n.rowid = f.rowid
+           WHERE tal_notes_fts MATCH ? ORDER BY bm25(tal_notes_fts, 2.0, 1.0) LIMIT ?`,
+          legacy,
+          limit,
+        );
+      }
     }
     return this.db.all<Note>(
       `SELECT * FROM tal_notes WHERE title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\' ORDER BY updated_at DESC LIMIT ?`,
