@@ -1,4 +1,4 @@
-import { type AiProviderId, type CatalogModel, type CatalogProvider, DEFAULT_MODEL, DEVICE_MODELS, GEMINI_STATIC_MODELS, type ModelCatalog, PROVIDER_KEY_URLS } from "@talorys/shared";
+import { type AiProviderId, type CatalogModel, type CatalogProvider, DEFAULT_MODEL, RETIRED_WORKERS_AI_MODELS, DEVICE_MODELS, GEMINI_STATIC_MODELS, type ModelCatalog, PROVIDER_KEY_URLS } from "@talorys/shared";
 import type { DeviceBridge } from "../device/bridge";
 import { listGeminiModels } from "./gemini";
 import type { ProviderKeyStore } from "./keys";
@@ -20,8 +20,8 @@ const RECOMMENDED = new Set<string>([
   "@cf/google/gemma-4-26b-a4b-it",
   "@cf/zai-org/glm-4.7-flash",
   "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-  "@cf/qwen/qwen3-30b-a3b-fp8",
   "@cf/mistralai/mistral-small-3.1-24b-instruct",
+  "@cf/qwen/qwen3.8-27b",
   "gemini-3.5-flash",
   "gemini-3.5-flash-lite",
   "gemini-3.8-flash",
@@ -67,6 +67,8 @@ export function workersAiModelsFromCatalog(rows: CfModel[]): CatalogModel[] {
     const tools = String(props.get("function_calling")) === "true";
     if (!tools) continue;
     if (/lora|guard|clef/i.test(row.name)) continue;
+    // Retired by Cloudflare (still listed until the cut-off); a saved choice moves to its replacement.
+    if (RETIRED_WORKERS_AI_MODELS[row.name]) continue;
     const ctx = Number(props.get("context_window"));
     const price = props.get("price");
     let p: CatalogModel["price"] = null;
@@ -258,6 +260,6 @@ const STATIC_CF: CfModel[] = [
   { name: DEFAULT_MODEL, description: "GLM-4.7-Flash: fast, multilingual, 131k context.", properties: [{ property_id: "function_calling", value: "true" }, { property_id: "context_window", value: "131072" }] },
   { name: "@cf/google/gemma-4-26b-a4b-it", description: "Gemma 4 26B (4B active): strong quality at flash speed, 256k context.", properties: [{ property_id: "function_calling", value: "true" }, { property_id: "context_window", value: "256000" }] },
   { name: "@cf/meta/llama-3.3-70b-instruct-fp8-fast", description: "Llama 3.3 70B, fp8, tuned for speed.", properties: [{ property_id: "function_calling", value: "true" }, { property_id: "context_window", value: "24000" }] },
-  { name: "@cf/qwen/qwen3-30b-a3b-fp8", description: "Qwen3 30B (3B active), fast.", properties: [{ property_id: "function_calling", value: "true" }, { property_id: "context_window", value: "32768" }] },
+  { name: "@cf/qwen/qwen3.8-27b", description: "Qwen 3.8 27B: reasoning, vision, 262k context. Slow and heavy on the daily allowance.", properties: [{ property_id: "function_calling", value: "true" }, { property_id: "context_window", value: "262144" }] },
   { name: "@cf/mistralai/mistral-small-3.1-24b-instruct", description: "Mistral Small 3.1 24B.", properties: [{ property_id: "function_calling", value: "true" }, { property_id: "context_window", value: "128000" }] },
 ];

@@ -219,7 +219,8 @@ draft that needs approval, a plain Hebrew question).
 | `@cf/google/gemma-4-26b-a4b-it` | 5/6 | ~165 (~60 chats/day) | **In use since Oct 13, 2026.** Good Hebrew, no leaked tool text, 2–20 s |
 | `@cf/openai/gpt-oss-120b` | 2/2 tested | ~430 (~20/day) | Best answers, too costly for the free allowance |
 | `@cf/zai-org/glm-4.7-flash` | 2/6 | ~75 | Previous default: misreads connected apps, leaks `<tool_call>` text |
-| `@cf/qwen/qwen3-30b-a3b-fp8`, `@cf/meta/llama-4-scout-17b-16e-instruct` | fail | – | Every streamed token arrives twice through workers-ai-provider 4.0; tool args break |
+| `@cf/qwen/qwen3-30b-a3b-fp8` (retired by Cloudflare Nov 20, 2026; saved choices move to Gemma 4), `@cf/meta/llama-4-scout-17b-16e-instruct` | fail | – | Every streamed token arrives twice through workers-ai-provider 4.0; tool args break |
+| `@cf/qwen/qwen3.8-27b` | 2/2 tool calls (Nov 6, 2026 probe) | ~850 (~11/day) | Two tools in one turn, clean Hebrew, no doubled tokens; 70–90 s per turn (~2.3k reasoning+output tokens at the default `xhigh` effort) |
 | `@cf/openai/gpt-oss-20b` | fail | – | Empty answers |
 | `@cf/ibm-granite/granite-4.0-h-micro` | fail | ~10 | Wrong tools, malformed arguments |
 | `@cf/zai-org/glm-5.3-flash`, `@cf/deepseek-ai/deepseek-v4-flash-0731` | n/a | – | "not available on the Workers Free plan" |

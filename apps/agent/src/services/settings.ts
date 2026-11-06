@@ -1,4 +1,4 @@
-import { DEFAULT_DEVICE_SETTINGS, DEFAULT_FALLBACK, DEFAULT_LIMITS, DEFAULT_MODEL, DEFAULT_MEMORY_HISTORY, type Settings, settingsSchema, settingsUpdateSchema } from "@talorys/shared";
+import { DEFAULT_DEVICE_SETTINGS, DEFAULT_FALLBACK, DEFAULT_LIMITS, DEFAULT_MODEL, DEFAULT_MEMORY_HISTORY, RETIRED_WORKERS_AI_MODELS, type Settings, settingsSchema, settingsUpdateSchema } from "@talorys/shared";
 import type { z } from "zod";
 import { type Database, now } from "../db/database";
 import { ValidationError } from "../api/errors";
@@ -41,7 +41,7 @@ export class SettingsService {
       proactive: { ...DEFAULT_SETTINGS.proactive, ...(stored.proactive ?? {}) },
       device: { ...DEFAULT_SETTINGS.device, ...(stored.device ?? {}) },
     };
-    const parsed = settingsSchema.safeParse(merged);
+    const parsed = settingsSchema.safeParse(replaceRetiredModels(merged));
     if (parsed.success) return parsed.data;
     // Ignore invalid installer defaults rather than failing.
     const fallback = settingsSchema.safeParse({ ...merged, timezone: stored.timezone ?? DEFAULT_SETTINGS.timezone, agentName: stored.agentName ?? DEFAULT_SETTINGS.agentName });
@@ -93,6 +93,30 @@ export class SettingsService {
   delete(key: string): void {
     this.db.run(`DELETE FROM tal_settings WHERE key = ?`, key);
   }
+}
+
+/**
+ * Swaps Workers AI models Cloudflare has retired (RETIRED_WORKERS_AI_MODELS) for their
+ * replacement in the chosen model, the selected backup and the extra backups, dropping a
+ * backup that then repeats an earlier entry. Other providers are left alone.
+ */
+export function replaceRetiredModels<T extends Pick<Settings, "modelProvider" | "model" | "fallback">>(settings: T): T {
+  const swap = (provider: string, model: string) => (provider === "workers-ai" && RETIRED_WORKERS_AI_MODELS[model]) || model;
+  const fb = settings.fallback;
+  const seen = new Set<string>();
+  const chain = (fb.chain ?? [])
+    .map((c) => ({ ...c, model: swap(c.provider, c.model) }))
+    .filter((c) => {
+      const k = `${c.provider}\u0000${c.model}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  return {
+    ...settings,
+    model: swap(settings.modelProvider, settings.model),
+    fallback: { ...fb, model: swap(fb.provider, fb.model), chain },
+  };
 }
 
 function stripUndefined<T extends object>(obj: T): Partial<T> {

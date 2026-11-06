@@ -9,6 +9,16 @@ export const AGENT_INSTANCE_NAME = "personal-agent";
  */
 export const DEFAULT_MODEL = "@cf/zai-org/glm-4.7-flash";
 
+/**
+ * Workers AI models Cloudflare has retired, mapped to the model a saved setting moves to.
+ * Settings read through SettingsService swap these in place so no turn (or backup in the
+ * chain) is sent to a model id that no longer answers.
+ * - `@cf/qwen/qwen3-30b-a3b-fp8`: retired Nov 20, 2026 (Cloudflare notice, Nov 6, 2026).
+ */
+export const RETIRED_WORKERS_AI_MODELS: Readonly<Record<string, string>> = {
+  "@cf/qwen/qwen3-30b-a3b-fp8": "@cf/google/gemma-4-26b-a4b-it",
+};
+
 /** Where to get an API key for each non-Cloudflare provider (shown in Settings → Model). */
 export const PROVIDER_KEY_URLS = {
   gemini: "https://aistudio.google.com/app/apikey",
