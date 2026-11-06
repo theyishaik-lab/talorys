@@ -1,7 +1,7 @@
 import { type KeyboardEvent, memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import type { AiAttribution, ApiErrorCode, ChatMessage, Conversation, PendingAction, ToolActivity } from "@talorys/shared";
+import { type AiAttribution, type ApiErrorCode, type ChatMessage, type Conversation, type HeaderModel, type PendingAction, type ToolActivity, headerModel } from "@talorys/shared";
 import {
   AlertTriangle,
   ArrowUp,
@@ -22,6 +22,8 @@ import {
   SquarePen,
   XCircle,
   Settings2,
+  Cpu,
+  Smartphone,
 } from "lucide-react";
 import { BellButton, MenuButton, IconButton, TopBar } from "../components/AppShell";
 import { ChatUsage } from "../components/ChatUsage";
@@ -201,10 +203,17 @@ export function ChatPage() {
   }, [messages]);
 
   const showEmpty = !conversationId && !streamHere;
+  const currentModel = headerModel({
+    messages,
+    // The reply in flight (kept until the saved message is back) decides; then the saved replies.
+    streaming: !!streamHere || remoteStreaming,
+    streamAi: streamHere?.ai,
+    main: settings.data ? { provider: settings.data.modelProvider, model: settings.data.model } : null,
+  });
 
   return (
     <section className="flex h-full min-w-0 flex-col">
-      <ChatHeader conversation={conversation.data?.conversation} name={settings.data?.agentName ?? "Talorys"} onNew={() => navigate("/chat")} />
+      <ChatHeader conversation={conversation.data?.conversation} name={settings.data?.agentName ?? "Talorys"} model={currentModel} onNew={() => navigate("/chat")} />
 
       <div
         ref={scrollRef}
@@ -260,8 +269,20 @@ export function ChatPage() {
   );
 }
 
-function ChatHeader({ conversation, name, onNew }: { conversation?: Conversation; name: string; onNew: () => void }) {
+function ChatHeader({ conversation, name, model, onNew }: { conversation?: Conversation; name: string; model: HeaderModel | null; onNew: () => void }) {
   const t = useT();
+  const badge = model ? (
+    <span
+      className="inline-flex min-w-0 max-w-[60%] shrink items-center gap-1 rounded-full border border-border bg-subtle px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-fg-muted"
+      title={t("chat.currentModel", { model: model.title })}
+      data-testid="header-model"
+    >
+      {model.local ? <Smartphone className="h-3 w-3 shrink-0" /> : <Cpu className="h-3 w-3 shrink-0" />}
+      <span className="truncate" dir="ltr">
+        {model.label}
+      </span>
+    </span>
+  ) : null;
   return (
     <TopBar
       start={<MenuButton />}
@@ -271,10 +292,16 @@ function ChatHeader({ conversation, name, onNew }: { conversation?: Conversation
             <h2 className="w-full truncate text-[16px] font-semibold text-fg" dir="auto">
               {conversation.title}
             </h2>
-            <span className="text-xs text-fg-muted">{name}</span>
+            <span className="flex max-w-full items-center justify-center gap-1.5 text-xs text-fg-muted">
+              <span className="shrink-0">{name}</span>
+              {badge}
+            </span>
           </div>
         ) : (
-          <span className="text-[15px] font-semibold uppercase tracking-[0.14em]">{name}</span>
+          <div className="flex items-center justify-center gap-2">
+            <span className="shrink-0 text-[15px] font-semibold uppercase tracking-[0.14em]">{name}</span>
+            {badge}
+          </div>
         )
       }
       end={

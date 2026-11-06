@@ -181,3 +181,43 @@ export function parseAttribution(raw: unknown): AiAttribution | null {
     : [];
   return { provider: v.provider, model: v.model, fallback: v.fallback === true, attempts };
 }
+
+/** The model shown in the chat header: the one answering now, else the one that wrote the last reply, else the main model. */
+export interface HeaderModel {
+  provider: string;
+  model: string;
+  /** Short name for a narrow header ("Nemotron 3.5 Lightning 30B A3B"). */
+  label: string;
+  /** Long name with the provider, for a tooltip or accessibility label. */
+  title: string;
+  /** Answered on the phone (a `device` model, or the app's offline fallback). */
+  local: boolean;
+}
+
+/**
+ * Picks the header's model:
+ * 1. A reply is streaming: the backup it announced (a `model` event), else the main model, which is the one tried first.
+ * 2. Otherwise the model that wrote the newest finished reply (errors are skipped: their model did not answer).
+ * 3. Otherwise (a new chat, or older messages without attribution) the main model from settings.
+ */
+export function headerModel(input: {
+  messages?: readonly { role: string; status?: string; ai?: AiAttribution | null }[] | null;
+  streaming?: boolean;
+  streamAi?: AiAttribution | null;
+  main?: { provider?: string | null; model?: string | null } | null;
+}): HeaderModel | null {
+  const make = (ref: { provider?: string | null; model?: string | null; local?: boolean } | null | undefined): HeaderModel | null => {
+    if (!ref?.model) return null;
+    const provider = ref.provider ?? "";
+    const local = provider === "device" || ref.local === true;
+    return { provider, model: ref.model, label: modelLabel(ref.model), title: modelDisplayName({ provider, model: ref.model }), local };
+  };
+  if (input.streaming) return make(input.streamAi) ?? make(input.main);
+  const messages = input.messages ?? [];
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (!m || m.role !== "assistant" || m.status === "error" || !m.ai) continue;
+    return make(m.ai);
+  }
+  return make(input.main);
+}

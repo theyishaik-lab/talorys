@@ -5,7 +5,7 @@
  * files have no runtime imports of their own (metro.config.js watches packages/shared/src for them).
  * tests/shared-runtime.test.ts keeps this list in step with the package and guards `src/`.
  */
-export { formatAttempts, modelDisplayName, modelLabel } from "../../../../packages/shared/src/attribution";
+export { formatAttempts, headerModel, modelDisplayName, modelLabel } from "../../../../packages/shared/src/attribution";
 export { endpointIdFromName, moveItem, settingsPatchForChain } from "../../../../packages/shared/src/chain";
 export { DEVICE_MODELS, deviceModelSpec, fitDevicePrompt, ramVerdict, stripThinking } from "../../../../packages/shared/src/device";
 

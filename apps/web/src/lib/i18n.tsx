@@ -122,6 +122,7 @@ const baseEn = {
   // Chat
   "chat.new": "New chat",
   "chat.newConversation": "New conversation",
+  "chat.currentModel": "Model in use: {model}",
   "chat.conversations": "Conversations",
   "chat.history": "Conversation history",
   "chat.searchHistory": "Search history",
@@ -462,6 +463,7 @@ const baseHe: Record<keyof typeof baseEn, string> = {
   "login.forgot": "שכחת את הסיסמה? אפס אותה מהמחשב עם",
   "chat.new": "צ'אט חדש",
   "chat.newConversation": "שיחה חדשה",
+  "chat.currentModel": "המודל בשימוש: {model}",
   "chat.conversations": "שיחות",
   "chat.history": "היסטוריית שיחות",
   "chat.searchHistory": "חיפוש בהיסטוריה",

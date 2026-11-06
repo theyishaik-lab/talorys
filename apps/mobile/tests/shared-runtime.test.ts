@@ -12,6 +12,7 @@ describe("shared runtime helpers", () => {
     expect(local.modelLabel).toBe(pkg.modelLabel);
     expect(local.modelDisplayName).toBe(pkg.modelDisplayName);
     expect(local.formatAttempts).toBe(pkg.formatAttempts);
+    expect(local.headerModel).toBe(pkg.headerModel);
     expect(local.MAX_FALLBACK_CHAIN).toBe(pkg.MAX_FALLBACK_CHAIN);
   });
 

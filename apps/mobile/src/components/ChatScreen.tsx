@@ -1,17 +1,19 @@
 import type { ChatMessage, Notification } from "@talorys/shared";
 import { FlashList, type FlashListRef, type ListRenderItem } from "@shopify/flash-list";
 import { router, useFocusEffect } from "expo-router";
-import { ArrowLeft, ArrowRight, Bell } from "lucide-react-native";
+import { ArrowLeft, ArrowRight, Bell, Cpu, Smartphone } from "lucide-react-native";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent, StyleSheet, View } from "react-native";
 import { KeyboardEvents } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../lib/auth";
-import { cancelGeneration, createChatStores, isInFlight, loadConversation, refreshConversations, sendMessage, updateTool } from "../lib/chat";
+import { type ChatState, type StreamState, cancelGeneration, createChatStores, isInFlight, loadConversation, refreshConversations, sendMessage, updateTool } from "../lib/chat";
 import { loadNotifications, markRead } from "../lib/home";
 import { useI18n } from "../lib/i18n";
 import { TAB_BAR_HEIGHT, isNearBottom } from "../lib/keyboard";
-import { useStore } from "../lib/store";
+import { mainModelStore, loadMainModel } from "../lib/main-model";
+import { headerModel } from "../lib/shared";
+import { type Store, useStore } from "../lib/store";
 import { radii, useTheme } from "../lib/theme";
 import { MAIN_THREAD_ID, type NoticeRow, isUpdatesThread, mergeNotices, notificationThreadId } from "../lib/threads";
 import { Composer } from "./Composer";
@@ -77,6 +79,7 @@ export function ChatScreen({ conversationId, variant, empty }: { conversationId:
     useCallback(() => {
       if (!isInFlight(stores)) Promise.resolve().then(() => loadConversation(stores, conversationId));
       Promise.resolve().then(reloadNotices);
+      Promise.resolve().then(loadMainModel);
     }, [stores, conversationId, reloadNotices]),
   );
 
@@ -129,9 +132,11 @@ export function ChatScreen({ conversationId, variant, empty }: { conversationId:
           {variant === "thread" ? (
             <IconButton icon={rtl ? ArrowRight : ArrowLeft} onPress={() => (router.canGoBack() ? router.back() : router.replace("/chat"))} label={t("settings.back")} />
           ) : null}
-          <T weight="semibold" size={variant === "tab" ? 20 : 17} style={{ flex: 1 }} numberOfLines={1}>
+          <T weight="semibold" size={variant === "tab" ? 20 : 17} style={{ flexShrink: 1 }} numberOfLines={1}>
             {title}
           </T>
+          <HeaderModelChip chat={stores.chat} stream={stores.stream} />
+          <View style={{ flex: 1 }} />
         </View>
       )}
       {/* No KeyboardAvoidingView: edge-to-edge Android never resizes the window, so the spacer below makes the room. */}
@@ -196,6 +201,34 @@ function NoticeBubble({ notice, onPress }: { notice: Notification; onPress: (n: 
           ) : null}
         </View>
       </Press>
+    </View>
+  );
+}
+
+/**
+ * The model in use, beside the header title: the one answering now (a backup the agent announced),
+ * else the one that wrote the last reply, else the main model from settings. Subscribes on its own,
+ * so streamed tokens never re-render the screen.
+ */
+function HeaderModelChip({ chat, stream }: { chat: Store<ChatState>; stream: Store<StreamState | null> }) {
+  const { c } = useTheme();
+  const { t } = useI18n();
+  const messages = useStore(chat, (s) => s.messages);
+  const streaming = useStore(chat, (s) => s.streamingId !== null);
+  const streamAi = useStore(stream, (s) => s?.ai ?? null);
+  const main = useStore(mainModelStore);
+  const model = useMemo(() => headerModel({ messages, streaming, streamAi, main }), [messages, streaming, streamAi, main]);
+  if (!model) return null;
+  return (
+    <View
+      accessible
+      accessibilityLabel={t("mainchat.currentModel", { model: model.title })}
+      style={{ flexDirection: "row", alignItems: "center", gap: 4, marginStart: 8, paddingVertical: 3, paddingHorizontal: 8, borderRadius: 999, backgroundColor: c.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: c.border, flexShrink: 1, maxWidth: "55%" }}
+    >
+      <Icon icon={model.local ? Smartphone : Cpu} size={12} color={c.fgMuted} />
+      <T size={12} color={c.fgMuted} numberOfLines={1} style={{ flexShrink: 1, writingDirection: "ltr" }}>
+        {model.label}
+      </T>
     </View>
   );
 }
