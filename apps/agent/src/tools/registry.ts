@@ -50,6 +50,16 @@ interface BaseTool<S extends z.ZodType> {
 export interface ImmediateTool<S extends z.ZodType = z.ZodType, R = unknown> extends BaseTool<S> {
   permission: "read" | "write";
   execute: (input: z.infer<S>, ctx: ToolContext) => R | Promise<R>;
+  /**
+   * Some calls of an otherwise immediate tool need the owner's approval (an HTTP POST through
+   * `http_request`). When `prepare` returns an action for this input, the call goes through the
+   * same Approve/Decline card as a destructive tool and `commit` runs only after Approve; when it
+   * returns null, `execute` runs now. Only consulted in chat (scheduled runs cannot ask anyone).
+   */
+  approval?: {
+    prepare: (input: z.infer<S>, ctx: ToolContext) => PreparedAction | null | Promise<PreparedAction | null>;
+    commit: (targetId: string, ctx: ToolContext, submitted?: SubmittedValues) => unknown;
+  };
 }
 
 /**
@@ -204,10 +214,16 @@ export class ToolExecutor {
   }
 
   private async run(tool: ToolDefinition, input: unknown, callId?: string): Promise<unknown> {
-    if (tool.permission !== "destructive") return await tool.execute(input, this.ctx);
-
-    if (!this.ctx.conversationId) throw new ToolError(`"${tool.name}" needs the owner's approval and can only be used in chat.`);
-    const prepared = await tool.prepare(input, this.ctx);
+    let prepared: PreparedAction;
+    if (tool.permission !== "destructive") {
+      const gated = tool.approval && this.ctx.mode === "chat" ? await tool.approval.prepare(input, this.ctx) : null;
+      if (!gated) return await tool.execute(input, this.ctx);
+      if (!this.ctx.conversationId) throw new ToolError(`This "${tool.name}" call needs the owner's approval and can only be made in a chat.`);
+      prepared = gated;
+    } else {
+      if (!this.ctx.conversationId) throw new ToolError(`"${tool.name}" needs the owner's approval and can only be used in chat.`);
+      prepared = await tool.prepare(input, this.ctx);
+    }
     if (tool.name === CONNECT_TOOL) {
       // One card per app per reply: a card already attached to an earlier step is the one the owner sees.
       const service = cardService(prepared);
@@ -325,13 +341,14 @@ export async function runApprovedAction(tools: ToolDefinition[], ctx: ToolContex
   const stored = pending.get(actionId);
   if (!stored) throw new NotFoundError("This action no longer exists.");
   const tool = tools.find((t) => t.name === stored.tool);
-  if (tool?.permission !== "destructive") throw new NotFoundError("This action no longer exists.");
+  const commit = tool?.permission === "destructive" ? tool.commit : tool?.approval?.commit;
+  if (!commit) throw new NotFoundError("This action no longer exists.");
   if (!pending.resolve(actionId, "approved")) {
     const status = pending.view(actionId)?.status;
     throw new AppError("CONFLICT", status === "expired" ? "This request expired. Ask again to get a new one." : "This action was already handled.");
   }
   try {
-    const result = (await tool.commit(stored.target_id, ctx, submitted)) as CommitResult | undefined;
+    const result = (await commit(stored.target_id, ctx, submitted)) as CommitResult | undefined;
     if (result && typeof result === "object" && result.card) pending.setCard(actionId, result.card);
   } catch (error) {
     pending.markFailed(actionId, error instanceof ToolError ? error.message : "The action failed.");

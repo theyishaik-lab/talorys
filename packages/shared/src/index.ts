@@ -6,3 +6,4 @@ export * from "./crypto";
 export * from "./attribution";
 export * from "./chain";
 export * from "./device";
+export * from "./http";

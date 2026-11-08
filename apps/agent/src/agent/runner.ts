@@ -185,6 +185,7 @@ export class AgentRunner {
           abridgedHistory,
           connectors: this.ext?.connectors,
           threadContext: liveContext,
+          apiConnections: s.apiConnections.list().map((c) => c.name),
         });
       // The owner's context limit, cut to what the smallest model in the chain takes (model-caps.ts).
       const contextTokens = Math.min(limits.maxContextTokens, this.provider.promptBudget?.(limits.maxOutputTokens) ?? Number.POSITIVE_INFINITY);
@@ -388,6 +389,7 @@ export class AgentRunner {
       ),
       scheduled: true,
       connectors: this.ext?.connectors,
+      apiConnections: s.apiConnections.list().map((c) => c.name),
     });
     let text = "";
     const results: ScheduledToolResult[] = [];

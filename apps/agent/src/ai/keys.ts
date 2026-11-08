@@ -9,8 +9,8 @@ import type { SettingsService } from "../services/settings";
  * back to the browser: the API only ever returns the last four characters.
  */
 export type KeyProvider = Extract<AiProviderId, "gemini" | "openrouter">;
-/** A stored key: a provider's, or an OpenAI-compatible endpoint's (`endpoint:<id>`). */
-export type KeyName = KeyProvider | `endpoint:${string}`;
+/** A stored key: a provider's, an OpenAI-compatible endpoint's (`endpoint:<id>`), or an API connection's secret (`api:<id>`, http/connections.ts). */
+export type KeyName = KeyProvider | `endpoint:${string}` | `api:${string}`;
 
 interface StoredKey {
   iv: string;

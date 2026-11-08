@@ -1,5 +1,6 @@
 import { chainEn, chainHe } from "./strings-chain";
 import { pagesEn, pagesHe } from "./strings-pages";
+import { httpEn, httpHe } from "./strings-http";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 /**
@@ -418,7 +419,7 @@ const baseEn = {
 } as const;
 
 /** Strings kept in their own files (chain editor, pages) are merged in here. */
-const en = { ...baseEn, ...chainEn, ...pagesEn } as const;
+const en = { ...baseEn, ...chainEn, ...pagesEn, ...httpEn } as const;
 
 export type StringKey = keyof typeof en;
 
@@ -753,7 +754,7 @@ const baseHe: Record<keyof typeof baseEn, string> = {
   "command.hint": "חיפוש או ניווט לכל מקום",
 };
 
-const he: Record<StringKey, string> = { ...baseHe, ...chainHe, ...pagesHe };
+const he: Record<StringKey, string> = { ...baseHe, ...chainHe, ...pagesHe, ...httpHe };
 
 const STRINGS: Record<Locale, Record<StringKey, string>> = { en, he };
 

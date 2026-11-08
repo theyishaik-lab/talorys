@@ -5,11 +5,12 @@ import { BellButton, MenuButton, TopBar } from "../components/AppShell";
 import { DeviceNotificationsSection } from "../components/DeviceNotifications";
 import { ModelPicker, providerLabel, shortModel } from "../components/ModelPicker";
 import { ConnectionsSection } from "../components/ConnectionsSection";
+import { ApiConnectionsTab, useApiConnections } from "../components/ApiConnectionsTab";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Limits, MemoryHistorySettings, Settings } from "@talorys/shared";
 import { LIMIT_CEILINGS, TALORYS_VERSION } from "@talorys/shared/constants";
 import { checkPasswordStrength } from "@talorys/shared/password-policy";
-import { ChevronLeft, ChevronRight, Cpu, Download, ExternalLink, Info, Languages, Lightbulb, Lock, LogOut, Moon, Settings2, ShieldCheck, Smartphone, Sun, Upload } from "lucide-react";
+import { ChevronLeft, ChevronRight, Cpu, Download, Globe, ExternalLink, Info, Languages, Lightbulb, Lock, LogOut, Moon, Settings2, ShieldCheck, Smartphone, Sun, Upload } from "lucide-react";
 import { GitHubIcon } from "../components/SourceLinks";
 import { ANDROID_SOURCE_URL, DEPLOY_DOC_URL, REPO_URL, UPSTREAM_URL } from "../lib/links";
 import { Badge, Button, ConfirmDialog, ErrorNotice, Input, Label, Select, Spinner, Switch } from "../components/ui";
@@ -23,7 +24,7 @@ import { applyTheme, readThemePreference, type ThemePreference } from "../lib/th
 import { cn, relativeTime } from "../lib/utils";
 import { LOCALE_NAMES, LOCALES, type LocalePreference, type StringKey, useLocale } from "../lib/i18n";
 
-const TABS = ["General", "AI", "Privacy", "Security", "Proactive", "About"] as const;
+const TABS = ["General", "AI", "Api", "Privacy", "Security", "Proactive", "About"] as const;
 type Tab = (typeof TABS)[number];
 
 /** A settings row: label + hint on the start side, the control on the end side (stacked on phones). */
@@ -69,6 +70,7 @@ function LinkRow({ icon: Icon, label, value, onClick }: { icon: typeof Lock; lab
 const TAB_LABELS: Record<Tab, Parameters<ReturnType<typeof useLocale>["t"]>[0]> = {
   General: "settings.tab.General",
   AI: "settings.tab.AI",
+  Api: "settings.tab.Api",
   Privacy: "settings.tab.Privacy",
   Security: "settings.tab.Security",
   Proactive: "settings.tab.Proactive",
@@ -91,6 +93,7 @@ export default function SettingsPage() {
   const { data: settings, isLoading, error, refetch } = useSettings();
   const { t } = useLocale();
   const info = useSystemInfo();
+  const apiConnections = useApiConnections();
 
   const body = error ? (
     <ErrorNotice error={error} onRetry={() => void refetch()} />
@@ -104,6 +107,7 @@ export default function SettingsPage() {
       <DeviceNotificationsSection Section={Section} Row={Row} />
       <Section title={t("settings.connections")} inset>
         <LinkRow icon={Cpu} label={t("settings.model")} value={<span dir="ltr">{shortModel(settings.model)} · {providerLabel(t, settings.modelProvider)}</span>} onClick={() => setTab("AI")} />
+        <LinkRow icon={Globe} label={t("settings.tab.Api")} value={apiConnections.data?.connections.length ? <span dir="ltr">{apiConnections.data.connections.length}</span> : undefined} onClick={() => setTab("Api")} />
         <ConnectionsSection />
       </Section>
       <Section title={t("settings.account")} inset>
@@ -118,6 +122,7 @@ export default function SettingsPage() {
     <div className="space-y-5 animate-fade-in">
       {tab === "General" && <GeneralTab settings={settings} />}
       {tab === "AI" && <AiTab settings={settings} />}
+      {tab === "Api" && <ApiConnectionsTab Section={Section} Row={Row} />}
       {tab === "Privacy" && <PrivacyTab />}
       {tab === "Security" && <SecurityTab />}
       {tab === "Proactive" && <ProactiveTab settings={settings} />}

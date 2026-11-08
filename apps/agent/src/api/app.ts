@@ -11,6 +11,7 @@ import { systemRoutes } from "./routes/system";
 import { pushRoutes } from "./routes/push";
 import { keyboardRoutes } from "./routes/keyboard";
 import { aiRoutes } from "./routes/ai";
+import { httpRoutes } from "./routes/http";
 import { semanticRoutes } from "../semantic/routes";
 
 export interface AppEnv {
@@ -43,6 +44,7 @@ export function createApi() {
   app.route("/", automationRoutes);
   app.route("/", pushRoutes);
   app.route("/", keyboardRoutes);
+  app.route("/", httpRoutes);
 
   return app;
 }
