@@ -28,7 +28,16 @@ export const SAFETY_RULES = `Rules:
 - Format answers in Markdown. Keep them short unless asked for detail.
 - Long chats are compacted: older messages live on in the summary below and in the chat log. When the owner refers to something you cannot see, look it up (search_threads, read_thread, search_memories) before saying you don't know.`;
 
-export const NO_ACCESS_RULE = `- You cannot browse the web, run code, send email or access accounts. Say so if asked.`;
+export const NO_ACCESS_RULE = `- You cannot browse web pages, run code, send email or access accounts. Say so if asked. (Calling a REST/HTTP API with http_request is the exception, see below.)`;
+
+/**
+ * The `http_request` tool (src/http). Always present: it calls public REST APIs, with saved
+ * connections carrying the keys. The connection names are listed so the model can pick one.
+ */
+export function httpRule(connections: string[] | undefined, scheduled?: boolean): string {
+  const saved = connections && connections.length > 0 ? ` Saved API connections (pass the name as \`connection\`; the key is added for you): ${connections.map((n) => `“${n}”`).join(", ")}.` : " No API connections are saved yet; the owner adds them (with their keys) in Settings → API connections.";
+  return `- You can call REST/HTTP APIs with http_request when the owner asks for data or an action from a web API.${saved} Never ask for, type or repeat an API key in the chat.${scheduled ? " In this scheduled run only GET requests are possible." : " Requests other than GET may need the owner's Approve; until an approval note says it was sent, nothing was sent."}`;
+}
 
 /** Replaces NO_ACCESS_RULE when OpenConnector is configured (see src/openconnector). */
 export const CONNECTOR_RULE = `- External apps (email, calendar, Notion, GitHub, arXiv and more) are reachable through the connector tools: connected_apps, search_actions, action_guide, run_action and propose_action. Use them whenever the owner asks about or wants something done in an outside app or service, in any language (Hebrew requests too). Flow: search_actions → (action_guide if inputs are unclear) → run_action for reads, propose_action for anything that sends, creates, edits or deletes; the owner approves proposals with a button. Never say an app is unreachable without checking connected_apps. To add an app that is not connected (Google Tasks, Sheets, Notion, Todoist…), use list_connectable_services and connect_service: the owner approves on a card, signs in or types the key there; never ask for a key or password in the chat and never claim an app is connected before connected_apps shows it. When a tool answers that an app is not connected, say so plainly in the owner's language, point to the connect card that appears under that step, and never say the task was done. You still cannot run code or browse arbitrary web pages.`;
@@ -67,6 +76,8 @@ export interface PromptContext {
   abridgedHistory?: string | null;
   /** Live context of a fixed thread (the main chat's digest, a project's tasks and notes); see threads.ts. */
   threadContext?: string | null;
+  /** Names of the owner's saved API connections, for http_request (src/http). */
+  apiConnections?: string[];
 }
 
 export function buildSystemPrompt(ctx: PromptContext): string {
@@ -77,7 +88,7 @@ export function buildSystemPrompt(ctx: PromptContext): string {
   }).format(ctx.now);
   const sections = [
     BASE_SYSTEM_PROMPT.replace("{{name}}", ctx.agentName),
-    `${SAFETY_RULES.replace("{{access}}", ctx.connectors ? CONNECTOR_RULE : NO_ACCESS_RULE)}\n${ctx.autoMemory ? AUTO_MEMORY_RULE : EXPLICIT_MEMORY_RULE}${ctx.scheduled ? "" : `\n${PIN_MEMORY_RULE}`}`,
+    `${SAFETY_RULES.replace("{{access}}", `${ctx.connectors ? CONNECTOR_RULE : NO_ACCESS_RULE}\n${httpRule(ctx.apiConnections, ctx.scheduled)}`)}\n${ctx.autoMemory ? AUTO_MEMORY_RULE : EXPLICIT_MEMORY_RULE}${ctx.scheduled ? "" : `\n${PIN_MEMORY_RULE}`}`,
     `Current time for the owner: ${localNow} (${ctx.timezone}).`,
   ];
   if (ctx.pinned && ctx.pinned.length > 0) {

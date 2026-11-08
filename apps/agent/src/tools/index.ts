@@ -6,12 +6,15 @@ import { reminderTools } from "./reminders";
 import { searchTools } from "./search";
 import { proactiveTools } from "./proactive";
 import { contextTools } from "./context";
+import { httpTools } from "../http/tools";
 
 /**
  * Every tool available to the agent. To add a capability, create a module with
  * `defineTool(...)` entries and add it here. Tools may only touch the owner's
- * own data through the service layer: no shell, code execution, credentials or
- * arbitrary network access.
+ * own data through the service layer: no shell, code execution or credentials.
+ * The one network tool, `http_request` (../http), reaches public hosts only
+ * (SSRF guard), injects saved keys without the model seeing them, and sends
+ * anything other than GET through the owner's approval by default.
  */
 export const ALL_TOOLS: ToolDefinition[] = [
   ...taskTools,
@@ -22,6 +25,7 @@ export const ALL_TOOLS: ToolDefinition[] = [
   ...searchTools,
   ...proactiveTools,
   ...contextTools,
+  ...httpTools,
 ] as ToolDefinition[];
 
 const names = new Set<string>();

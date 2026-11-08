@@ -22,6 +22,7 @@ import { ModelCooldowns } from "../ai/cooldown";
 import { EndpointStore } from "../ai/openai-compatible";
 import { QuotaObservations } from "../ai/quota";
 import { KeyboardDictionaryStore } from "../keyboard/dictionary";
+import { ApiConnectionStore } from "../http/connections";
 
 /** All data services for the single owner, bound to one Durable Object's storage. */
 export interface Services {
@@ -57,6 +58,8 @@ export interface Services {
   quotas: QuotaObservations;
   /** Talorys Keyboard learned-dictionary backup (one JSON document). */
   keyboardDictionary: KeyboardDictionaryStore;
+  /** Saved API connections for `http_request` (secrets in `providerKeys`, encrypted). */
+  apiConnections: ApiConnectionStore;
 }
 
 /** Runs a background promise; the Durable Object passes `ctx.waitUntil`. Errors never surface to the request. */
@@ -106,6 +109,7 @@ export function createServices(storage: DurableObjectStorage, env: Env, schedule
     endpoints: new EndpointStore(settings),
     quotas: new QuotaObservations(settings),
     keyboardDictionary: new KeyboardDictionaryStore(db),
+    apiConnections: new ApiConnectionStore(settings, providerKeys),
     db,
     tasks: new TaskRepository(db),
     memories,
