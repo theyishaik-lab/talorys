@@ -6,7 +6,7 @@ import type { ApiConnection } from "../src/http/connections";
 import { buildSystemPrompt } from "../src/agent/prompt";
 import { inAgent, loggedIn } from "./helpers";
 
-const SECRET = "Bearer sk_live_TOPSECRET_9f3Kq2";
+const SECRET = "Bearer tok_test_TOPSECRET_9f3Kq2";
 const conn: ApiConnection = { id: "weather", name: "Weather", baseURL: "https://api.weather.example/v1", authHeader: "Authorization" };
 const publicDns = async () => ["93.184.216.34"];
 
@@ -110,7 +110,7 @@ describe("http_request: sending", () => {
     const fetcher = (async (url: string, init: RequestInit) => {
       const h = new Headers(init.headers);
       seen.push({ url, method: String(init.method), headers: Object.fromEntries(h.entries()), body: null });
-      return Response.json({ you_sent: h.get("authorization"), token_only: "sk_live_TOPSECRET_9f3Kq2" }, { headers: { "x-ratelimit-remaining": "41", "set-cookie": "s=1" } });
+      return Response.json({ you_sent: h.get("authorization"), token_only: "tok_test_TOPSECRET_9f3Kq2" }, { headers: { "x-ratelimit-remaining": "41", "set-cookie": "s=1" } });
     }) as unknown as typeof fetch;
     const r = await sendRequest(buildRequest({ method: "GET", url: "/now" }, conn), conn, { secret: SECRET, resolve: publicDns, fetcher });
     expect(seen[0]!.headers.authorization).toBe(SECRET);
@@ -196,7 +196,7 @@ describe("http_request: the tool, connections and approvals", () => {
       const s = a.services;
       s.apiConnections.upsert("weather", { name: "Weather", baseURL: "https://api.weather.example/v1", authHeader: "X-API-Key" });
       await s.apiConnections.setSecret("weather", "k-123456789");
-      const ex = new ToolExecutor(ALL_TOOLS, { services: s, timezone: "UTC", mode: "chat", conversationId: s.conversations.create({}).id }, { maxToolCalls: 5 });
+      const ex = new ToolExecutor(ALL_TOOLS, { services: s, timezone: "UTC", mode: "chat", conversationId: s.conversations.create().id }, { maxToolCalls: 5 });
       const out = (await ex.execute("http_request", { url: "/now", connection: "weather", query: { city: "Tel Aviv" } }, "call-1")) as any;
       expect(out).toMatchObject({ status: 200, ok: true, connection: "Weather", body: { temp_c: 24 } });
       expect(seen[0]).toMatchObject({ method: "GET", url: "https://api.weather.example/v1/now?city=Tel+Aviv" });
@@ -213,12 +213,12 @@ describe("http_request: the tool, connections and approvals", () => {
       const s = a.services;
       s.apiConnections.upsert("todo", { name: "Todo API", baseURL: "https://todo.example/api", authHeader: "Authorization" });
       await s.apiConnections.setSecret("todo", SECRET);
-      const conversation = s.conversations.create({});
+      const conversation = s.conversations.create();
       const ctx = { services: s, timezone: "UTC", mode: "chat" as const, conversationId: conversation.id };
       const ex = new ToolExecutor(ALL_TOOLS, ctx, { maxToolCalls: 5 });
       const out = (await ex.execute("http_request", { method: "POST", url: "/items", connection: "Todo API", json: { title: "Buy milk" } }, "call-2")) as any;
       expect(out.status).toBe("awaiting_owner_approval");
-      expect(out.action).toBe('POST https://todo.example/api/items (connection “Todo API”) — body: {"title":"Buy milk"}');
+      expect(out.action).toBe('POST https://todo.example/api/items · Todo API · body {"title":"Buy milk"}');
       expect(seen).toHaveLength(0);
       const action = ex.approvalFor("call-2")!;
       expect(action.status).toBe("pending");

@@ -93,6 +93,7 @@ function Shell() {
           <Stack.Screen name="settings/local-models" />
           <Stack.Screen name="settings/notifications" />
           <Stack.Screen name="settings/connections" />
+          <Stack.Screen name="settings/api-connections" />
           <Stack.Screen name="settings/account" />
           <Stack.Screen name="settings/about" />
           <Stack.Screen name="settings/keyboard" />

@@ -1,6 +1,6 @@
 import Constants from "expo-constants";
 import { router } from "expo-router";
-import { Bell, Cpu, HardDriveDownload, Info, Keyboard, Languages, Link2, UserRound } from "lucide-react-native";
+import { Bell, Cpu, Globe, HardDriveDownload, Info, Keyboard, Languages, Link2, UserRound } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { Screen } from "../../components/Screen";
@@ -62,6 +62,7 @@ export default function SettingsScreen() {
         <Row icon={Cpu} title={t("settings.model")} subtitle={t("m.model.hint")} value={model.split("/").pop()} chevron onPress={() => router.push("/settings/model")} />
         {isLocalLlmAvailable() ? <Row icon={HardDriveDownload} title={t("lm.title")} subtitle={t("m.localModels.hint")} chevron onPress={() => router.push("/settings/local-models")} /> : null}
         <Row icon={Link2} title={t("settings.connections")} subtitle={t("m.connections.hint")} chevron onPress={() => router.push("/settings/connections")} />
+        <Row icon={Globe} title={t("settings.tab.Api")} subtitle={t("m.api.hint")} chevron onPress={() => router.push("/settings/api-connections")} />
         <Row icon={UserRound} title={t("settings.account")} subtitle={t("m.account.hint")} chevron onPress={() => router.push("/settings/account")} />
         <Row icon={Info} title={t("m.about")} subtitle={t("m.about.hint")} value={Constants.expoConfig?.version} chevron last onPress={() => router.push("/settings/about")} />
       </Group>

@@ -82,8 +82,8 @@ async function send(spec: HttpRequestSpec, connection: ApiConnection | null, ctx
 /** The line on the Approve card: method, URL, connection, and the start of the body. */
 export function approvalSummary(spec: HttpRequestSpec, connection: ApiConnection | null): string {
   const built = buildRequest(spec, connection);
-  const body = built.body ? ` — body: ${built.body.replace(/\s+/g, " ").slice(0, 240)}${built.body.length > 240 ? "…" : ""}` : "";
-  return `${built.method} ${displayUrl(built.url)}${connection ? ` (connection “${connection.name}”)` : ""}${body}`;
+  const body = built.body ? ` · body ${built.body.replace(/\s+/g, " ").slice(0, 240)}${built.body.length > 240 ? "…" : ""}` : "";
+  return `${built.method} ${displayUrl(built.url)}${connection ? ` · ${connection.name}` : ""}${body}`;
 }
 
 function labelFor(i: Input): string {
