@@ -49,9 +49,37 @@ Results at schema 16 (synthetic fixture):
 | prefixes | 18 | 0.833 → 0.972 | 0.731 → 0.944 | 3 → 0 |
 | English | 8 | 1.000 → 1.000 | 0.917 → 0.917 | 0 → 0 |
 
+### Hybrid (BM25 + bge-m3 vectors)
+
+When a fixture has precomputed vectors beside it (`<fixture>.embeddings.json`), the bench adds a third
+column that runs the production `hybridSearch` (vector hits with the bge-m3 floors, fused with BM25 by
+RRF k=60, newer near-duplicates pulled in) on those vectors instead of Workers AI, so it stays offline
+and free. `bench/memory/embed_fixture.py` makes the file: it runs bge-m3 locally from its ONNX export
+(`Xenova/bge-m3`, fp16; CLS token, L2-normalized, stored as int8) over exactly the texts the agent
+embeds (`content + "\n" + category`, and each query). These match Workers AI's `@cf/baai/bge-m3`
+closely but not bit for bit, so treat cosines near a floor as approximate (checked live on Nov 6,
+2026: GitHub question 0.634 local vs 0.634 Workers AI, home question 0.453 vs 0.453). The synthetic fixture's
+vectors are committed (`fixture.embeddings.json`, 143 KB); a private fixture's never are.
+
+Results (Nov 6, 2026), legacy → BM25 → hybrid:
+
+| fixture / slice | n | recall@8 | MRR | queries with no hit |
+| --- | --- | --- | --- | --- |
+| synthetic, all | 42 | 0.843 → 0.950 → 0.979 | 0.798 → 0.960 → 0.988 | 5 → 0 → 0 |
+| synthetic, Hebrew | 29 | 0.772 → 0.928 → 0.969 | 0.730 → 0.966 → 1.000 | 5 → 0 → 0 |
+| synthetic, English | 8 | 1.000 → 1.000 → 1.000 | 0.917 → 0.917 → 0.938 | 0 → 0 → 0 |
+| real (5 English memories), Hebrew queries | 5 | 0.000 → 0.000 → 0.600 | 0.000 → 0.000 → 0.500 | 5 → 5 → 2 |
+| real, English queries | 5 | 1.000 → 1.000 → 1.000 | 1.000 → 1.000 → 1.000 | 0 → 0 → 0 |
+
+Cross-language matches are weak in bge-m3: a Hebrew question scores an English memory about 0.39 to
+0.63 (`מה שם המשתמש שלי בגיטהאב` → the GitHub memory 0.63, above the 0.55 floor; `איפה אני גר` → the
+home memory 0.45, in through the 0.40 backstop; `בתל אביב` 0.39, missed). Writing memories in the
+owner's language (dreaming, Nov 6) is what closes that gap; vectors then help with paraphrase.
+
 What keyword search still cannot do: synonyms and paraphrase (`לאשתי` vs a memory naming the
 partner), and cross-language matches (a Hebrew question about a memory written in English). Those
-need semantic recall ([semantic-recall.md](semantic-recall.md)).
+need semantic recall ([semantic-recall.md](semantic-recall.md)), which is on for the live instance
+(verified Nov 6, 2026: bge-m3, cap 500 embedding calls a day, Workers AI binding).
 
 ## Follow-ups
 

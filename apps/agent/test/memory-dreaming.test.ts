@@ -16,11 +16,16 @@ import {
   DreamStore,
   extractJson,
   fingerprint,
+  inLanguage,
+  languageMismatches,
   looksSecret,
   memorySnapshot,
   normalizePlan,
+  ownerLanguage,
   redactSecrets,
+  repairLanguage,
   runDreamPass,
+  textLanguage,
   undoDreamChange,
 } from "../src/memory/dreaming";
 import { DREAM_AUTOMATION_NAME, syncDreamSchedule } from "../src/memory/dream-schedule";
@@ -52,6 +57,19 @@ class PlanProvider implements AIProvider {
     this.systems.push(req.system);
     yield { type: "text", delta: "ok" };
     yield { type: "usage", usage: { inputTokens: 1, outputTokens: 1 } };
+  }
+}
+
+/** Answers each generate() with the next text in turn (the last one repeats). */
+class SequenceProvider extends PlanProvider {
+  private next = 0;
+  constructor(private readonly replies: string[]) {
+    super("");
+  }
+  override async generate(req: GenerateRequest) {
+    this.requests.push(req);
+    const text = this.replies[Math.min(this.next++, this.replies.length - 1)]!;
+    return { text, usage: { inputTokens: 10, outputTokens: 20 } };
   }
 }
 
@@ -361,5 +379,114 @@ describe("memory API: pins and dreaming", () => {
     expect(dreaming.enabled).toBe(true);
     expect(Array.isArray(dreaming.runs)).toBe(true);
     expect((await c.call("/api/memories/dreaming/runs/nope/undo", { method: "POST", body: { index: 0 } })).status).toBe(404);
+  });
+});
+
+describe("dreaming: the owner's language", () => {
+  const turn = (user: string, i = 0) => ({ user, assistant: "ok", at: `2026-11-0${i + 1}T10:00:00.000Z`, fp: `fp${i}` });
+
+  it("detects Hebrew and English messages, letting Hebrew carry English names and code", () => {
+    expect(textLanguage("אני גר בתל אביב")).toBe("he");
+    expect(textLanguage("פרויקט ESP32 עם לדים על Talorys")).toBe("he");
+    expect(textLanguage("תבדוק את https://github.com/yishaik/talorys/pull/3")).toBe("en");
+    expect(textLanguage("I live in Tel Aviv")).toBe("en");
+    expect(textLanguage("12:30 👍")).toBeNull();
+    expect(ownerLanguage([turn("שלום"), turn("מה נשמע"), turn("hi")])).toBe("he");
+    expect(ownerLanguage([turn("שלום"), turn("hi")])).toBeNull();
+    expect(inLanguage("המשתמש עובד על Agents Hub ב-Cloudflare.", "he")).toBe(true);
+    expect(inLanguage("The owner lives in Tel Aviv.", "he")).toBe(false);
+    expect(inLanguage("The owner's daughter is מעיין.", "en")).toBe(true);
+    expect(inLanguage("המשתמש גר בתל אביב.", "en")).toBe(false);
+  });
+
+  it("tells the model each turn's language and to write memories in it, without translating", () => {
+    const prompt = buildDreamPrompt({
+      turns: [turn("אני גר בתל אביב מספטמבר", 0), turn("My GitHub user is yishaik", 1)],
+      memories: [{ id: "m1", text: "The owner likes jazz.", category: "preference" }],
+      now: new Date("2026-11-06T01:00:00.000Z"),
+      timezone: "Asia/Jerusalem",
+    });
+    const payload = JSON.parse(prompt.slice(prompt.indexOf("<DATA>") + 6, prompt.indexOf("</DATA>")));
+    expect(payload.owner_language).toBe("mixed");
+    expect(payload.conversation_turns.map((t: { n: number; lang: string }) => [t.n, t.lang])).toEqual([[0, "he"], [1, "en"]]);
+    expect(prompt).toContain("SAME language the owner wrote in its source turn");
+    expect(prompt).toContain("Never translate");
+    expect(prompt).toContain("המשתמש גר בתל אביב.");
+    expect(prompt).toContain('"turn": n_of_the_source_turn');
+  });
+
+  it("flags additions not in the source turn's language, else the pass's main language", () => {
+    const turns = [turn("אני גר בתל אביב", 0), turn("אני בן 41", 1), turn("I work at CalCom", 2)];
+    const { plan } = normalizePlan({
+      upserts: [
+        { text: "The owner lives in Tel Aviv.", turn: 0 },
+        { text: "המשתמש בן 41.", turn: "1" },
+        { text: "The owner works at CalCom.", turn: 2 },
+        { text: "The owner is 41 years old." },
+        { text: "The owner lives in Tel Aviv, in Israel.", turn: 99 },
+      ],
+    });
+    expect(plan.upserts.map((u) => u.turn)).toEqual([0, 1, 2, undefined, 99]);
+    expect(languageMismatches(plan, turns)).toEqual([
+      { index: 0, expected: "he" },
+      { index: 3, expected: "he" },
+      { index: 4, expected: "he" },
+    ]);
+    // Without a named turn and with no main language (a tie), an addition is not checked.
+    expect(languageMismatches(plan, [turn("שלום", 0), turn("hello", 1)])).toEqual([
+      { index: 0, expected: "he" },
+      { index: 1, expected: "en" },
+    ]);
+  });
+
+  it("a Hebrew conversation yields a Hebrew memory: an English plan gets one rewrite", async () => {
+    await freshAgent()(async (agent) => {
+      const s = agent.services;
+      addTurn(agent, "main", "עברנו לתל אביב, לנורדאו, בספטמבר", "מעולה, רשמתי.");
+      const provider = new SequenceProvider([
+        JSON.stringify({ upserts: [{ text: "The owner moved to Nordau street in Tel Aviv in September.", category: "fact", turn: 0 }], summary: "home" }),
+        JSON.stringify({ texts: ["המשתמש עבר לרחוב נורדאו בתל אביב בספטמבר."] }),
+      ]);
+      const before = s.usage.today().ai_requests;
+      const run = await runDreamPass(s, provider, { trigger: "manual" });
+      expect(run).toMatchObject({ status: "success", applied: 1, rejected: 0 });
+      expect(provider.requests).toHaveLength(2);
+      expect(provider.requests[1]!.messages[0]!.content).toContain('"language":"Hebrew"');
+      expect(s.usage.today().ai_requests).toBe(before + 2);
+      const [memory] = s.memories.list({ status: "current" });
+      expect(memory!.content).toBe("המשתמש עבר לרחוב נורדאו בתל אביב בספטמבר.");
+      expect(memory!.source).toBe("dream");
+    });
+  });
+
+  it("a Hebrew memory needs no rewrite, and a rewrite that is still wrong is refused, not saved", async () => {
+    await freshAgent()(async (agent) => {
+      const s = agent.services;
+      addTurn(agent, "main", "הבת שלי מעיין בת 6", "איזה כיף.");
+      const good = new SequenceProvider([JSON.stringify({ upserts: [{ text: "לבת של המשתמש קוראים מעיין, והיא בת 6.", category: "person", turn: 0 }] })]);
+      expect(await runDreamPass(s, good, { trigger: "manual" })).toMatchObject({ status: "success", applied: 1 });
+      expect(good.requests).toHaveLength(1);
+
+      addTurn(agent, "main", "אני מנגן בפסנתר כל ערב", "יפה!");
+      const stubborn = new SequenceProvider([
+        JSON.stringify({ upserts: [{ text: "The owner plays the piano every evening.", category: "preference", turn: 0 }] }),
+        JSON.stringify({ texts: ["The owner plays piano every evening."] }),
+      ]);
+      const run = await runDreamPass(s, stubborn, { trigger: "manual" });
+      expect(run).toMatchObject({ status: "success", applied: 0, rejected: 1 });
+      expect(run.rejections[0]!.why).toBe("not written in the owner's language (Hebrew)");
+      expect(s.memories.list({ status: "current" }).map((m) => m.content)).toEqual(["לבת של המשתמש קוראים מעיין, והיא בת 6."]);
+    });
+  });
+
+  it("a failed rewrite request refuses only the mismatched additions", async () => {
+    const plan = normalizePlan({ upserts: [{ text: "The owner lives in Tel Aviv.", turn: 0 }, { text: "המשתמש בן 41.", turn: 0 }] }).plan;
+    const failing = new PlanProvider(() => {
+      throw new Error("chain down");
+    });
+    const out = await repairLanguage(failing, plan, languageMismatches(plan, [turn("אני גר בתל אביב", 0)]));
+    expect(out.plan.upserts.map((u) => u.text)).toEqual(["המשתמש בן 41."]);
+    expect(out.rejected).toHaveLength(1);
+    expect(out.repaired).toBe(0);
   });
 });

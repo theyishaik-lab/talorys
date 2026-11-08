@@ -420,6 +420,18 @@ describe("newer near-duplicate pull-in", () => {
     });
   });
 
+  it("never lets a lower hit's pull evict a stronger hit above it", async () => {
+    await inAgent(async (a) => {
+      const { ctx } = context(a, { model: MODEL, vectorFloor: { absolute: 0.95, relative: 0.1 } }, stubEmbedder(MODEL, vec([1, 0])));
+      // top ~ query 1.0 and pulls nothing; second ~ query 0.96; newer ~ second 0.80 (pulls) but ~ query 0.60 (no hit).
+      const top = await place(a, MODEL, "Top fact", "Thu 2026-01-01 2:00 AM IST (UTC+02:00)", vec([1, 0]));
+      const second = await place(a, MODEL, "Second fact", "Fri 2026-01-02 2:00 AM IST (UTC+02:00)", vec([0.96, 0.28]));
+      const newer = await place(a, MODEL, "Newer look-alike", "Sat 2026-01-03 2:00 AM IST (UTC+02:00)", vec([0.6, 0.8]));
+      expect((await hybridSearch(ctx, "zzz", { limit: 2 })).map((h) => h.memory.id)).toEqual([top.id, second.id]);
+      expect((await hybridSearch(ctx, "zzz", { limit: 3 })).map((h) => h.memory.id)).toEqual([top.id, second.id, newer.id]);
+    });
+  });
+
   it("never pulls on identical timestamps or from a memory without a stored vector", async () => {
     await inAgent(async (a) => {
       const { ctx, s } = context(a, { model: MODEL, vectorFloor: { absolute: 0.95, relative: 0.1 } }, stubEmbedder(MODEL, near(1, 1)));
